@@ -53,6 +53,7 @@ import {
   Settings,
   Scan,
   Plus,
+  FolderOpen,
   User,
   Mail,
   MapPin,
@@ -92,7 +93,9 @@ import {
   useCustomersByShopkeeper,
   useCreateInvoice,
   useImportCsvInventory,
+  useCategories,
 } from "../../hooks/useInventory";
+import { Category } from "../../types";
 import {
   useSuppliers,
   useCreateSupplier,
@@ -102,10 +105,21 @@ import { ScanResultModal } from "./ScanResultModal";
 import { useCurrency } from "@/hooks/useCurrency";
 
 // ─── Import CSV sub-component (used as the 3rd tab inside the modal) ──────────
-function ImportCsvModalContent({ onClose }: { onClose: () => void }) {
+function ImportCsvModalContent({
+  onClose,
+  categoryId,
+}: {
+  onClose: () => void;
+  categoryId?: string;
+}) {
   const { data: session } = useSession();
   const userId = (session?.user as { id?: string })?.id ?? "";
   const { mutateAsync: importCsv, isPending } = useImportCsvInventory();
+  const { data: categoriesData } = useCategories();
+  const categories = categoriesData?.data || [];
+  const [selectedCategoryId, setSelectedCategoryId] = useState<string>(
+    categoryId || "",
+  );
 
   const [file, setFile] = useState<File | null>(null);
   const [dragOver, setDragOver] = useState(false);
@@ -152,7 +166,11 @@ function ImportCsvModalContent({ onClose }: { onClose: () => void }) {
     }
     try {
       setUploadStatus("idle");
-      await importCsv({ file, userId });
+      await importCsv({
+        file,
+        userId,
+        categoryId: selectedCategoryId || categoryId || undefined,
+      });
       setUploadStatus("success");
       setFile(null);
       toast.success("Inventory imported successfully!");
@@ -358,6 +376,122 @@ const SALE_METHODS = [
 const generateRandomInvoiceNumber = () =>
   `#INV-${Math.floor(Math.random() * 100000)}`;
 
+const splitMultiValueField = (value?: string | string[] | null) => {
+  if (Array.isArray(value)) {
+    return value.map((item) => String(item).trim()).filter(Boolean);
+  }
+
+  if (typeof value !== "string") return [];
+
+  return value
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+};
+
+const joinMultiValueField = (values: string[]) =>
+  values
+    .map((value) => value.trim())
+    .filter(Boolean)
+    .join(", ");
+
+const normalizeItemName = (value?: string | null) => {
+  if (!value) return "";
+  return value.split("/")[0]?.trim() || value.trim();
+};
+
+const getPreferredBarcodeItemName = (
+  primaryName?: string | null,
+  barcodeResult?: Record<string, unknown>,
+  aiInsight?: Record<string, unknown>,
+) => {
+  const normalizedPrimaryName = normalizeItemName(primaryName);
+  const fallbackModel =
+    typeof barcodeResult?.rawData === "object" &&
+    barcodeResult.rawData !== null &&
+    "model" in barcodeResult.rawData
+      ? normalizeItemName(String(barcodeResult.rawData.model || ""))
+      : "";
+  const fallbackTitle = normalizeItemName(
+    typeof barcodeResult?.title === "string"
+      ? barcodeResult.title
+      : typeof barcodeResult?.rawData === "object" &&
+          barcodeResult.rawData !== null &&
+          "title" in barcodeResult.rawData
+        ? String(barcodeResult.rawData.title || "")
+        : "",
+  );
+  const fallbackInsightTitle = normalizeItemName(
+    typeof aiInsight?.title === "string" ? aiInsight.title : "",
+  );
+  const genericNamePattern = /\bunknown product\b/i;
+
+  if (
+    normalizedPrimaryName &&
+    !genericNamePattern.test(normalizedPrimaryName)
+  ) {
+    return normalizedPrimaryName;
+  }
+
+  if (fallbackModel) return fallbackModel;
+  if (fallbackTitle) return fallbackTitle;
+  if (fallbackInsightTitle) return fallbackInsightTitle;
+  return normalizedPrimaryName || "";
+};
+
+const getBarcodeMetadataValue = (
+  barcodeResult: Record<string, unknown> | undefined,
+  ...keys: string[]
+) => {
+  for (const key of keys) {
+    const topLevelValue = barcodeResult?.[key];
+    if (
+      typeof topLevelValue === "string" &&
+      topLevelValue.trim() &&
+      topLevelValue.trim().toLowerCase() !== "n/a"
+    ) {
+      return topLevelValue.trim();
+    }
+
+    const rawData =
+      typeof barcodeResult?.rawData === "object" &&
+      barcodeResult.rawData !== null
+        ? (barcodeResult.rawData as Record<string, unknown>)
+        : undefined;
+    const rawValue = rawData?.[key];
+    if (
+      typeof rawValue === "string" &&
+      rawValue.trim() &&
+      rawValue.trim().toLowerCase() !== "n/a"
+    ) {
+      return rawValue.trim();
+    }
+  }
+
+  return "";
+};
+
+const getBarcodeImageUrl = (barcodeResult?: Record<string, unknown>) => {
+  const topLevelImage =
+    typeof barcodeResult?.image === "string" ? barcodeResult.image.trim() : "";
+  if (topLevelImage) return topLevelImage;
+
+  const rawData =
+    typeof barcodeResult?.rawData === "object" && barcodeResult.rawData !== null
+      ? (barcodeResult.rawData as Record<string, unknown>)
+      : undefined;
+
+  if (Array.isArray(rawData?.images)) {
+    const firstImage = rawData.images.find(
+      (value): value is string =>
+        typeof value === "string" && value.trim().length > 0,
+    );
+    if (firstImage) return firstImage.trim();
+  }
+
+  return "";
+};
+
 interface InventoryFormModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -373,7 +507,7 @@ export function InventoryFormModal({
   forceType,
   categoryId,
 }: InventoryFormModalProps) {
-  const { currency } = useCurrency();
+  const { currency, currencySymbol, formatCurrency } = useCurrency();
   const isEditMode = !!item;
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
@@ -402,6 +536,8 @@ export function InventoryFormModal({
   const [isCustomStorage, setIsCustomStorage] = useState(false);
   const [isCustomColor, setIsCustomColor] = useState(false);
   const [isCustomSaleMethod, setIsCustomSaleMethod] = useState(false);
+  const [colorValues, setColorValues] = useState<string[]>([""]);
+  const [storageValues, setStorageValues] = useState<string[]>([""]);
 
   // Supplier search state
   const [supplierSearch, setSupplierSearch] = useState("");
@@ -416,6 +552,8 @@ export function InventoryFormModal({
   });
   const suppliers = suppliersResponse?.data || [];
   const createSupplierMutation = useCreateSupplier();
+  const { data: categoriesData } = useCategories();
+  const categories = categoriesData?.data || [];
 
   // Bulk Upload States
   const [bulkItems, setBulkItems] = useState<BulkBarcodeItem[]>([
@@ -475,10 +613,13 @@ export function InventoryFormModal({
       return;
     }
 
+    const currentCategoryId = form.getValues("categoryId") || categoryId;
+
     handleCreateFromBarcodeBulk(
       {
         userId: session.user.id,
         barcodes: validItems,
+        categoryId: currentCategoryId || undefined,
       },
       {
         onSuccess: () => {
@@ -547,6 +688,62 @@ export function InventoryFormModal({
   const [scanResultModalData, setScanResultModalData] =
     useState<ScanResultData | null>(null);
   const isPending = isCreating || isUpdating || isCreatingFromBarcode;
+
+  const syncMultiValueField = (
+    field: "color" | "storage",
+    values: string[],
+    options?: { shouldValidate?: boolean; shouldDirty?: boolean },
+  ) => {
+    const normalizedValues = values.length ? values : [""];
+    const joinedValue = joinMultiValueField(normalizedValues);
+
+    if (field === "color") {
+      setColorValues(normalizedValues);
+      setIsCustomColor(
+        normalizedValues.some(
+          (value) => value && !COLOR_OPTIONS.includes(value),
+        ),
+      );
+    } else {
+      setStorageValues(normalizedValues);
+      setIsCustomStorage(
+        normalizedValues.some(
+          (value) => value && !STORAGE_OPTIONS.includes(value),
+        ),
+      );
+    }
+
+    form.setValue(
+      field,
+      joinedValue as CreateInventoryInput[typeof field],
+      options,
+    );
+  };
+
+  const addMultiValueField = (field: "color" | "storage") => {
+    const currentValues = field === "color" ? colorValues : storageValues;
+    syncMultiValueField(field, [...currentValues, ""], { shouldDirty: true });
+  };
+
+  const updateMultiValueField = (
+    field: "color" | "storage",
+    index: number,
+    value: string,
+    options?: { shouldValidate?: boolean; shouldDirty?: boolean },
+  ) => {
+    const sourceValues = field === "color" ? colorValues : storageValues;
+    const nextValues = [...sourceValues];
+    nextValues[index] = value;
+    syncMultiValueField(field, nextValues, options);
+  };
+
+  const removeMultiValueField = (field: "color" | "storage", index: number) => {
+    const sourceValues = field === "color" ? colorValues : storageValues;
+    const nextValues = sourceValues.filter(
+      (_, currentIndex) => currentIndex !== index,
+    );
+    syncMultiValueField(field, nextValues, { shouldDirty: true });
+  };
 
   const handleAddCustomer = async () => {
     const values = form.getValues();
@@ -653,6 +850,15 @@ export function InventoryFormModal({
       });
 
       setTimeout(() => {
+        syncMultiValueField("color", splitMultiValueField(item.color), {
+          shouldValidate: false,
+          shouldDirty: false,
+        });
+        syncMultiValueField("storage", splitMultiValueField(item.storage), {
+          shouldValidate: false,
+          shouldDirty: false,
+        });
+
         // Check if brand is custom
         if (item.brand && !BRANDS.includes(item.brand)) {
           setIsCustomBrand(true);
@@ -672,18 +878,18 @@ export function InventoryFormModal({
         }
 
         // Check if storage is custom
-        if (item.storage && !STORAGE_OPTIONS.includes(item.storage)) {
-          setIsCustomStorage(true);
-        } else {
-          setIsCustomStorage(false);
-        }
+        setIsCustomStorage(
+          splitMultiValueField(item.storage).some(
+            (value) => value && !STORAGE_OPTIONS.includes(value),
+          ),
+        );
 
         // Check if color is custom
-        if (item.color && !COLOR_OPTIONS.includes(item.color)) {
-          setIsCustomColor(true);
-        } else {
-          setIsCustomColor(false);
-        }
+        setIsCustomColor(
+          splitMultiValueField(item.color).some(
+            (value) => value && !COLOR_OPTIONS.includes(value),
+          ),
+        );
 
         // Check if sale method is custom
         if (item.saleMethod && !SALE_METHODS.includes(item.saleMethod)) {
@@ -726,10 +932,16 @@ export function InventoryFormModal({
         categoryId: categoryId ?? "",
       });
       setTimeout(() => {
+        syncMultiValueField("color", [""], {
+          shouldValidate: false,
+          shouldDirty: false,
+        });
+        syncMultiValueField("storage", [""], {
+          shouldValidate: false,
+          shouldDirty: false,
+        });
         setIsCustomBrand(false);
         setIsCustomCondition(false);
-        setIsCustomStorage(false);
-        setIsCustomColor(false);
         setIsCustomSaleMethod(false);
       }, 0);
     }
@@ -949,6 +1161,8 @@ export function InventoryFormModal({
       return;
     }
 
+    const currentCategoryId = form.getValues("categoryId") || categoryId;
+
     if ((session?.user as { id: string })?.id) {
       handleCreateFromBarcode(
         {
@@ -960,6 +1174,7 @@ export function InventoryFormModal({
             : undefined,
           currentState: barcodeCondition,
           image: barcodeDeviceImage || undefined,
+          categoryId: currentCategoryId || undefined,
         },
         {
           onSuccess: (data: {
@@ -967,13 +1182,27 @@ export function InventoryFormModal({
               result?: Record<string, unknown>;
               productDetails?: string;
               aiDescription?: string;
+              barcodeResult?: Record<string, unknown>;
+              aiInsight?: Record<string, unknown>;
             };
           }) => {
             // Auto-fill form fields from API response
-            // Extract the actual item data from the response
-            const deviceData = (data?.data?.result ||
-              data?.data ||
-              data) as Record<string, unknown> & { _id?: string };
+            const responseData = (data?.data || data) as Record<
+              string,
+              unknown
+            > & {
+              result?: Record<string, unknown>;
+              productDetails?: string;
+              aiDescription?: string;
+              barcodeResult?: Record<string, unknown>;
+              aiInsight?: Record<string, unknown>;
+            };
+            const deviceData = (responseData?.result || responseData) as Record<
+              string,
+              unknown
+            > & { _id?: string };
+            const barcodeResult = responseData?.barcodeResult;
+            const aiInsight = responseData?.aiInsight;
             if (!deviceData) return;
 
             if (deviceData._id) setScannedItemId(deviceData._id);
@@ -1011,35 +1240,19 @@ export function InventoryFormModal({
                     setIsCustomCondition(false);
                   }
                 }
-
-                // Handle custom storage state
-                if (key === "storage") {
-                  if (
-                    typeof value === "string" &&
-                    !STORAGE_OPTIONS.includes(value)
-                  ) {
-                    setIsCustomStorage(true);
-                  } else {
-                    setIsCustomStorage(false);
-                  }
-                }
-
-                // Handle custom color state
-                if (key === "color") {
-                  if (
-                    typeof value === "string" &&
-                    !COLOR_OPTIONS.includes(value)
-                  ) {
-                    setIsCustomColor(true);
-                  } else {
-                    setIsCustomColor(false);
-                  }
-                }
               }
 
               // Aliases for common variations
               if (key === "name" || key === "itemName") {
-                form.setValue("itemName", value as string, options);
+                form.setValue(
+                  "itemName",
+                  getPreferredBarcodeItemName(
+                    String(value),
+                    barcodeResult,
+                    aiInsight,
+                  ),
+                  options,
+                );
               }
               if (key === "model" || key === "modelNumber") {
                 form.setValue("modelNumber", value as string, options);
@@ -1054,22 +1267,118 @@ export function InventoryFormModal({
 
             // Map result fields
             Object.entries(deviceData).forEach(([key, value]) => {
+              if (key === "color" || key === "storage") return;
               setVal(key, value);
             });
 
+            const fallbackItemName = getPreferredBarcodeItemName(
+              typeof deviceData.itemName === "string"
+                ? deviceData.itemName
+                : "",
+              barcodeResult,
+              aiInsight,
+            );
+            if (fallbackItemName) {
+              form.setValue("itemName", fallbackItemName, options);
+            }
+
+            const fallbackImageUrl =
+              typeof deviceData.image === "object" &&
+              deviceData.image !== null &&
+              "url" in deviceData.image &&
+              typeof deviceData.image.url === "string"
+                ? deviceData.image.url
+                : getBarcodeImageUrl(barcodeResult);
+            if (fallbackImageUrl) {
+              setImagePreview(fallbackImageUrl);
+            }
+
+            const fallbackModelNumber = getBarcodeMetadataValue(
+              barcodeResult,
+              "model",
+              "mpn",
+            );
+            if (
+              fallbackModelNumber &&
+              !String(form.getValues("modelNumber") || "").trim()
+            ) {
+              form.setValue("modelNumber", fallbackModelNumber, options);
+            }
+
+            const fallbackColor = getBarcodeMetadataValue(
+              barcodeResult,
+              "color",
+            );
+            const colorValuesFromApi = splitMultiValueField(
+              Array.isArray(deviceData.color)
+                ? (deviceData.color as string[])
+                : ([
+                    deviceData.color as string | undefined,
+                    fallbackColor || undefined,
+                  ].filter(Boolean) as string[]),
+            );
+            syncMultiValueField(
+              "color",
+              colorValuesFromApi.length ? colorValuesFromApi : [""],
+              options,
+            );
+
+            const fallbackStorage = getBarcodeMetadataValue(
+              barcodeResult,
+              "storage",
+              "size",
+            );
+            const storageValuesFromApi = splitMultiValueField(
+              Array.isArray(deviceData.storage)
+                ? (deviceData.storage as string[])
+                : ([
+                    deviceData.storage as string | undefined,
+                    fallbackStorage || undefined,
+                  ].filter(Boolean) as string[]),
+            );
+            syncMultiValueField(
+              "storage",
+              storageValuesFromApi.length ? storageValuesFromApi : [""],
+              options,
+            );
+
+            const scannedQuantity =
+              typeof deviceData.quantity === "number"
+                ? deviceData.quantity
+                : Number(deviceData.quantity);
+            if (!Number.isFinite(scannedQuantity) || scannedQuantity < 1) {
+              form.setValue("quantity", 1, options);
+            }
+
             // Map top-level productDetails and aiDescription if result ones are missing
             if (
-              data?.data?.productDetails &&
+              responseData?.productDetails &&
               !form.getValues("productDetails")
             ) {
               form.setValue(
                 "productDetails",
-                data.data.productDetails,
+                responseData.productDetails,
                 options,
               );
             }
-            if (data?.data?.aiDescription && !form.getValues("aiDescription")) {
-              form.setValue("aiDescription", data.data.aiDescription, options);
+
+            if (
+              responseData?.aiDescription &&
+              !form.getValues("aiDescription")
+            ) {
+              form.setValue(
+                "aiDescription",
+                responseData.aiDescription,
+                options,
+              );
+            }
+
+            const aiInsightMessage =
+              typeof responseData?.aiInsight?.message === "string"
+                ? responseData.aiInsight.message
+                : "";
+            if (aiInsightMessage && !form.getValues("aiDescription")) {
+              form.setValue("aiDescription", aiInsightMessage, options);
             }
 
             toast.success("Device details auto-populated! Please review.");
@@ -1159,64 +1468,82 @@ export function InventoryFormModal({
                     form.control as unknown as Control<CreateInventoryInput>
                   }
                   name="itemName"
-                  render={({ field }) => (
-                    <FormItem className="sm:col-span-2">
-                      <FormLabel className="text-[10px] font-black uppercase tracking-widest text-slate-700 dark:text-white mb-2 block ml-1 dark:text-white ">
-                        Product Name <span className="text-red-500">*</span>
-                      </FormLabel>
-                      <FormControl>
-                        <div className="relative group">
-                          <div className="absolute left-2 top-1/2 -translate-y-1/2 w-10 h-10 bg-white dark:bg-slate-800 rounded-[14px] flex items-center justify-center shadow-sm border border-slate-100 dark:border-slate-700 group-focus-within:border-[#84CC16]/30 group-focus-within:bg-[#84CC16]/5 transition-all z-10">
-                            <Smartphone className="w-4 h-4 text-slate-400 group-focus-within:text-[#84CC16] transition-colors" />
-                          </div>
-                          <Input
-                            placeholder="e.g. iPhone X"
-                            className="pl-14 pr-32 bg-slate-50/80 dark:bg-slate-900/50 border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-900 rounded-[20px] h-[56px] font-bold text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 focus-visible:bg-white dark:focus-visible:bg-slate-950 focus-visible:ring-4 focus-visible:ring-[#84CC16]/15 focus-visible:border-[#84CC16] transition-all shadow-sm"
-                            {...field}
-                          />
-                          <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
-                            <button
-                              type="button"
-                              onClick={() =>
-                                barcodeImageInputRef.current?.click()
-                              }
-                              className="w-10 h-10 rounded-xl flex items-center justify-center text-slate-400 hover:text-[#84CC16] hover:bg-[#84CC16]/10 transition-all"
-                              title="Upload Barcode"
-                            >
-                              <Camera className="w-4 h-4" />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() =>
-                                handleManualBarcodeSubmit(field.value)
-                              }
-                              disabled={isCreatingFromBarcode}
-                              className="w-10 h-10 rounded-xl flex items-center justify-center text-slate-400 hover:text-[#84CC16] hover:bg-[#84CC16]/10 transition-all"
-                              title="Scan/Fetch Device Info"
-                            >
-                              {isCreatingFromBarcode ? (
-                                <Loader2 className="w-4 h-4 animate-spin" />
-                              ) : (
-                                <Scan className="w-4 h-4" />
-                              )}
-                            </button>
-                          </div>
-                          <input
-                            type="file"
-                            ref={barcodeImageInputRef}
-                            onChange={handleBarcodeImageUpload}
-                            accept="image/*"
-                            className="hidden"
-                          />
-                          <div
-                            id="barcode-reader-hidden"
-                            className="hidden"
-                          ></div>
+                  render={({ field }) => {
+                    const expectedPriceVal = form.watch("expectedPrice");
+                    return (
+                      <FormItem className="sm:col-span-2">
+                        <div className="flex items-center justify-between mb-2">
+                          <FormLabel className="text-[10px] font-black uppercase tracking-widest text-slate-700 dark:text-white block ml-1">
+                            Product Name <span className="text-red-500">*</span>
+                          </FormLabel>
+                          {expectedPriceVal ? (
+                            <span className="text-[10px] font-black uppercase tracking-wider text-[#84CC16] bg-[#84CC16]/10 px-3 py-1 rounded-full border border-[#84CC16]/20 flex items-center gap-1.5 shadow-sm">
+                              <Tag className="w-3 h-3 text-[#84CC16]" />
+                              Expected Price:{" "}
+                              {formatCurrency(Number(expectedPriceVal))}
+                            </span>
+                          ) : null}
                         </div>
-                      </FormControl>
-                      <FormMessage className="text-[10px] uppercase tracking-wider font-bold" />
-                    </FormItem>
-                  )}
+                        <FormControl>
+                          <div className="relative group">
+                            <div className="absolute left-2 top-1/2 -translate-y-1/2 w-10 h-10 bg-white dark:bg-slate-800 rounded-[14px] flex items-center justify-center shadow-sm border border-slate-100 dark:border-slate-700 group-focus-within:border-[#84CC16]/30 group-focus-within:bg-[#84CC16]/5 transition-all z-10">
+                              <Smartphone className="w-4 h-4 text-slate-400 group-focus-within:text-[#84CC16] transition-colors" />
+                            </div>
+                            <Input
+                              placeholder="e.g. iPhone X"
+                              className="pl-14 pr-32 bg-slate-50/80 dark:bg-slate-900/50 border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-900 rounded-[20px] h-[56px] font-bold text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 focus-visible:bg-white dark:focus-visible:bg-slate-950 focus-visible:ring-4 focus-visible:ring-[#84CC16]/15 focus-visible:border-[#84CC16] transition-all shadow-sm"
+                              onKeyDown={(event) => {
+                                if (event.key === "Enter") {
+                                  event.preventDefault();
+                                  handleManualBarcodeSubmit(field.value);
+                                }
+                              }}
+                              {...field}
+                            />
+                            <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  barcodeImageInputRef.current?.click()
+                                }
+                                className="w-10 h-10 rounded-xl flex items-center justify-center text-slate-400 hover:text-[#84CC16] hover:bg-[#84CC16]/10 transition-all"
+                                title="Upload Barcode"
+                              >
+                                <Camera className="w-4 h-4" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  handleManualBarcodeSubmit(field.value)
+                                }
+                                disabled={isCreatingFromBarcode}
+                                className="w-10 h-10 rounded-xl flex items-center justify-center text-slate-400 hover:text-[#84CC16] hover:bg-[#84CC16]/10 transition-all"
+                                title="Scan/Fetch Device Info"
+                              >
+                                {isCreatingFromBarcode ? (
+                                  <Loader2 className="w-4 h-4 animate-spin" />
+                                ) : (
+                                  <Scan className="w-4 h-4" />
+                                )}
+                              </button>
+                            </div>
+                            <input
+                              type="file"
+                              ref={barcodeImageInputRef}
+                              onChange={handleBarcodeImageUpload}
+                              accept="image/*"
+                              className="hidden"
+                            />
+                            <div
+                              id="barcode-reader-hidden"
+                              className="hidden"
+                            ></div>
+                          </div>
+                        </FormControl>
+                        <FormMessage className="text-[10px] uppercase tracking-wider font-bold" />
+                      </FormItem>
+                    );
+                  }}
                 />
 
                 {/* SKU */}
@@ -1242,6 +1569,48 @@ export function InventoryFormModal({
                           />
                         </div>
                       </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                {/* Category Selection */}
+                <FormField
+                  control={
+                    form.control as unknown as Control<CreateInventoryInput>
+                  }
+                  name="categoryId"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-[10px] font-black uppercase tracking-widest text-slate-700 dark:text-white mb-2 block ml-1">
+                        Category
+                      </FormLabel>
+                      <Select
+                        onValueChange={(val) => field.onChange(val)}
+                        value={field.value || ""}
+                      >
+                        <FormControl>
+                          <SelectTrigger className="group bg-slate-50/80 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-900 rounded-[20px] h-[56px] font-bold text-slate-900 dark:text-white focus:bg-white dark:focus:bg-slate-950 focus:ring-4 focus:ring-[#84CC16]/15 focus:border-[#84CC16] transition-all shadow-sm px-2">
+                            <div className="flex items-center gap-3 w-full">
+                              <div className="w-10 h-10 rounded-[14px] flex items-center justify-center shadow-sm border border-slate-100 group-focus:border-[#84CC16]/30 group-focus:bg-[#84CC16]/5 transition-all shrink-0">
+                                <FolderOpen className="w-4 h-4 text-slate-400 group-focus:text-[#84CC16] transition-colors" />
+                              </div>
+                              <SelectValue placeholder="Select Category" />
+                            </div>
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent className="rounded-2xl border-slate-100 dark:border-slate-800 p-2 shadow-xl bg-white dark:bg-slate-900 z-50">
+                          {categories.map((cat: Category) => (
+                            <SelectItem
+                              key={cat._id}
+                              value={cat._id}
+                              className="rounded-xl font-bold text-xs p-3 cursor-pointer"
+                            >
+                              {cat.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -1354,68 +1723,144 @@ export function InventoryFormModal({
                         Color
                       </FormLabel>
                       <div className="space-y-3">
-                        {!isCustomColor ? (
-                          <Select
-                            onValueChange={(val) => {
-                              if (val === "Other") {
-                                setIsCustomColor(true);
-                                field.onChange("");
-                              } else {
-                                field.onChange(val);
-                              }
-                            }}
-                            value={
-                              field.value && COLOR_OPTIONS.includes(field.value)
-                                ? field.value
-                                : field.value
-                                  ? "Other"
-                                  : ""
-                            }
-                          >
-                            <FormControl>
-                              <SelectTrigger className="group bg-slate-50/80 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-900 rounded-[20px] h-[56px] font-bold text-slate-900 dark:text-white focus:bg-white dark:focus:bg-slate-950 focus:ring-4 focus:ring-[#84CC16]/15 focus:border-[#84CC16] transition-all shadow-sm px-2">
-                                <div className="flex items-center gap-3 w-full">
-                                  <div className="w-10 h-10 rounded-[14px] flex items-center justify-center shadow-sm border border-slate-100 group-focus:border-[#84CC16]/30 group-focus:bg-[#84CC16]/5 transition-all shrink-0">
-                                    <Palette className="w-4 h-4 text-slate-400 group-focus:text-[#84CC16] transition-colors" />
-                                  </div>
-                                  <SelectValue placeholder="Select Color" />
-                                </div>
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent className="rounded-2xl border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xl p-1">
-                              {COLOR_OPTIONS.map((color) => (
-                                <SelectItem
-                                  key={color}
-                                  value={color}
-                                  className="font-bold rounded-xl focus:bg-[#84CC16]/10 focus:text-[#84CC16] cursor-pointer py-3 dark:text-white"
-                                >
-                                  {color}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        ) : (
-                          <div className="relative group animate-in fade-in slide-in-from-left-2 duration-300">
-                            <div className="absolute left-2 top-1/2 -translate-y-1/2 w-10 h-10 bg-white dark:bg-slate-800 rounded-[14px] flex items-center justify-center shadow-sm border border-slate-100 dark:border-slate-700 group-focus-within:border-[#84CC16]/30 group-focus-within:bg-[#84CC16]/5 transition-all z-10">
-                              <Palette className="w-4 h-4 text-slate-400 group-focus-within:text-[#84CC16] transition-colors" />
-                            </div>
-                            <Input
-                              placeholder="Enter custom color..."
-                              className="pl-14 pr-24 bg-slate-50/80 dark:bg-slate-900/50 border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-900 rounded-[20px] h-[56px] font-bold text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 focus-visible:bg-white dark:focus-visible:bg-slate-950 focus-visible:ring-4 focus-visible:ring-[#84CC16]/15 focus-visible:border-[#84CC16] transition-all shadow-sm"
-                              {...field}
-                            />
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setIsCustomColor(false);
-                                field.onChange("Black");
-                              }}
-                              className="absolute right-2 top-1/2 -translate-y-1/2 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-[#84CC16] hover:bg-[#84CC16]/10 rounded-xl transition-all"
+                        {colorValues.map((value, index) => {
+                          const selectValue =
+                            value && COLOR_OPTIONS.includes(value)
+                              ? value
+                              : value
+                                ? "Other"
+                                : "";
+
+                          return (
+                            <div
+                              key={`color-${index}`}
+                              className="flex items-center gap-2"
                             >
-                              Reset
-                            </button>
-                          </div>
-                        )}
+                              <div className="flex-1">
+                                {!isCustomColor && selectValue !== "Other" ? (
+                                  <Select
+                                    onValueChange={(val) => {
+                                      if (val === "Other") {
+                                        setIsCustomColor(true);
+                                        updateMultiValueField(
+                                          "color",
+                                          index,
+                                          "",
+                                          {
+                                            shouldValidate: true,
+                                            shouldDirty: true,
+                                          },
+                                        );
+                                      } else {
+                                        updateMultiValueField(
+                                          "color",
+                                          index,
+                                          val,
+                                          {
+                                            shouldValidate: true,
+                                            shouldDirty: true,
+                                          },
+                                        );
+                                      }
+                                    }}
+                                    value={selectValue}
+                                  >
+                                    <FormControl>
+                                      <SelectTrigger className="group bg-slate-50/80 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-900 rounded-[20px] h-[56px] font-bold text-slate-900 dark:text-white focus:bg-white dark:focus:bg-slate-950 focus:ring-4 focus:ring-[#84CC16]/15 focus:border-[#84CC16] transition-all shadow-sm px-2">
+                                        <div className="flex items-center gap-3 w-full">
+                                          <div className="w-10 h-10 rounded-[14px] flex items-center justify-center shadow-sm border border-slate-100 group-focus:border-[#84CC16]/30 group-focus:bg-[#84CC16]/5 transition-all shrink-0">
+                                            <Palette className="w-4 h-4 text-slate-400 group-focus:text-[#84CC16] transition-colors" />
+                                          </div>
+                                          <SelectValue placeholder="Select Color" />
+                                        </div>
+                                      </SelectTrigger>
+                                    </FormControl>
+                                    <SelectContent className="rounded-2xl border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xl p-1">
+                                      {COLOR_OPTIONS.map((color) => (
+                                        <SelectItem
+                                          key={`${color}-${index}`}
+                                          value={color}
+                                          className="font-bold rounded-xl focus:bg-[#84CC16]/10 focus:text-[#84CC16] cursor-pointer py-3 dark:text-white"
+                                        >
+                                          {color}
+                                        </SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                ) : (
+                                  <div className="relative group animate-in fade-in slide-in-from-left-2 duration-300">
+                                    <div className="absolute left-2 top-1/2 -translate-y-1/2 w-10 h-10 bg-white dark:bg-slate-800 rounded-[14px] flex items-center justify-center shadow-sm border border-slate-100 dark:border-slate-700 group-focus-within:border-[#84CC16]/30 group-focus-within:bg-[#84CC16]/5 transition-all z-10">
+                                      <Palette className="w-4 h-4 text-slate-400 group-focus-within:text-[#84CC16] transition-colors" />
+                                    </div>
+                                    <Input
+                                      placeholder="Enter custom color..."
+                                      className="pl-14 pr-24 bg-slate-50/80 dark:bg-slate-900/50 border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-900 rounded-[20px] h-[56px] font-bold text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 focus-visible:bg-white dark:focus-visible:bg-slate-950 focus-visible:ring-4 focus-visible:ring-[#84CC16]/15 focus-visible:border-[#84CC16] transition-all shadow-sm"
+                                      value={value}
+                                      onChange={(event) =>
+                                        updateMultiValueField(
+                                          "color",
+                                          index,
+                                          event.target.value,
+                                          {
+                                            shouldValidate: true,
+                                            shouldDirty: true,
+                                          },
+                                        )
+                                      }
+                                    />
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setIsCustomColor(false);
+                                        updateMultiValueField(
+                                          "color",
+                                          index,
+                                          "Black",
+                                          {
+                                            shouldValidate: true,
+                                            shouldDirty: true,
+                                          },
+                                        );
+                                      }}
+                                      className="absolute right-2 top-1/2 -translate-y-1/2 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-[#84CC16] hover:bg-[#84CC16]/10 rounded-xl transition-all"
+                                    >
+                                      Reset
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
+                              {colorValues.length > 1 && (
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() =>
+                                    removeMultiValueField("color", index)
+                                  }
+                                  className="h-11 w-11 rounded-2xl text-slate-400 hover:text-red-500 hover:bg-red-50"
+                                >
+                                  <X className="w-4 h-4" />
+                                </Button>
+                              )}
+                            </div>
+                          );
+                        })}
+                        <div className="flex items-center justify-between">
+                          <input
+                            type="hidden"
+                            {...field}
+                            value={joinMultiValueField(colorValues)}
+                          />
+                          <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => addMultiValueField("color")}
+                            className="rounded-2xl border-slate-200 px-4 h-10 font-black uppercase tracking-widest text-[10px] hover:border-[#84CC16] hover:text-[#84CC16]"
+                          >
+                            <Plus className="w-3.5 h-3.5 mr-2" />
+                            Add Color
+                          </Button>
+                        </div>
                       </div>
                     </FormItem>
                   )}
@@ -1433,69 +1878,144 @@ export function InventoryFormModal({
                         Storage
                       </FormLabel>
                       <div className="space-y-3">
-                        {!isCustomStorage ? (
-                          <Select
-                            onValueChange={(val) => {
-                              if (val === "Other") {
-                                setIsCustomStorage(true);
-                                field.onChange("");
-                              } else {
-                                field.onChange(val);
-                              }
-                            }}
-                            value={
-                              field.value &&
-                              STORAGE_OPTIONS.includes(field.value)
-                                ? field.value
-                                : field.value
-                                  ? "Other"
-                                  : ""
-                            }
-                          >
-                            <FormControl>
-                              <SelectTrigger className="group bg-slate-50/80 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-900 rounded-[20px] h-[56px] font-bold text-slate-900 dark:text-white focus:bg-white dark:focus:bg-slate-950 focus:ring-4 focus:ring-[#84CC16]/15 focus:border-[#84CC16] transition-all shadow-sm px-2">
-                                <div className="flex items-center gap-3 w-full">
-                                  <div className="w-10 h-10 rounded-[14px] flex items-center justify-center shadow-sm border border-slate-100 group-focus:border-[#84CC16]/30 group-focus:bg-[#84CC16]/5 transition-all shrink-0">
-                                    <HardDrive className="w-4 h-4 text-slate-400 group-focus:text-[#84CC16] transition-colors" />
-                                  </div>
-                                  <SelectValue placeholder="Select Storage" />
-                                </div>
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent className="rounded-2xl border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xl p-1">
-                              {STORAGE_OPTIONS.map((opt) => (
-                                <SelectItem
-                                  key={opt}
-                                  value={opt}
-                                  className="font-bold rounded-xl focus:bg-[#84CC16]/10 focus:text-[#84CC16] cursor-pointer py-3 dark:text-white"
-                                >
-                                  {opt}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        ) : (
-                          <div className="relative group animate-in fade-in slide-in-from-left-2 duration-300">
-                            <div className="absolute left-2 top-1/2 -translate-y-1/2 w-10 h-10 bg-white dark:bg-slate-800 rounded-[14px] flex items-center justify-center shadow-sm border border-slate-100 dark:border-slate-700 group-focus-within:border-[#84CC16]/30 group-focus-within:bg-[#84CC16]/5 transition-all z-10">
-                              <HardDrive className="w-4 h-4 text-slate-400 group-focus-within:text-[#84CC16] transition-colors" />
-                            </div>
-                            <Input
-                              placeholder="Enter custom storage..."
-                              className="pl-14 pr-24 bg-slate-50/80 dark:bg-slate-900/50 border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-900 rounded-[20px] h-[56px] font-bold text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 focus-visible:bg-white dark:focus-visible:bg-slate-950 focus-visible:ring-4 focus-visible:ring-[#84CC16]/15 focus-visible:border-[#84CC16] transition-all shadow-sm"
-                              {...field}
-                            />
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setIsCustomStorage(false);
-                                field.onChange("128GB");
-                              }}
-                              className="absolute right-2 top-1/2 -translate-y-1/2 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-[#84CC16] hover:bg-[#84CC16]/10 rounded-xl transition-all"
+                        {storageValues.map((value, index) => {
+                          const selectValue =
+                            value && STORAGE_OPTIONS.includes(value)
+                              ? value
+                              : value
+                                ? "Other"
+                                : "";
+
+                          return (
+                            <div
+                              key={`storage-${index}`}
+                              className="flex items-center gap-2"
                             >
-                              Reset
-                            </button>
-                          </div>
-                        )}
+                              <div className="flex-1">
+                                {!isCustomStorage && selectValue !== "Other" ? (
+                                  <Select
+                                    onValueChange={(val) => {
+                                      if (val === "Other") {
+                                        setIsCustomStorage(true);
+                                        updateMultiValueField(
+                                          "storage",
+                                          index,
+                                          "",
+                                          {
+                                            shouldValidate: true,
+                                            shouldDirty: true,
+                                          },
+                                        );
+                                      } else {
+                                        updateMultiValueField(
+                                          "storage",
+                                          index,
+                                          val,
+                                          {
+                                            shouldValidate: true,
+                                            shouldDirty: true,
+                                          },
+                                        );
+                                      }
+                                    }}
+                                    value={selectValue}
+                                  >
+                                    <FormControl>
+                                      <SelectTrigger className="group bg-slate-50/80 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-900 rounded-[20px] h-[56px] font-bold text-slate-900 dark:text-white focus:bg-white dark:focus:bg-slate-950 focus:ring-4 focus:ring-[#84CC16]/15 focus:border-[#84CC16] transition-all shadow-sm px-2">
+                                        <div className="flex items-center gap-3 w-full">
+                                          <div className="w-10 h-10 rounded-[14px] flex items-center justify-center shadow-sm border border-slate-100 group-focus:border-[#84CC16]/30 group-focus:bg-[#84CC16]/5 transition-all shrink-0">
+                                            <HardDrive className="w-4 h-4 text-slate-400 group-focus:text-[#84CC16] transition-colors" />
+                                          </div>
+                                          <SelectValue placeholder="Select Storage" />
+                                        </div>
+                                      </SelectTrigger>
+                                    </FormControl>
+                                    <SelectContent className="rounded-2xl border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xl p-1">
+                                      {STORAGE_OPTIONS.map((opt) => (
+                                        <SelectItem
+                                          key={`${opt}-${index}`}
+                                          value={opt}
+                                          className="font-bold rounded-xl focus:bg-[#84CC16]/10 focus:text-[#84CC16] cursor-pointer py-3 dark:text-white"
+                                        >
+                                          {opt}
+                                        </SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                ) : (
+                                  <div className="relative group animate-in fade-in slide-in-from-left-2 duration-300">
+                                    <div className="absolute left-2 top-1/2 -translate-y-1/2 w-10 h-10 bg-white dark:bg-slate-800 rounded-[14px] flex items-center justify-center shadow-sm border border-slate-100 dark:border-slate-700 group-focus-within:border-[#84CC16]/30 group-focus-within:bg-[#84CC16]/5 transition-all z-10">
+                                      <HardDrive className="w-4 h-4 text-slate-400 group-focus-within:text-[#84CC16] transition-colors" />
+                                    </div>
+                                    <Input
+                                      placeholder="Enter custom storage..."
+                                      className="pl-14 pr-24 bg-slate-50/80 dark:bg-slate-900/50 border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-900 rounded-[20px] h-[56px] font-bold text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 focus-visible:bg-white dark:focus-visible:bg-slate-950 focus-visible:ring-4 focus-visible:ring-[#84CC16]/15 focus-visible:border-[#84CC16] transition-all shadow-sm"
+                                      value={value}
+                                      onChange={(event) =>
+                                        updateMultiValueField(
+                                          "storage",
+                                          index,
+                                          event.target.value,
+                                          {
+                                            shouldValidate: true,
+                                            shouldDirty: true,
+                                          },
+                                        )
+                                      }
+                                    />
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setIsCustomStorage(false);
+                                        updateMultiValueField(
+                                          "storage",
+                                          index,
+                                          "128GB",
+                                          {
+                                            shouldValidate: true,
+                                            shouldDirty: true,
+                                          },
+                                        );
+                                      }}
+                                      className="absolute right-2 top-1/2 -translate-y-1/2 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-[#84CC16] hover:bg-[#84CC16]/10 rounded-xl transition-all"
+                                    >
+                                      Reset
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
+                              {storageValues.length > 1 && (
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() =>
+                                    removeMultiValueField("storage", index)
+                                  }
+                                  className="h-11 w-11 rounded-2xl text-slate-400 hover:text-red-500 hover:bg-red-50"
+                                >
+                                  <X className="w-4 h-4" />
+                                </Button>
+                              )}
+                            </div>
+                          );
+                        })}
+                        <div className="flex items-center justify-between">
+                          <input
+                            type="hidden"
+                            {...field}
+                            value={joinMultiValueField(storageValues)}
+                          />
+                          <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => addMultiValueField("storage")}
+                            className="rounded-2xl border-slate-200 px-4 h-10 font-black uppercase tracking-widest text-[10px] hover:border-[#84CC16] hover:text-[#84CC16]"
+                          >
+                            <Plus className="w-3.5 h-3.5 mr-2" />
+                            Add Storage
+                          </Button>
+                        </div>
                       </div>
                     </FormItem>
                   )}
@@ -1564,7 +2084,9 @@ export function InventoryFormModal({
             <div className="space-y-6">
               <div className="border-b border-slate-100 pb-3">
                 <h4 className="text-xs font-black uppercase tracking-[0.2em] text-slate-900 mb-1 flex items-center gap-2 dark:text-white ">
-                  <DollarSign className="w-3.5 h-3.5 text-[#84CC16]" />
+                  <span className="font-extrabold text-sm text-[#84CC16]">
+                    {currencySymbol}
+                  </span>
                   Pricing & Stock
                 </h4>
                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider dark:text-white ">
@@ -1587,7 +2109,9 @@ export function InventoryFormModal({
                       <FormControl>
                         <div className="relative group">
                           <div className="absolute left-2 top-1/2 -translate-y-1/2 w-10 h-10 bg-white dark:bg-slate-800 rounded-[14px] flex items-center justify-center shadow-sm border border-slate-100 dark:border-slate-700 group-focus-within:border-[#84CC16]/30 group-focus-within:bg-[#84CC16]/5 transition-all z-10">
-                            <DollarSign className="w-4 h-4 text-slate-400 group-focus-within:text-[#84CC16] transition-colors" />
+                            <span className="font-black text-sm text-slate-400 group-focus-within:text-[#84CC16] transition-colors">
+                              {currencySymbol}
+                            </span>
                           </div>
                           <Input
                             type="number"
@@ -1610,12 +2134,15 @@ export function InventoryFormModal({
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel className="text-[10px] font-black uppercase tracking-widest text-slate-700 dark:text-white mb-2 block ml-1">
-                        Expected Price ({currency})
+                        Selling Price ({currency}){" "}
+                        <span className="text-red-500">*</span>
                       </FormLabel>
                       <FormControl>
                         <div className="relative group">
                           <div className="absolute left-2 top-1/2 -translate-y-1/2 w-10 h-10 bg-white dark:bg-slate-800 rounded-[14px] flex items-center justify-center shadow-sm border border-slate-100 dark:border-slate-700 group-focus-within:border-[#84CC16]/30 group-focus-within:bg-[#84CC16]/5 transition-all z-10">
-                            <DollarSign className="w-4 h-4 text-slate-400 group-focus-within:text-[#84CC16] transition-colors" />
+                            <span className="font-black text-sm text-slate-400 group-focus-within:text-[#84CC16] transition-colors">
+                              {currencySymbol}
+                            </span>
                           </div>
                           <Input
                             type="number"
@@ -2236,7 +2763,9 @@ export function InventoryFormModal({
                         <FormControl>
                           <div className="relative group">
                             <div className="absolute left-2 top-1/2 -translate-y-1/2 w-10 h-10 bg-white dark:bg-slate-800 rounded-[14px] flex items-center justify-center shadow-sm border border-slate-100 dark:border-slate-700 group-focus-within:border-[#84CC16]/30 group-focus-within:bg-[#84CC16]/5 transition-all z-10">
-                              <DollarSign className="w-4 h-4 text-slate-400 group-focus-within:text-[#84CC16] transition-colors" />
+                              <span className="font-black text-sm text-[#84CC16] group-focus-within:text-[#84CC16] transition-colors">
+                                {currencySymbol}
+                              </span>
                             </div>
                             <Input
                               type="number"
@@ -2345,6 +2874,7 @@ export function InventoryFormModal({
                   alt="Preview"
                   fill
                   className="object-cover"
+                  unoptimized
                 />
                 <div className="absolute inset-0 bg-slate-900/10 group-hover:bg-slate-900/20 transition-colors" />
                 <button
@@ -2734,7 +3264,9 @@ export function InventoryFormModal({
                                     Buy Price
                                   </label>
                                   <div className="relative">
-                                    <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
+                                    <span className="absolute left-3.5 top-1/2 -translate-y-1/2 font-bold text-xs text-slate-400">
+                                      {currencySymbol}
+                                    </span>
                                     <input
                                       type="number"
                                       placeholder="0"
@@ -2755,7 +3287,9 @@ export function InventoryFormModal({
                                     Sell Price
                                   </label>
                                   <div className="relative">
-                                    <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[#84CC16]" />
+                                    <span className="absolute left-3.5 top-1/2 -translate-y-1/2 font-black text-xs text-[#84CC16]">
+                                      {currencySymbol}
+                                    </span>
                                     <input
                                       type="number"
                                       placeholder="0"
@@ -2856,7 +3390,10 @@ export function InventoryFormModal({
                   value="import-csv"
                   className="mt-0 border-none p-0 outline-none focus-visible:ring-0"
                 >
-                  <ImportCsvModalContent onClose={onClose} />
+                  <ImportCsvModalContent
+                    onClose={onClose}
+                    categoryId={categoryId}
+                  />
                 </TabsContent>
               </Tabs>
             ) : (

@@ -12,7 +12,8 @@ import {
 import { motion, AnimatePresence } from "framer-motion";
 import { useSession } from "next-auth/react";
 import { toast } from "sonner";
-import { useImportCsvInventory } from "../hooks/useInventory";
+import { useImportCsvInventory, useCategories } from "../hooks/useInventory";
+import { Category } from "../types";
 
 const ACCEPTED_TYPES = [
   "text/csv",
@@ -26,7 +27,10 @@ export function ImportCsvTab() {
   const userId = (session?.user as { id?: string })?.id ?? "";
 
   const { mutateAsync: importCsv, isPending } = useImportCsvInventory();
+  const { data: categoriesData } = useCategories();
+  const categories = categoriesData?.data || [];
 
+  const [selectedCategoryId, setSelectedCategoryId] = useState<string>("");
   const [file, setFile] = useState<File | null>(null);
   const [dragOver, setDragOver] = useState(false);
   const [uploadStatus, setUploadStatus] = useState<
@@ -81,7 +85,11 @@ export function ImportCsvTab() {
 
     try {
       setUploadStatus("idle");
-      await importCsv({ file, userId });
+      await importCsv({
+        file,
+        userId,
+        categoryId: selectedCategoryId || undefined,
+      });
       setUploadStatus("success");
       setFile(null);
       toast.success("Inventory imported successfully!");
@@ -112,6 +120,27 @@ export function ImportCsvTab() {
           Upload a CSV or Excel file to bulk-import devices into your inventory.
         </p>
       </div>
+
+      {/* Category Select */}
+      {categories.length > 0 && (
+        <div className="space-y-2">
+          <label className="text-xs font-black uppercase tracking-wider text-slate-700 dark:text-slate-300 block">
+            Target Category (Optional)
+          </label>
+          <select
+            value={selectedCategoryId}
+            onChange={(e) => setSelectedCategoryId(e.target.value)}
+            className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl h-12 px-4 font-bold text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#84CC16]"
+          >
+            <option value="">-- Select Category --</option>
+            {categories.map((cat: Category) => (
+              <option key={cat._id} value={cat._id}>
+                {cat.name}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
 
       {/* Drop Zone */}
       <motion.div
