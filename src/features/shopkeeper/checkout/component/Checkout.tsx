@@ -73,7 +73,7 @@ export default function Checkout() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const { data: session } = useSession();
-  const { currencySymbol, formatCurrency } = useCurrency();
+  const { currencySymbol, formatCurrency, convertAmount } = useCurrency();
   const shopkeeperId = (session?.user as { id?: string })?.id;
 
   // Data fetching queries
@@ -248,34 +248,42 @@ export default function Checkout() {
 
   const subtotal = useMemo(() => {
     return orderCartItems.reduce((sum, item) => {
-      const originalPrice = Number(item.itemId?.expectedPrice || 0);
+      const originalPrice = convertAmount(
+        Number(item.itemId?.expectedPrice || 0),
+      );
       const manualValue = manualPrices[item._id];
       const parsedManual = Number(manualValue);
-      const effectivePrice =
+      let effectivePrice =
         manualValue !== undefined &&
         manualValue !== "" &&
-        Number.isFinite(parsedManual) &&
-        parsedManual >= 0
+        Number.isFinite(parsedManual)
           ? parsedManual
           : originalPrice;
 
+      if (effectivePrice > originalPrice) {
+        effectivePrice = originalPrice;
+      }
+      if (effectivePrice < 0) {
+        effectivePrice = 0;
+      }
+
       return sum + effectivePrice * item.quantity;
     }, 0);
-  }, [manualPrices, orderCartItems]);
+  }, [convertAmount, manualPrices, orderCartItems]);
 
   const subtotalBeforeDiscount = useMemo(() => {
     return orderCartItems.reduce((sum, item) => {
-      const price = Number(item.itemId?.expectedPrice || 0);
+      const price = convertAmount(Number(item.itemId?.expectedPrice || 0));
       return sum + price * item.quantity;
     }, 0);
-  }, [orderCartItems]);
+  }, [convertAmount, orderCartItems]);
 
   const totalDiscount = useMemo(() => {
     return Math.max(0, subtotalBeforeDiscount - subtotal);
   }, [subtotalBeforeDiscount, subtotal]);
 
-  const tax = useMemo(() => subtotal * 0.085, [subtotal]); // 8.5% tax
-  const totalPayment = useMemo(() => subtotal + tax, [subtotal, tax]);
+  const tax = 0;
+  const totalPayment = useMemo(() => subtotal, [subtotal]);
   const totalCartCount = useMemo(
     () =>
       orderCartItems.reduce(
@@ -1279,16 +1287,31 @@ export default function Checkout() {
           ) : orderCartItems.length > 0 ? (
             orderCartItems.map((cartItem: any) => {
               const item = cartItem.itemId;
-              const originalPrice = Number(item?.expectedPrice || 0);
+              const originalPrice = convertAmount(
+                Number(item?.expectedPrice || 0),
+              );
               const manualValue = manualPrices[cartItem._id];
               const parsedManual = Number(manualValue);
-              const sellingPrice =
+              const isExceeded =
                 manualValue !== undefined &&
                 manualValue !== "" &&
                 Number.isFinite(parsedManual) &&
-                parsedManual >= 0
+                parsedManual > originalPrice;
+
+              let sellingPrice =
+                manualValue !== undefined &&
+                manualValue !== "" &&
+                Number.isFinite(parsedManual)
                   ? parsedManual
                   : originalPrice;
+
+              if (sellingPrice > originalPrice) {
+                sellingPrice = originalPrice;
+              }
+              if (sellingPrice < 0) {
+                sellingPrice = 0;
+              }
+
               const discountAmount = Math.max(0, originalPrice - sellingPrice);
               const discountPercent =
                 originalPrice > 0 ? (discountAmount / originalPrice) * 100 : 0;
@@ -1371,69 +1394,112 @@ export default function Checkout() {
                     </div>
                   </div>
 
-                  <div className="mt-4 grid grid-cols-2 gap-3">
-                    <div className="rounded-xl bg-slate-50 px-3 py-2">
-                      <p className="text-[10px] font-black uppercase tracking-wider text-slate-400">
-                        Original Price
-                      </p>
-                      <p className="mt-1 text-sm font-black text-slate-900 line-through decoration-slate-300">
-                        {formatCurrency(originalPrice)}
-                      </p>
-                    </div>
-
-                    <div className="rounded-xl border border-slate-200 bg-white px-3 py-2">
+                  {/* Single Selling Price Box */}
+                  <div
+                    className={`mt-4 rounded-xl border px-3.5 py-2.5 shadow-sm transition-all ${
+                      isExceeded
+                        ? "border-red-500 bg-red-50/50 text-red-700 ring-2 ring-red-500/20"
+                        : "border-slate-200 bg-slate-50/50"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
                       <div className="flex items-center gap-1.5">
-                        <PencilLine size={12} className="text-slate-400" />
-                        <p className="text-[10px] font-black uppercase tracking-wider text-slate-400">
+                        <PencilLine
+                          size={12}
+                          className={
+                            isExceeded ? "text-red-500" : "text-slate-400"
+                          }
+                        />
+                        <p
+                          className={`text-[10px] font-black uppercase tracking-wider ${
+                            isExceeded ? "text-red-600" : "text-slate-500"
+                          }`}
+                        >
                           Selling Price
                         </p>
                       </div>
-                      <div className="mt-1 flex items-center gap-2">
-                        <span className="text-sm font-black text-slate-900">
-                          {currencySymbol}
+                      {hasDiscount && !isExceeded && (
+                        <span className="text-[10px] font-black text-[#84CC16] bg-[#84CC16]/10 px-2 py-0.5 rounded-full border border-[#84CC16]/20">
+                          -{discountPercent.toFixed(0)}% Off
                         </span>
-                        <input
-                          type="text"
-                          inputMode="decimal"
-                          value={manualValue ?? sellingPrice.toFixed(2)}
-                          onChange={(e) =>
-                            handlePriceInputChange(cartItem._id, e.target.value)
+                      )}
+                    </div>
+                    <div className="mt-1.5 flex items-center gap-2">
+                      <span
+                        className={`text-sm font-black ${
+                          isExceeded ? "text-red-600" : "text-slate-900"
+                        }`}
+                      >
+                        {currencySymbol}
+                      </span>
+                      <input
+                        type="text"
+                        inputMode="decimal"
+                        value={manualValue ?? sellingPrice.toFixed(2)}
+                        onChange={(e) =>
+                          handlePriceInputChange(cartItem._id, e.target.value)
+                        }
+                        onBlur={(e) => {
+                          const nextValue = e.target.value.trim();
+                          if (nextValue === "") {
+                            setManualPrices((prev) => {
+                              const next = { ...prev };
+                              delete next[cartItem._id];
+                              return next;
+                            });
+                            return;
                           }
-                          onBlur={(e) => {
-                            const nextValue = e.target.value.trim();
-                            if (nextValue === "") {
-                              setManualPrices((prev) => {
-                                const next = { ...prev };
-                                delete next[cartItem._id];
-                                return next;
-                              });
-                              return;
-                            }
 
-                            const numericValue = Number(nextValue);
-                            if (
-                              !Number.isFinite(numericValue) ||
-                              numericValue < 0
-                            ) {
-                              setManualPrices((prev) => ({
-                                ...prev,
-                                [cartItem._id]: originalPrice.toFixed(2),
-                              }));
-                              return;
-                            }
-
+                          const numericValue = Number(nextValue);
+                          if (!Number.isFinite(numericValue)) {
                             setManualPrices((prev) => ({
                               ...prev,
-                              [cartItem._id]: numericValue.toFixed(2),
+                              [cartItem._id]: originalPrice.toFixed(2),
                             }));
-                          }}
-                          className="w-full bg-transparent text-sm font-black text-slate-900 outline-none"
-                        />
-                      </div>
+                            return;
+                          }
+
+                          if (numericValue > originalPrice) {
+                            toast.error(
+                              `Selling price cannot exceed the original price (${currencySymbol}${originalPrice.toFixed(2)}).`,
+                            );
+                            setManualPrices((prev) => ({
+                              ...prev,
+                              [cartItem._id]: originalPrice.toFixed(2),
+                            }));
+                            return;
+                          }
+
+                          if (numericValue < 0) {
+                            setManualPrices((prev) => ({
+                              ...prev,
+                              [cartItem._id]: "0.00",
+                            }));
+                            return;
+                          }
+
+                          setManualPrices((prev) => ({
+                            ...prev,
+                            [cartItem._id]: numericValue.toFixed(2),
+                          }));
+                        }}
+                        className={`w-full bg-transparent text-sm font-black outline-none ${
+                          isExceeded
+                            ? "text-red-600 placeholder:text-red-300"
+                            : "text-slate-900"
+                        }`}
+                      />
                     </div>
                   </div>
 
-                  {hasDiscount && (
+                  {isExceeded && (
+                    <p className="mt-1.5 text-[11px] font-bold text-red-500 ml-1">
+                      Selling price cannot exceed {currencySymbol}
+                      {originalPrice.toFixed(2)}
+                    </p>
+                  )}
+
+                  {hasDiscount && !isExceeded && (
                     <div className="mt-3 flex items-center justify-between rounded-xl border border-[#FCA5A5] bg-[#FFF7F7] px-3 py-2">
                       <div className="flex items-center gap-2 text-[#65A30D]">
                         <Tag size={14} />
@@ -1443,18 +1509,19 @@ export default function Checkout() {
                         {discountPercent.toFixed(
                           discountPercent % 1 === 0 ? 0 : 2,
                         )}
-                        % (-{formatCurrency(discountAmount * cartItem.quantity)}
-                        )
+                        % (-
+                        {currencySymbol}
+                        {(discountAmount * cartItem.quantity).toFixed(2)})
                       </span>
                     </div>
                   )}
 
-                  <div className="mt-3 flex justify-end">
+                  {/* <div className="mt-3 flex justify-end">
                     <p className="text-sm font-black text-slate-900">
-                      Line Total:{" "}
-                      {formatCurrency(sellingPrice * cartItem.quantity)}
+                      Line Total: {currencySymbol}
+                      {(sellingPrice * cartItem.quantity).toFixed(2)}
                     </p>
-                  </div>
+                  </div> */}
                 </div>
               );
             })
@@ -1691,29 +1758,28 @@ export default function Checkout() {
         )}
 
         {/* Calculations / Summary */}
-        <div className="bg-slate-50 border border-slate-150 rounded-2xl p-4 space-y-2 mt-4 text-xs font-bold text-slate-600">
+        <div className="bg-slate-50 border border-slate-150 rounded-2xl p-4 space-y-2.5 mt-4 text-xs font-bold text-slate-600">
           <div className="flex justify-between">
             <span>Subtotal</span>
-            <span className="text-slate-900">
-              {formatCurrency(subtotalBeforeDiscount)}
+            <span className="text-slate-900 font-black">
+              {currencySymbol}
+              {subtotalBeforeDiscount.toFixed(2)}
             </span>
           </div>
-          <div className="flex justify-between text-red-500">
-            <span>Total Discount</span>
-            <span>-{formatCurrency(totalDiscount)}</span>
-          </div>
-          <div className="flex justify-between">
-            <span>Discounted Subtotal</span>
-            <span className="text-slate-900">{formatCurrency(subtotal)}</span>
-          </div>
-          <div className="flex justify-between">
-            <span>Tax (8.5%)</span>
-            <span className="text-slate-900">{formatCurrency(tax)}</span>
-          </div>
-          <div className="flex justify-between text-base font-black text-slate-900 border-t border-slate-200/60 pt-2 mt-2">
+          {totalDiscount > 0 && (
+            <div className="flex justify-between text-red-500">
+              <span>Total Discount</span>
+              <span className="font-black">
+                -{currencySymbol}
+                {totalDiscount.toFixed(2)}
+              </span>
+            </div>
+          )}
+          <div className="flex justify-between text-base font-black text-slate-900 border-t border-slate-200/60 pt-2.5 mt-2">
             <span>Total Payment</span>
             <span className="text-[#84CC16]">
-              {formatCurrency(totalPayment)}
+              {currencySymbol}
+              {subtotal.toFixed(2)}
             </span>
           </div>
         </div>
@@ -1729,7 +1795,7 @@ export default function Checkout() {
           ) : (
             <>
               <ShoppingCart size={16} strokeWidth={2.5} />
-              <span>Place Order</span>
+              <span>Charge Now</span>
             </>
           )}
         </button>

@@ -164,6 +164,9 @@ export const createFromBarcodeBulk = async (
 ) => {
   const formData = new FormData();
   formData.append("userId", input.userId);
+  if (input.categoryId) {
+    formData.append("categoryId", input.categoryId);
+  }
   input.barcodes.forEach((barcode, index) => {
     formData.append(`barcodes[${index}][code]`, barcode.code);
     formData.append(
@@ -184,6 +187,10 @@ export const createFromBarcodeBulk = async (
       formData.append(`barcodes[${index}][storage]`, barcode.storage);
     if (barcode.image)
       formData.append(`barcodes[${index}][image]`, barcode.image);
+    const catId = barcode.categoryId || input.categoryId;
+    if (catId) {
+      formData.append(`barcodes[${index}][categoryId]`, catId);
+    }
   });
 
   const response = await api.post(
@@ -306,10 +313,14 @@ export const deleteAllShopkeeperCartItems = async (shopkeeperId: string) => {
 export const importCsvInventory = async (input: {
   file: File;
   userId: string;
+  categoryId?: string;
 }) => {
   const formData = new FormData();
   formData.append("file", input.file);
   formData.append("userId", input.userId);
+  if (input.categoryId) {
+    formData.append("categoryId", input.categoryId);
+  }
 
   const response = await api.post(`${BASE}/import-csv`, formData, {
     headers: { "Content-Type": "multipart/form-data" },

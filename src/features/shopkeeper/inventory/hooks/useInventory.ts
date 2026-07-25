@@ -152,6 +152,7 @@ export function useCreateFromBarcode() {
       purchasePrice?: number;
       currentState?: string;
       image?: File;
+      categoryId?: string;
     }) => createFromBarcode(input),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: INVENTORY_KEYS.all });
@@ -299,7 +300,7 @@ export function useDeleteAllShopkeeperCartItems(shopkeeperId?: string) {
 export function useImportCsvInventory() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (input: { file: File; userId: string }) =>
+    mutationFn: (input: { file: File; userId: string; categoryId?: string }) =>
       importCsvInventory(input),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: INVENTORY_KEYS.all });

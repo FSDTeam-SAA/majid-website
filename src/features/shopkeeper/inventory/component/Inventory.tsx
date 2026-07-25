@@ -31,6 +31,7 @@ import { useSession } from "next-auth/react";
 import axiosInstance from "@/lib/instance/axios-instance";
 import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
+import { useCurrency } from "@/hooks/useCurrency";
 
 import { InventorySkeleton } from "./skeletons/InventorySkeleton";
 import { InventoryFormModal } from "./modals/InventoryFormModal";
@@ -76,6 +77,7 @@ const getCategoryImageUrl = (category: Category) => {
 };
 
 export default function Inventory() {
+  const { formatCurrency } = useCurrency();
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(
     null,
   );
@@ -306,13 +308,26 @@ export default function Inventory() {
               </p>
             </div>
 
-            <button
-              onClick={() => openCategoryForm()}
-              className="flex h-12 items-center justify-center gap-2 rounded-xl bg-[#84CC16] px-6 text-sm font-black text-white shadow-lg shadow-lime-500/20 transition hover:bg-[#76b813] active:scale-95"
-            >
-              <Plus size={18} strokeWidth={3} />
-              Add Category
-            </button>
+            <div className="flex flex-wrap items-center gap-3">
+              <button
+                onClick={() => {
+                  setEditingItem(null);
+                  setFormForceType("inventory");
+                  setIsFormOpen(true);
+                }}
+                className="flex h-12 items-center justify-center gap-2 rounded-xl bg-card border border-border px-5 text-sm font-black text-foreground shadow-sm transition hover:border-[#84CC16]/50 hover:bg-[#84CC16]/5 active:scale-95 cursor-pointer"
+              >
+                <Plus size={18} strokeWidth={3} />
+                Add Item
+              </button>
+              <button
+                onClick={() => openCategoryForm()}
+                className="flex h-12 items-center justify-center gap-2 rounded-xl bg-[#84CC16] px-6 text-sm font-black text-white shadow-lg shadow-lime-500/20 transition hover:bg-[#76b813] active:scale-95 cursor-pointer"
+              >
+                <Plus size={18} strokeWidth={3} />
+                Add Category
+              </button>
+            </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
@@ -422,6 +437,17 @@ export default function Inventory() {
             onImageChange={handleCategoryImageChange}
             onClose={closeCategoryForm}
             onSubmit={handleCategorySubmit}
+          />
+          <InventoryFormModal
+            isOpen={isFormOpen}
+            onClose={() => {
+              setIsFormOpen(false);
+              setEditingItem(null);
+              setFormForceType(undefined);
+            }}
+            item={editingItem}
+            forceType={formForceType}
+            categoryId={undefined}
           />
         </div>
       </div>
@@ -659,10 +685,10 @@ export default function Inventory() {
                           <div className="flex items-end justify-between pt-2">
                             <div className="flex items-baseline gap-2">
                               <span className="text-[11px] font-bold text-gray-300 line-through">
-                                ${(item.expectedPrice * 1.2).toFixed(0)}
+                                {formatCurrency(item.expectedPrice * 1.2)}
                               </span>
                               <span className="text-xl font-black text-foreground">
-                                ${item.expectedPrice.toLocaleString()}
+                                {formatCurrency(item.expectedPrice)}
                               </span>
                             </div>
                             <span className="text-[10px] font-bold text-muted-foreground">

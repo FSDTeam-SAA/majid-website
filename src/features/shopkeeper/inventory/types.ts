@@ -320,11 +320,13 @@ export interface BulkBarcodeItem {
   color: string;
   storage: string;
   image?: File | null;
+  categoryId?: string;
 }
 
 export interface CreateFromBarcodeBulkInput {
   userId: string;
   barcodes: BulkBarcodeItem[];
+  categoryId?: string;
 }
 
 export type Customer = {
