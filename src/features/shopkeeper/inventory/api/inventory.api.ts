@@ -91,6 +91,11 @@ export const createInventory = async (input: CreateInventoryInput) => {
       continue;
     }
 
+    if (Array.isArray(value)) {
+      formData.append(key, JSON.stringify(value));
+      continue;
+    }
+
     if (key !== "image") {
       formData.append(key, String(value));
     }
@@ -98,6 +103,13 @@ export const createInventory = async (input: CreateInventoryInput) => {
 
   const response = await api.post(`${BASE}/create`, formData, {
     headers: { "Content-Type": "multipart/form-data" },
+  });
+  return response.data;
+};
+
+export const searchBarcodeProducts = async (query: string) => {
+  const response = await api.get(`/barcode/search`, {
+    params: { query },
   });
   return response.data;
 };
@@ -116,6 +128,11 @@ export const updateInventory = async ({
 
     if (key === "image" && value instanceof File) {
       formData.append(key, value);
+      continue;
+    }
+
+    if (Array.isArray(value)) {
+      formData.append(key, JSON.stringify(value));
       continue;
     }
 
@@ -141,12 +158,18 @@ export const createFromBarcode = async (input: {
   purchasePrice?: number;
   currentState?: string;
   image?: File;
+  images?: string[];
+  categoryId?: string;
+  sourceImageUrl?: string;
+  sourceImageUrls?: string[];
 }) => {
   const formData = new FormData();
   Object.entries(input).forEach(([key, value]) => {
     if (value !== undefined && value !== null && value !== "") {
       if (key === "image" && value instanceof File) {
         formData.append(key, value);
+      } else if (Array.isArray(value)) {
+        formData.append(key, JSON.stringify(value));
       } else {
         formData.append(key, String(value));
       }

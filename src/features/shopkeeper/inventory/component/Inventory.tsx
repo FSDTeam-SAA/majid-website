@@ -76,6 +76,19 @@ const getCategoryImageUrl = (category: Category) => {
   return category.image.url ?? "";
 };
 
+const getInventoryImageUrl = (item: InventoryItem) => {
+  return (
+    item.image?.url ||
+    item.images?.[0] ||
+    item.sourceImageUrl ||
+    item.sourceImageUrls?.[0] ||
+    ""
+  );
+};
+
+const getInventoryDisplayPrice = (item: InventoryItem) =>
+  item.expectedPrice ?? item.salePrice ?? 0;
+
 export default function Inventory() {
   const { formatCurrency } = useCurrency();
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(
@@ -179,7 +192,8 @@ export default function Inventory() {
 
   const totalValue = useMemo(() => {
     return items.reduce(
-      (sum: number, item: InventoryItem) => sum + item.expectedPrice,
+      (sum: number, item: InventoryItem) =>
+        sum + getInventoryDisplayPrice(item),
       0,
     );
   }, [items]);
@@ -582,12 +596,13 @@ export default function Inventory() {
                     >
                       <div className="flex flex-col gap-5 sm:flex-row sm:gap-6">
                         <div className="relative h-44 w-full flex-shrink-0 overflow-hidden rounded-2xl border border-border bg-slate-50 dark:bg-slate-900 sm:h-32 sm:w-32">
-                          {item.image?.url ? (
+                          {getInventoryImageUrl(item) ? (
                             <Image
-                              src={item.image.url}
+                              src={getInventoryImageUrl(item)}
                               alt={item.itemName}
                               fill
                               className="object-cover transition-transform duration-500"
+                              unoptimized
                             />
                           ) : (
                             <div className="w-full h-full flex items-center justify-center text-slate-300">
@@ -683,12 +698,15 @@ export default function Inventory() {
                           </div>
 
                           <div className="flex items-end justify-between pt-2">
-                            <div className="flex items-baseline gap-2">
-                              <span className="text-[11px] font-bold text-gray-300 line-through">
-                                {formatCurrency(item.expectedPrice * 1.2)}
+                            <div className="flex flex-col gap-1">
+                              <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                                Selling Price
                               </span>
                               <span className="text-xl font-black text-foreground">
-                                {formatCurrency(item.expectedPrice)}
+                                {formatCurrency(
+                                  getInventoryDisplayPrice(item),
+                                  "GBP",
+                                )}
                               </span>
                             </div>
                             <span className="text-[10px] font-bold text-muted-foreground">

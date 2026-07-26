@@ -5,6 +5,9 @@ import { z } from "zod";
 export const InventoryItemSchema = z.object({
   _id: z.string(),
   categoryId: z.string().optional(),
+  images: z.array(z.string()).optional(),
+  sourceImageUrl: z.string().optional(),
+  sourceImageUrls: z.array(z.string()).optional(),
   itemName: z.string(),
   sku: z.string().optional(),
   brand: z.string().optional(),
@@ -77,6 +80,9 @@ export const InventorySingleResponseSchema = z.object({
 
 export const CreateInventorySchema = z.object({
   categoryId: z.string().optional(),
+  images: z.array(z.string()).optional(),
+  sourceImageUrl: z.string().optional(),
+  sourceImageUrls: z.array(z.string()).optional(),
   itemName: z.string().min(1, "Item name is required"),
   sku: z.string().optional(),
   brand: z.string().optional(),
@@ -112,6 +118,9 @@ export const CreateInventorySchema = z.object({
 
 export const UpdateInventorySchema = z.object({
   categoryId: z.string().optional(),
+  images: z.array(z.string()).optional(),
+  sourceImageUrl: z.string().optional(),
+  sourceImageUrls: z.array(z.string()).optional(),
   itemName: z.string().min(1, "Item name is required").optional(),
   sku: z.string().optional(),
   brand: z.string().optional(),

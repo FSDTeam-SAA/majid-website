@@ -21,6 +21,16 @@ interface InventoryDetailsModalProps {
   onClose: () => void;
 }
 
+const getInventoryImageUrl = (item: InventoryItem) =>
+  item.image?.url ||
+  item.images?.[0] ||
+  item.sourceImageUrl ||
+  item.sourceImageUrls?.[0] ||
+  "";
+
+const getInventoryDisplayPrice = (item: InventoryItem) =>
+  item.expectedPrice ?? item.salePrice ?? 0;
+
 export function InventoryDetailsModal({
   item,
   onClose,
@@ -45,12 +55,13 @@ export function InventoryDetailsModal({
       >
         {/* Product Image Section - Sticky on mobile/left on desktop */}
         <div className="w-full md:w-[350px] h-[300px] md:h-auto relative bg-slate-50 flex-shrink-0 border-r border-slate-100">
-          {item.image?.url ? (
+          {getInventoryImageUrl(item) ? (
             <Image
-              src={item.image.url}
+              src={getInventoryImageUrl(item)}
               alt={item.itemName}
               fill
               className="object-cover"
+              unoptimized
             />
           ) : (
             <div className="w-full h-full bg-slate-100 flex flex-col items-center justify-center gap-4">
@@ -74,11 +85,11 @@ export function InventoryDetailsModal({
           {/* Pricing Highlight at Bottom of Image */}
           <div className="absolute bottom-6 left-6 right-6 p-4 bg-white/80 backdrop-blur-md rounded-2xl border border-white/50 shadow-xl hidden md:block">
             <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">
-              Expected Price
+              Selling Price
             </p>
             <div className="flex items-baseline gap-1">
               <span className="text-3xl font-black text-[#0F172A]">
-                {formatCurrency(item.expectedPrice)}
+                {formatCurrency(getInventoryDisplayPrice(item), "GBP")}
               </span>
             </div>
           </div>
@@ -133,7 +144,7 @@ export function InventoryDetailsModal({
                   Selling
                 </span>
                 <span className="text-xs font-black text-[#84CC16]">
-                  {formatCurrency(item.expectedPrice)}
+                  {formatCurrency(getInventoryDisplayPrice(item), "GBP")}
                 </span>
               </div>
               <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 text-center">

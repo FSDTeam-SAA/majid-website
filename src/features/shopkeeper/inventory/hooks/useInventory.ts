@@ -22,6 +22,7 @@ import {
   deleteCartItem,
   deleteAllShopkeeperCartItems,
   importCsvInventory,
+  searchBarcodeProducts,
 } from "../api/inventory.api";
 import type {
   CreateInventoryInput,
@@ -37,6 +38,8 @@ import type {
 export const INVENTORY_KEYS = {
   all: ["inventory"] as const,
   myInventory: () => [...INVENTORY_KEYS.all, "my-inventory"] as const,
+  barcodeSearch: (query: string) =>
+    [...INVENTORY_KEYS.all, "barcode-search", query] as const,
   byCategory: (categoryId: string) =>
     [...INVENTORY_KEYS.all, "category", categoryId] as const,
   bySupplier: (supplierId: string) =>
@@ -69,6 +72,15 @@ export function useInventoryBySupplier(supplierId?: string) {
     queryKey: INVENTORY_KEYS.bySupplier(supplierId || ""),
     queryFn: () => getInventoryBySupplier(supplierId || ""),
     enabled: !!supplierId,
+  });
+}
+
+export function useBarcodeProductSearch(query?: string) {
+  return useQuery({
+    queryKey: INVENTORY_KEYS.barcodeSearch(query || ""),
+    queryFn: () => searchBarcodeProducts(query || ""),
+    enabled: !!query && query.trim().length >= 2,
+    staleTime: 1000 * 60 * 5,
   });
 }
 
@@ -152,7 +164,10 @@ export function useCreateFromBarcode() {
       purchasePrice?: number;
       currentState?: string;
       image?: File;
+      images?: string[];
       categoryId?: string;
+      sourceImageUrl?: string;
+      sourceImageUrls?: string[];
     }) => createFromBarcode(input),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: INVENTORY_KEYS.all });
