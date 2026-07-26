@@ -94,6 +94,7 @@ import {
   useCreateInvoice,
   useImportCsvInventory,
   useCategories,
+  useBarcodeProductSearch,
 } from "../../hooks/useInventory";
 import { Category } from "../../types";
 import {
@@ -103,6 +104,19 @@ import {
 import { SupplierFormModal } from "../../../supplier/component/modals/SupplierFormModal";
 import { ScanResultModal } from "./ScanResultModal";
 import { useCurrency } from "@/hooks/useCurrency";
+
+type BarcodeSearchItem = {
+  name?: string;
+  brand?: string;
+  category?: string;
+  description?: string;
+  barcode?: string;
+  image?: string;
+  images?: string[];
+  color?: string;
+  size?: string;
+  rawData?: Record<string, unknown>;
+};
 
 // ─── Import CSV sub-component (used as the 3rd tab inside the modal) ──────────
 function ImportCsvModalContent({
@@ -433,8 +447,8 @@ const getPreferredBarcodeItemName = (
     return normalizedPrimaryName;
   }
 
-  if (fallbackModel) return fallbackModel;
   if (fallbackTitle) return fallbackTitle;
+  if (fallbackModel) return fallbackModel;
   if (fallbackInsightTitle) return fallbackInsightTitle;
   return normalizedPrimaryName || "";
 };
@@ -492,6 +506,100 @@ const getBarcodeImageUrl = (barcodeResult?: Record<string, unknown>) => {
   return "";
 };
 
+const getBarcodeImageUrls = (barcodeResult?: Record<string, unknown>) => {
+  const urls = new Set<string>();
+
+  const topLevelImage =
+    typeof barcodeResult?.image === "string" ? barcodeResult.image.trim() : "";
+  if (topLevelImage) urls.add(topLevelImage);
+
+  if (Array.isArray(barcodeResult?.images)) {
+    barcodeResult.images.forEach((value) => {
+      if (typeof value === "string" && value.trim()) {
+        urls.add(value.trim());
+      }
+    });
+  }
+
+  const rawData =
+    typeof barcodeResult?.rawData === "object" && barcodeResult.rawData !== null
+      ? (barcodeResult.rawData as Record<string, unknown>)
+      : undefined;
+
+  if (Array.isArray(rawData?.images)) {
+    rawData.images.forEach((value) => {
+      if (typeof value === "string" && value.trim()) {
+        urls.add(value.trim());
+      }
+    });
+  }
+
+  return Array.from(urls);
+};
+
+const getSuggestionBarcode = (product?: BarcodeSearchItem) => {
+  const directBarcode =
+    typeof product?.barcode === "string" ? product.barcode.trim() : "";
+  if (directBarcode && directBarcode.toUpperCase() !== "N/A") {
+    return directBarcode;
+  }
+
+  const rawData =
+    typeof product?.rawData === "object" && product.rawData !== null
+      ? (product.rawData as Record<string, unknown>)
+      : undefined;
+
+  const rawCandidates = [
+    rawData?.barcode_number,
+    rawData?.barcode,
+    rawData?.ean,
+    rawData?.upc,
+    rawData?.mpn,
+  ];
+
+  for (const candidate of rawCandidates) {
+    if (typeof candidate === "string" && candidate.trim()) {
+      return candidate.trim();
+    }
+  }
+
+  if (typeof rawData?.barcode_formats === "string") {
+    const match = rawData.barcode_formats.match(/\b(\d{8,14})\b/);
+    if (match?.[1]) {
+      return match[1];
+    }
+  }
+
+  return "";
+};
+
+const getSuggestionTitle = (product?: BarcodeSearchItem) => {
+  if (typeof product?.name === "string" && product.name.trim()) {
+    const normalizedName = product.name.trim();
+    if (normalizedName.toLowerCase() !== "unknown product") {
+      return normalizedName;
+    }
+  }
+
+  const rawData =
+    typeof product?.rawData === "object" && product.rawData !== null
+      ? (product.rawData as Record<string, unknown>)
+      : undefined;
+
+  const titleCandidates = [
+    rawData?.title,
+    rawData?.product_name,
+    rawData?.name,
+  ];
+  for (const candidate of titleCandidates) {
+    if (typeof candidate === "string" && candidate.trim()) {
+      return candidate.trim();
+    }
+  }
+
+  return product?.brand?.trim() || "Unnamed Product";
+};
+
 interface InventoryFormModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -511,6 +619,7 @@ export function InventoryFormModal({
   const isEditMode = !!item;
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [imageGallery, setImageGallery] = useState<string[]>([]);
   const [isCameraActive, setIsCameraActive] = useState(false);
   const html5QrCodeRef = useRef<Html5Qrcode | null>(null);
   const barcodeImageInputRef = useRef<HTMLInputElement>(null);
@@ -530,6 +639,15 @@ export function InventoryFormModal({
   const [barcodeDeviceImagePreview, setBarcodeDeviceImagePreview] = useState<
     string | null
   >(null);
+  const [productNameSearch, setProductNameSearch] = useState("");
+  const [debouncedProductNameSearch, setDebouncedProductNameSearch] =
+    useState("");
+  const [showProductSuggestions, setShowProductSuggestions] = useState(false);
+  const [selectedSearchBarcode, setSelectedSearchBarcode] = useState("");
+  const [suggestedExpectedPrice, setSuggestedExpectedPrice] = useState<
+    number | null
+  >(null);
+  const productSuggestionRef = useRef<HTMLDivElement>(null);
   const [scannedItemId, setScannedItemId] = useState<string | null>(null);
   const [isCustomBrand, setIsCustomBrand] = useState(false);
   const [isCustomCondition, setIsCustomCondition] = useState(false);
@@ -553,7 +671,11 @@ export function InventoryFormModal({
   const suppliers = suppliersResponse?.data || [];
   const createSupplierMutation = useCreateSupplier();
   const { data: categoriesData } = useCategories();
+  const { data: barcodeSearchResponse, isFetching: isSearchingProducts } =
+    useBarcodeProductSearch(debouncedProductNameSearch);
   const categories = categoriesData?.data || [];
+  const barcodeSearchResults =
+    ((barcodeSearchResponse?.data || []) as BarcodeSearchItem[]) || [];
 
   // Bulk Upload States
   const [bulkItems, setBulkItems] = useState<BulkBarcodeItem[]>([
@@ -669,6 +791,32 @@ export function InventoryFormModal({
     }
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  useEffect(() => {
+    const timeout = window.setTimeout(() => {
+      setDebouncedProductNameSearch(productNameSearch.trim());
+    }, 350);
+
+    return () => window.clearTimeout(timeout);
+  }, [productNameSearch]);
+
+  useEffect(() => {
+    function handleProductSuggestionClickOutside(event: MouseEvent) {
+      if (
+        productSuggestionRef.current &&
+        !productSuggestionRef.current.contains(event.target as Node)
+      ) {
+        setShowProductSuggestions(false);
+      }
+    }
+
+    document.addEventListener("mousedown", handleProductSuggestionClickOutside);
+    return () =>
+      document.removeEventListener(
+        "mousedown",
+        handleProductSuggestionClickOutside,
+      );
   }, []);
 
   // Close supplier dropdown when clicking outside
@@ -794,6 +942,8 @@ export function InventoryFormModal({
     resolver: zodResolver(CreateInventorySchema),
     defaultValues: {
       userId: "",
+      sourceImageUrl: "",
+      sourceImageUrls: [],
       customerName: "",
       customerEmail: "",
       customerPhone: "",
@@ -808,6 +958,9 @@ export function InventoryFormModal({
   useEffect(() => {
     if (item) {
       form.reset({
+        sourceImageUrl: item.image?.url ?? "",
+        sourceImageUrls:
+          item.sourceImageUrls ?? (item.image?.url ? [item.image.url] : []),
         itemName: item.itemName,
         sku: item.sku ?? "",
         brand: item.brand ?? "",
@@ -900,6 +1053,8 @@ export function InventoryFormModal({
       }, 0);
     } else {
       form.reset({
+        sourceImageUrl: "",
+        sourceImageUrls: [],
         itemName: "",
         sku: "",
         brand: "",
@@ -951,8 +1106,14 @@ export function InventoryFormModal({
     const timer = setTimeout(() => {
       if (item) {
         setImagePreview(item.image?.url ?? null);
+        setImageGallery(
+          item.sourceImageUrls ?? (item.image?.url ? [item.image.url] : []),
+        );
+        setProductNameSearch(item.itemName ?? "");
       } else {
         setImagePreview(null);
+        setImageGallery([]);
+        setProductNameSearch("");
       }
     }, 0);
     return () => clearTimeout(timer);
@@ -985,9 +1146,57 @@ export function InventoryFormModal({
     const file = e.target.files?.[0];
     if (!file) return;
     form.setValue("image", file);
+    form.setValue("sourceImageUrl", "", {
+      shouldDirty: true,
+      shouldValidate: false,
+    });
+    form.setValue("sourceImageUrls", [], {
+      shouldDirty: true,
+      shouldValidate: false,
+    });
+    setImageGallery([]);
     const reader = new FileReader();
     reader.onloadend = () => setImagePreview(reader.result as string);
     reader.readAsDataURL(file);
+  };
+
+  const handleProductSuggestionSelect = (product: BarcodeSearchItem) => {
+    const nextName = getSuggestionTitle(product);
+    const resolvedBarcode = getSuggestionBarcode(product);
+    setProductNameSearch(nextName);
+    form.setValue("itemName", nextName, {
+      shouldDirty: true,
+      shouldValidate: true,
+    });
+    setSelectedSearchBarcode(resolvedBarcode);
+    setShowProductSuggestions(false);
+
+    if (resolvedBarcode) {
+      handleManualBarcodeSubmit(resolvedBarcode);
+      return;
+    }
+
+    const nextImages =
+      Array.isArray(product.images) && product.images.length
+        ? product.images.filter(
+            (value) => typeof value === "string" && value.trim(),
+          )
+        : product.image?.trim()
+          ? [product.image.trim()]
+          : [];
+
+    if (nextImages.length) {
+      setImagePreview(nextImages[0]);
+      form.setValue("sourceImageUrl", nextImages[0], {
+        shouldDirty: true,
+        shouldValidate: false,
+      });
+      setImageGallery(nextImages);
+      form.setValue("sourceImageUrls", nextImages, {
+        shouldDirty: true,
+        shouldValidate: false,
+      });
+    }
   };
 
   const handleDownloadInvoice = async (values: CreateInventoryInput) => {
@@ -1031,6 +1240,20 @@ export function InventoryFormModal({
   };
 
   const onSubmit = (values: CreateInventoryInput) => {
+    const inventoryPayload = {
+      ...values,
+      salePrice: values.salePrice ?? values.expectedPrice,
+      images:
+        values.images && values.images.length ? values.images : imageGallery,
+      sourceImageUrl:
+        values.sourceImageUrl || imagePreview || imageGallery[0] || "",
+      sourceImageUrls:
+        values.sourceImageUrls && values.sourceImageUrls.length
+          ? values.sourceImageUrls
+          : imageGallery,
+      categoryId: values.categoryId || categoryId,
+    };
+
     if (forceType === "sold") {
       handleDownloadInvoice(values);
       onClose();
@@ -1041,10 +1264,7 @@ export function InventoryFormModal({
       updateItem(
         {
           id: item._id,
-          input: {
-            ...values,
-            categoryId: values.categoryId || categoryId,
-          },
+          input: inventoryPayload,
         },
         {
           onSuccess: () => {
@@ -1058,7 +1278,7 @@ export function InventoryFormModal({
       updateItem(
         {
           id: scannedItemId,
-          input: { ...values, categoryId: values.categoryId || categoryId },
+          input: inventoryPayload,
         },
         {
           onSuccess: () => {
@@ -1076,8 +1296,7 @@ export function InventoryFormModal({
     } else {
       createItem(
         {
-          ...values,
-          categoryId: values.categoryId || categoryId,
+          ...inventoryPayload,
           userId: (session?.user as { id: string })?.id ?? "",
         },
         {
@@ -1152,6 +1371,7 @@ export function InventoryFormModal({
     setBarcodeCondition("new");
     setBarcodeDeviceImage(null);
     setBarcodeDeviceImagePreview(null);
+    setSuggestedExpectedPrice(null);
   };
 
   const handleManualBarcodeSubmit = (codeOverride?: string) => {
@@ -1162,6 +1382,11 @@ export function InventoryFormModal({
     }
 
     const currentCategoryId = form.getValues("categoryId") || categoryId;
+    const currentSourceImageUrl =
+      form.getValues("sourceImageUrl") || imagePreview || "";
+    const currentSourceImageUrls = form.getValues("sourceImageUrls")?.length
+      ? form.getValues("sourceImageUrls")
+      : imageGallery;
 
     if ((session?.user as { id: string })?.id) {
       handleCreateFromBarcode(
@@ -1174,7 +1399,10 @@ export function InventoryFormModal({
             : undefined,
           currentState: barcodeCondition,
           image: barcodeDeviceImage || undefined,
+          images: currentSourceImageUrls,
           categoryId: currentCategoryId || undefined,
+          sourceImageUrl: currentSourceImageUrl || undefined,
+          sourceImageUrls: currentSourceImageUrls,
         },
         {
           onSuccess: (data: {
@@ -1258,7 +1486,10 @@ export function InventoryFormModal({
                 form.setValue("modelNumber", value as string, options);
               }
               if (key === "price" || key === "expectedPrice") {
-                form.setValue("expectedPrice", Number(value), options);
+                const numericValue = Number(value);
+                if (Number.isFinite(numericValue) && numericValue > 0) {
+                  setSuggestedExpectedPrice(numericValue);
+                }
               }
               if (key === "imei" || key === "imeiNumber") {
                 form.setValue("imeiNumber", value as string, options);
@@ -1282,6 +1513,16 @@ export function InventoryFormModal({
               form.setValue("itemName", fallbackItemName, options);
             }
 
+            const fallbackSuggestedPrice = Number(
+              deviceData.expectedPrice ?? deviceData.price ?? 0,
+            );
+            if (
+              Number.isFinite(fallbackSuggestedPrice) &&
+              fallbackSuggestedPrice > 0
+            ) {
+              setSuggestedExpectedPrice(fallbackSuggestedPrice);
+            }
+
             const fallbackImageUrl =
               typeof deviceData.image === "object" &&
               deviceData.image !== null &&
@@ -1289,9 +1530,36 @@ export function InventoryFormModal({
               typeof deviceData.image.url === "string"
                 ? deviceData.image.url
                 : getBarcodeImageUrl(barcodeResult);
+            const fallbackImageUrls = getBarcodeImageUrls(barcodeResult);
             if (fallbackImageUrl) {
               setImagePreview(fallbackImageUrl);
+              form.setValue("sourceImageUrl", fallbackImageUrl, options);
             }
+            setImageGallery(
+              fallbackImageUrls.length
+                ? fallbackImageUrls
+                : fallbackImageUrl
+                  ? [fallbackImageUrl]
+                  : [],
+            );
+            form.setValue(
+              "images",
+              fallbackImageUrls.length
+                ? fallbackImageUrls
+                : fallbackImageUrl
+                  ? [fallbackImageUrl]
+                  : [],
+              options,
+            );
+            form.setValue(
+              "sourceImageUrls",
+              fallbackImageUrls.length
+                ? fallbackImageUrls
+                : fallbackImageUrl
+                  ? [fallbackImageUrl]
+                  : [],
+              options,
+            );
 
             const fallbackModelNumber = getBarcodeMetadataValue(
               barcodeResult,
@@ -1383,6 +1651,14 @@ export function InventoryFormModal({
 
             toast.success("Device details auto-populated! Please review.");
             setManualBarcode("");
+            setSelectedSearchBarcode(
+              typeof barcodeResult?.barcode === "string"
+                ? barcodeResult.barcode
+                : "",
+            );
+            setProductNameSearch(
+              String(form.getValues("itemName") || fallbackItemName || ""),
+            );
           },
           onError: (error: unknown) => {
             const apiError = error as {
@@ -1469,36 +1745,54 @@ export function InventoryFormModal({
                   }
                   name="itemName"
                   render={({ field }) => {
-                    const expectedPriceVal = form.watch("expectedPrice");
                     return (
                       <FormItem className="sm:col-span-2">
                         <div className="flex items-center justify-between mb-2">
                           <FormLabel className="text-[10px] font-black uppercase tracking-widest text-slate-700 dark:text-white block ml-1">
                             Product Name <span className="text-red-500">*</span>
                           </FormLabel>
-                          {expectedPriceVal ? (
+                          {suggestedExpectedPrice ? (
                             <span className="text-[10px] font-black uppercase tracking-wider text-[#84CC16] bg-[#84CC16]/10 px-3 py-1 rounded-full border border-[#84CC16]/20 flex items-center gap-1.5 shadow-sm">
                               <Tag className="w-3 h-3 text-[#84CC16]" />
                               Expected Price:{" "}
-                              {formatCurrency(Number(expectedPriceVal))}
+                              {formatCurrency(Number(suggestedExpectedPrice))}
                             </span>
                           ) : null}
                         </div>
                         <FormControl>
-                          <div className="relative group">
+                          <div
+                            className="relative group"
+                            ref={productSuggestionRef}
+                          >
                             <div className="absolute left-2 top-1/2 -translate-y-1/2 w-10 h-10 bg-white dark:bg-slate-800 rounded-[14px] flex items-center justify-center shadow-sm border border-slate-100 dark:border-slate-700 group-focus-within:border-[#84CC16]/30 group-focus-within:bg-[#84CC16]/5 transition-all z-10">
                               <Smartphone className="w-4 h-4 text-slate-400 group-focus-within:text-[#84CC16] transition-colors" />
                             </div>
                             <Input
-                              placeholder="e.g. iPhone X"
+                              placeholder="Search product name, EAN or UPC"
                               className="pl-14 pr-32 bg-slate-50/80 dark:bg-slate-900/50 border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-900 rounded-[20px] h-[56px] font-bold text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 focus-visible:bg-white dark:focus-visible:bg-slate-950 focus-visible:ring-4 focus-visible:ring-[#84CC16]/15 focus-visible:border-[#84CC16] transition-all shadow-sm"
+                              value={field.value || productNameSearch}
+                              onChange={(event) => {
+                                field.onChange(event.target.value);
+                                setProductNameSearch(event.target.value);
+                                setShowProductSuggestions(true);
+                                setSelectedSearchBarcode("");
+                              }}
+                              onFocus={() => {
+                                if (
+                                  debouncedProductNameSearch.length >= 2 &&
+                                  barcodeSearchResults.length > 0
+                                ) {
+                                  setShowProductSuggestions(true);
+                                }
+                              }}
                               onKeyDown={(event) => {
                                 if (event.key === "Enter") {
                                   event.preventDefault();
-                                  handleManualBarcodeSubmit(field.value);
+                                  handleManualBarcodeSubmit(
+                                    selectedSearchBarcode || field.value,
+                                  );
                                 }
                               }}
-                              {...field}
                             />
                             <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
                               <button
@@ -1514,7 +1808,9 @@ export function InventoryFormModal({
                               <button
                                 type="button"
                                 onClick={() =>
-                                  handleManualBarcodeSubmit(field.value)
+                                  handleManualBarcodeSubmit(
+                                    selectedSearchBarcode || field.value,
+                                  )
                                 }
                                 disabled={isCreatingFromBarcode}
                                 className="w-10 h-10 rounded-xl flex items-center justify-center text-slate-400 hover:text-[#84CC16] hover:bg-[#84CC16]/10 transition-all"
@@ -1538,6 +1834,74 @@ export function InventoryFormModal({
                               id="barcode-reader-hidden"
                               className="hidden"
                             ></div>
+                            {showProductSuggestions &&
+                            debouncedProductNameSearch.length >= 2 ? (
+                              <div className="absolute left-0 right-0 top-[calc(100%+0.6rem)] z-40 rounded-[24px] border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 shadow-2xl overflow-hidden">
+                                {isSearchingProducts ? (
+                                  <div className="flex items-center gap-2 px-4 py-4 text-sm font-bold text-slate-500">
+                                    <Loader2 className="w-4 h-4 animate-spin" />
+                                    Searching products...
+                                  </div>
+                                ) : barcodeSearchResults.length ? (
+                                  <div className="max-h-80 overflow-y-auto p-2">
+                                    {barcodeSearchResults.map(
+                                      (product, index) => (
+                                        <button
+                                          key={`${product.barcode || product.name || "product"}-${index}`}
+                                          type="button"
+                                          onClick={() =>
+                                            handleProductSuggestionSelect(
+                                              product,
+                                            )
+                                          }
+                                          className="flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-left hover:bg-slate-50 dark:hover:bg-slate-900 transition-colors"
+                                        >
+                                          <div className="relative h-14 w-14 overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 shrink-0">
+                                            {product.image ? (
+                                              <NextImage
+                                                src={product.image}
+                                                alt={product.name || "Product"}
+                                                fill
+                                                className="object-cover"
+                                                unoptimized
+                                              />
+                                            ) : (
+                                              <div className="flex h-full w-full items-center justify-center text-slate-300">
+                                                <Package className="w-5 h-5" />
+                                              </div>
+                                            )}
+                                          </div>
+                                          <div className="min-w-0 flex-1">
+                                            <p className="truncate text-sm font-black text-slate-900 dark:text-white">
+                                              {getSuggestionTitle(product)}
+                                            </p>
+                                            <p className="truncate text-xs font-bold text-slate-500">
+                                              {[
+                                                product.brand,
+                                                product.color,
+                                                product.size,
+                                                product.barcode,
+                                              ]
+                                                .filter(Boolean)
+                                                .join(" • ")}
+                                            </p>
+                                            {product.description ? (
+                                              <p className="mt-1 line-clamp-2 text-xs text-slate-400">
+                                                {product.description}
+                                              </p>
+                                            ) : null}
+                                          </div>
+                                        </button>
+                                      ),
+                                    )}
+                                  </div>
+                                ) : (
+                                  <div className="px-4 py-4 text-sm font-bold text-slate-500">
+                                    No matching products found.
+                                  </div>
+                                )}
+                              </div>
+                            ) : null}
                           </div>
                         </FormControl>
                         <FormMessage className="text-[10px] uppercase tracking-wider font-bold" />
@@ -2833,7 +3197,7 @@ export function InventoryFormModal({
               )}
             />
 
-            {/* <FormField
+            <FormField
               control={form.control}
               name="aiDescription"
               render={({ field }) => (
@@ -2850,7 +3214,7 @@ export function InventoryFormModal({
                   </FormControl>
                 </FormItem>
               )}
-            /> */}
+            />
           </div>
         </div>
 
@@ -2868,27 +3232,70 @@ export function InventoryFormModal({
             onClick={() => fileInputRef.current?.click()}
           >
             {imagePreview ? (
-              <div className="relative w-full max-w-md h-48 rounded-[24px] overflow-hidden shadow-2xl">
-                <NextImage
-                  src={imagePreview}
-                  alt="Preview"
-                  fill
-                  className="object-cover"
-                  unoptimized
-                />
-                <div className="absolute inset-0 bg-slate-900/10 group-hover:bg-slate-900/20 transition-colors" />
-                <button
-                  type="button"
-                  className="absolute top-4 right-4 bg-white/90 backdrop-blur-sm text-slate-900 rounded-full p-2 hover:bg-white hover:text-red-500 transition-all shadow-md transform hover:scale-110"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setImagePreview(null);
-                    form.setValue("image", undefined);
-                    if (fileInputRef.current) fileInputRef.current.value = "";
-                  }}
-                >
-                  <X className="w-5 h-5" />
-                </button>
+              <div className="w-full max-w-2xl space-y-4">
+                <div className="relative h-56 w-full overflow-hidden rounded-[28px] border border-white/60 bg-white shadow-2xl shadow-slate-200/70">
+                  <NextImage
+                    src={imagePreview}
+                    alt="Preview"
+                    fill
+                    className="object-cover"
+                    unoptimized
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-slate-900/30 via-transparent to-transparent" />
+                  <div className="absolute left-4 top-4 rounded-full bg-white/85 px-3 py-1 text-[10px] font-black uppercase tracking-[0.2em] text-slate-700 shadow">
+                    {imageGallery.length > 1
+                      ? `${imageGallery.length} Product Images`
+                      : "Product Image"}
+                  </div>
+                  <button
+                    type="button"
+                    className="absolute top-4 right-4 bg-white/90 backdrop-blur-sm text-slate-900 rounded-full p-2 hover:bg-white hover:text-red-500 transition-all shadow-md transform hover:scale-110"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setImagePreview(null);
+                      setImageGallery([]);
+                      form.setValue("image", undefined);
+                      form.setValue("sourceImageUrl", "", {
+                        shouldDirty: true,
+                        shouldValidate: false,
+                      });
+                      form.setValue("sourceImageUrls", [], {
+                        shouldDirty: true,
+                        shouldValidate: false,
+                      });
+                      if (fileInputRef.current) fileInputRef.current.value = "";
+                    }}
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+                {imageGallery.length > 1 ? (
+                  <div className="grid grid-cols-4 gap-3">
+                    {imageGallery.map((imageUrl, index) => (
+                      <button
+                        key={`${imageUrl}-${index}`}
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setImagePreview(imageUrl);
+                        }}
+                        className={`relative h-20 overflow-hidden rounded-[20px] border transition-all ${
+                          imagePreview === imageUrl
+                            ? "border-[#84CC16] ring-4 ring-[#84CC16]/15"
+                            : "border-slate-200 hover:border-[#84CC16]/50"
+                        }`}
+                      >
+                        <NextImage
+                          src={imageUrl}
+                          alt={`Preview ${index + 1}`}
+                          fill
+                          className="object-cover"
+                          unoptimized
+                        />
+                      </button>
+                    ))}
+                  </div>
+                ) : null}
               </div>
             ) : (
               <>

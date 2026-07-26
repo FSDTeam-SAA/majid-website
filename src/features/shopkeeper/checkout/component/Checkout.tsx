@@ -1067,7 +1067,7 @@ export default function Checkout() {
                     {/* Price and Add Row */}
                     <div className="flex items-center justify-between mt-4">
                       <p className="text-[15px] font-black text-slate-900">
-                        {formatCurrency(item.expectedPrice)}
+                        {formatCurrency(convertAmount(item.expectedPrice))}
                       </p>
 
                       {/* Quantity select & Add */}
@@ -1650,7 +1650,9 @@ export default function Checkout() {
                           </p>
                           <p className="text-[10px] font-bold text-slate-500">
                             Qty {cartItem.quantity} •{" "}
-                            {formatCurrency(Number(item?.expectedPrice || 0))}
+                            {formatCurrency(
+                              convertAmount(Number(item?.expectedPrice || 0)),
+                            )}
                           </p>
                         </div>
                       </label>
@@ -1903,7 +1905,9 @@ export default function Checkout() {
                           "Accessory"}
                       </p>
                       <p className="mt-3 text-2xl font-black text-slate-950">
-                        {formatCurrency(Number(addon.item?.expectedPrice || 0))}
+                        {formatCurrency(
+                          convertAmount(Number(addon.item?.expectedPrice || 0)),
+                        )}
                       </p>
                       <div className="mt-auto pt-4">
                         <button
@@ -1938,7 +1942,7 @@ export default function Checkout() {
                 className="h-12 rounded-2xl bg-[#84CC16] px-5 text-sm font-black text-white shadow-lg shadow-lime-500/20 transition-colors hover:bg-[#74b313]"
               >
                 Add Selected ({selectedRecommendationItems.length}) -{" "}
-                {formatCurrency(selectedRecommendationTotal)}
+                {formatCurrency(convertAmount(selectedRecommendationTotal))}
               </button>
             </div>
           </div>
