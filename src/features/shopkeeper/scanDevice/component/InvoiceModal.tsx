@@ -8,7 +8,6 @@ import {
   Loader2,
   DollarSign,
   Landmark,
-  RefreshCw,
   User,
   MapPin,
   Phone,
@@ -16,11 +15,12 @@ import {
   Mail,
   AlertCircle,
 } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { IMEIResult } from "../../scanDevice/types/scanDevice.types";
 import axiosInstance from "@/lib/instance/axios-instance";
 import { useSession } from "next-auth/react";
 import { useCurrency } from "@/hooks/useCurrency";
+import { formatCurrency as baseFormatCurrency } from "@/lib/currency";
 
 interface InvoiceModalProps {
   isOpen: boolean;
@@ -53,6 +53,8 @@ export interface InvoiceFormData {
   customerId?: string;
 }
 
+const SMART_INVOICE_CURRENCY_KEY = "smart-invoice-selected-currency";
+
 // Field error type
 interface FieldError {
   field: string;
@@ -68,13 +70,24 @@ export const InvoiceModal = ({
   defaultPrice,
 }: InvoiceModalProps) => {
   const { data: session } = useSession();
-  const { currency, formatCurrency } = useCurrency();
+  const { currency, currencyOptions, convertAmount } = useCurrency();
   const marketValue = scanResult?.marketValue?.amount || defaultPrice || 599;
   const deviceName = scanResult?.deviceName || "Unknown Device";
 
   const [isCreatingCustomer, setIsCreatingCustomer] = useState(false);
   const [customerError, setCustomerError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<FieldError[]>([]);
+  const [selectedCurrency, setSelectedCurrency] = useState(() => {
+    if (typeof window !== "undefined") {
+      return (
+        window.localStorage.getItem(SMART_INVOICE_CURRENCY_KEY) ||
+        currency ||
+        "USD"
+      );
+    }
+
+    return currency || "USD";
+  });
 
   const [formData, setFormData] = useState<InvoiceFormData>({
     customerName: "",
@@ -82,21 +95,59 @@ export const InvoiceModal = ({
     customerAddress: "",
     customerPhone: "",
     price: marketValue,
+    currency: currency || "USD",
     paymentMethod: "cash",
   });
   const [tradeInValue, setTradeInValue] = useState<number>(0);
   const [bankAccountNumber, setBankAccountNumber] = useState("");
+  const previousOpenRef = useRef(false);
+  const previousScanIdRef = useRef<string | null>(null);
+
+  const formatSelectedCurrency = (amount: number) =>
+    baseFormatCurrency(Number(amount || 0), selectedCurrency || "USD");
+
+  const buildTradeInDetails = (price: number, value: number) => {
+    const remaining = price - value;
+
+    return {
+      tradeInValue: value,
+      deviceName,
+      remainingAmount: Math.abs(remaining),
+      isReceiving: remaining < 0,
+    };
+  };
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem(
+      SMART_INVOICE_CURRENCY_KEY,
+      selectedCurrency || "USD",
+    );
+  }, [selectedCurrency]);
 
   // Reset form when modal opens with new scanResult
   useEffect(() => {
-    if (isOpen && scanResult) {
+    const scanId = scanResult?.imei || null;
+    const shouldReset =
+      isOpen &&
+      !!scanResult &&
+      (!previousOpenRef.current || previousScanIdRef.current !== scanId);
+
+    previousOpenRef.current = isOpen;
+    previousScanIdRef.current = scanId;
+
+    if (shouldReset && scanResult) {
       setTimeout(() => {
+        const convertedMarketValue = Number(
+          convertAmount(marketValue, "USD", selectedCurrency).toFixed(2),
+        );
         setFormData({
           customerName: "",
           customerEmail: "",
           customerAddress: "",
           customerPhone: "",
-          price: scanResult?.marketValue?.amount || defaultPrice || 599,
+          price: convertedMarketValue,
+          currency: selectedCurrency,
           paymentMethod: "cash",
         });
         setTradeInValue(0);
@@ -105,7 +156,14 @@ export const InvoiceModal = ({
         setCustomerError(null);
       }, 0);
     }
-  }, [isOpen, scanResult, defaultPrice]);
+  }, [
+    isOpen,
+    scanResult,
+    defaultPrice,
+    marketValue,
+    selectedCurrency,
+    convertAmount,
+  ]);
 
   // Clear field error for a specific field
   const clearFieldError = (field: string) => {
@@ -243,7 +301,14 @@ export const InvoiceModal = ({
   const handlePaymentMethodChange = (
     method: InvoiceFormData["paymentMethod"],
   ) => {
-    setFormData({ ...formData, paymentMethod: method });
+    setFormData({
+      ...formData,
+      paymentMethod: method,
+      tradeInDetails:
+        method === "tradein"
+          ? buildTradeInDetails(formData.price, tradeInValue)
+          : undefined,
+    });
     setCustomerError(null);
     // Reset trade-in value when switching away from trade-in
     if (method !== "tradein") {
@@ -254,15 +319,9 @@ export const InvoiceModal = ({
   const handleTradeInChange = (value: number) => {
     const validValue = Math.max(0, value);
     setTradeInValue(validValue);
-    const remaining = formData.price - validValue;
     setFormData({
       ...formData,
-      tradeInDetails: {
-        tradeInValue: validValue,
-        deviceName: deviceName,
-        remainingAmount: Math.abs(remaining),
-        isReceiving: remaining < 0,
-      },
+      tradeInDetails: buildTradeInDetails(formData.price, validValue),
     });
     clearFieldError("tradeIn");
   };
@@ -286,27 +345,42 @@ export const InvoiceModal = ({
     field: keyof InvoiceFormData,
     value: string | number,
   ) => {
-    setFormData({ ...formData, [field]: value });
+    setFormData((prev) => ({
+      ...prev,
+      [field]: value,
+      ...(field === "price" &&
+      prev.paymentMethod === "tradein" &&
+      tradeInValue > 0
+        ? {
+            tradeInDetails: buildTradeInDetails(value as number, tradeInValue),
+          }
+        : {}),
+    }));
     clearFieldError(field as string);
     setCustomerError(null);
+  };
 
-    // Update trade-in remaining amount if price changes and trade-in is active
-    if (
-      field === "price" &&
-      formData.paymentMethod === "tradein" &&
-      tradeInValue > 0
-    ) {
-      const remaining = (value as number) - tradeInValue;
-      setFormData((prev) => ({
-        ...prev,
-        tradeInDetails: {
-          tradeInValue: tradeInValue,
-          deviceName: deviceName,
-          remainingAmount: Math.abs(remaining),
-          isReceiving: remaining < 0,
-        },
-      }));
-    }
+  const handleCurrencyChange = (nextCurrency: string) => {
+    if (!nextCurrency || nextCurrency === selectedCurrency) return;
+
+    const convertedPrice = Number(
+      convertAmount(formData.price, selectedCurrency, nextCurrency).toFixed(2),
+    );
+    const convertedTradeInValue = Number(
+      convertAmount(tradeInValue, selectedCurrency, nextCurrency).toFixed(2),
+    );
+
+    setSelectedCurrency(nextCurrency);
+    setTradeInValue(convertedTradeInValue);
+    setFormData((prev) => ({
+      ...prev,
+      price: convertedPrice,
+      currency: nextCurrency,
+      tradeInDetails:
+        prev.paymentMethod === "tradein"
+          ? buildTradeInDetails(convertedPrice, convertedTradeInValue)
+          : undefined,
+    }));
   };
 
   const handleSubmit = async () => {
@@ -323,6 +397,7 @@ export const InvoiceModal = ({
       if (result.success && result.customerId) {
         const invoiceData: InvoiceFormData = {
           ...formData,
+          currency: selectedCurrency,
           customerId: result.customerId,
         };
         onGenerate(invoiceData);
@@ -521,7 +596,23 @@ export const InvoiceModal = ({
                 <label className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3 block">
                   Price Details
                 </label>
-                <div>
+                <div className="space-y-3">
+                  <div>
+                    <label className="text-[11px] font-semibold text-gray-500 mb-1 block">
+                      Currency
+                    </label>
+                    <select
+                      value={selectedCurrency}
+                      onChange={(e) => handleCurrencyChange(e.target.value)}
+                      className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#84CC16]/20 focus:border-[#84CC16] outline-none transition bg-white"
+                    >
+                      {currencyOptions.map((option) => (
+                        <option key={option.code} value={option.code}>
+                          {option.code} - {option.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
                   <div className="relative">
                     <DollarSign
                       size={16}
@@ -540,6 +631,10 @@ export const InvoiceModal = ({
                       }`}
                     />
                   </div>
+                  <p className="text-xs text-gray-500">
+                    Current invoice amount:{" "}
+                    {formatSelectedCurrency(formData.price)}
+                  </p>
                   {getFieldError("price") && (
                     <p className="text-xs text-red-500 mt-1">
                       {getFieldError("price")}
@@ -578,18 +673,6 @@ export const InvoiceModal = ({
                     <Landmark size={16} />
                     <span className="text-sm font-semibold">Bank</span>
                   </button>
-                  <button
-                    type="button"
-                    onClick={() => handlePaymentMethodChange("tradein")}
-                    className={`py-2.5 rounded-xl border-2 flex items-center justify-center gap-2 transition cursor-pointer ${
-                      formData.paymentMethod === "tradein"
-                        ? "border-[#84CC16] bg-[#84CC16]/5 text-[#84CC16]"
-                        : "border-gray-200 text-gray-500 hover:border-gray-300"
-                    }`}
-                  >
-                    <RefreshCw size={16} />
-                    <span className="text-sm font-semibold">Trade-In</span>
-                  </button>
                 </div>
               </div>
 
@@ -618,59 +701,6 @@ export const InvoiceModal = ({
                   <p className="text-[10px] text-blue-600 mt-2">
                     Account Name: {formData.customerName || "Customer Name"}
                   </p>
-                </div>
-              )}
-
-              {/* Trade-In Details */}
-              {formData.paymentMethod === "tradein" && (
-                <div className="bg-amber-50 rounded-xl p-4 border border-amber-200">
-                  <p className="text-xs font-bold text-amber-700 mb-2">
-                    Trade-In Details
-                  </p>
-                  <div className="space-y-3">
-                    <div>
-                      <label className="text-xs text-amber-700">
-                        Device Being Traded
-                      </label>
-                      <input
-                        type="text"
-                        value={deviceName}
-                        disabled
-                        className="w-full px-4 py-2 bg-white border border-amber-200 rounded-lg text-sm"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-xs text-amber-700">
-                        Trade-In Value ({currency})
-                      </label>
-                      <input
-                        type="number"
-                        placeholder="Enter trade-in value"
-                        value={tradeInValue}
-                        onChange={(e) =>
-                          handleTradeInChange(Number(e.target.value))
-                        }
-                        className="w-full px-4 py-2 bg-white border border-amber-200 rounded-lg focus:border-[#84CC16] outline-none text-sm"
-                      />
-                    </div>
-                    {tradeInValue > 0 && (
-                      <div
-                        className={`p-3 rounded-lg ${isReceiving ? "bg-green-100" : "bg-yellow-100"}`}
-                      >
-                        <p className="text-sm font-semibold">
-                          {isReceiving
-                            ? `Customer receives: ${formatCurrency(remainingAmount)}`
-                            : `Customer pays: ${formatCurrency(remainingAmount)}`}
-                        </p>
-                        <p className="text-xs text-gray-600 mt-1">
-                          Device Price: {formatCurrency(formData.price)} -
-                          Trade-In: {formatCurrency(tradeInValue)} ={" "}
-                          {formatCurrency(remainingAmount)}{" "}
-                          {isReceiving ? "(refund)" : "(to pay)"}
-                        </p>
-                      </div>
-                    )}
-                  </div>
                 </div>
               )}
             </div>
