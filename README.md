@@ -105,7 +105,7 @@ src/
 ### Prerequisites
 
 - Node.js 18+
-- npm or pnpm
+- Yarn Classic
 
 ### 1. Clone the repository
 
@@ -117,7 +117,7 @@ cd <project-folder>
 ### 2. Install dependencies
 
 ```bash
-npm install
+yarn install
 ```
 
 ### 3. Set up environment variables
@@ -131,7 +131,7 @@ Edit `.env.local` with your actual values (see [Environment Variables](#environm
 ### 4. Run the development server
 
 ```bash
-npm run dev
+yarn dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000) in your browser.
@@ -395,15 +395,15 @@ All primitive UI components come from **Shadcn UI** and live in `src/components/
 | `Avatar`        | User avatar with fallback                            |
 | `Dropdown Menu` | Context/dropdown menus                               |
 | `Accordion`     | Collapsible accordion panels                         |
-| And more...     | Run `npx shadcn add <component>` to add more         |
+| And more...     | Run `yarn shadcn add <component>` to add more        |
 
 ### Adding a New Shadcn Component
 
 ```bash
-npx shadcn add <component-name>
+yarn shadcn add <component-name>
 # e.g.
-npx shadcn add sheet
-npx shadcn add calendar
+yarn shadcn add sheet
+yarn shadcn add calendar
 ```
 
 ---
@@ -415,7 +415,7 @@ npx shadcn add calendar
 Configured in `eslint.config.mjs`. Extends `eslint-config-next`.
 
 ```bash
-npm run lint
+yarn lint
 ```
 
 ### Prettier
@@ -424,7 +424,7 @@ Config in `.prettierrc`. Auto-formats on commit via lint-staged.
 
 ```bash
 # Format all files manually
-npx prettier --write .
+yarn prettier --write .
 ```
 
 ### Husky + Lint-staged
@@ -438,30 +438,30 @@ Config in `.lintstagedrc.json` and `.lintstagedrc`.
 Unit and integration tests live in `src/tests/`.
 
 ```bash
-npm run test         # Run all tests once
-npm run test:watch   # Run tests in watch mode
+yarn test         # Run all tests once
+yarn test:watch   # Run tests in watch mode
 ```
 
 ### TypeScript Type Checking
 
 ```bash
-npm run type-check   # Runs tsc --noEmit
+yarn type-check   # Runs tsc --noEmit
 ```
 
 ---
 
 ## 📜 Scripts Reference
 
-| Script      | Command              | Description                          |
-| ----------- | -------------------- | ------------------------------------ |
-| Development | `npm run dev`        | Start the dev server with Webpack    |
-| Build       | `npm run build`      | Create an optimized production build |
-| Start       | `npm run start`      | Start the production server          |
-| Lint        | `npm run lint`       | Run ESLint                           |
-| Test        | `npm run test`       | Run Jest tests                       |
-| Test Watch  | `npm run test:watch` | Run tests in watch mode              |
-| Type Check  | `npm run type-check` | TypeScript type validation           |
-| Commit      | `npm run commit`     | Interactive commit with Commitizen   |
+| Script      | Command           | Description                          |
+| ----------- | ----------------- | ------------------------------------ |
+| Development | `yarn dev`        | Start the dev server with Webpack    |
+| Build       | `yarn build`      | Create an optimized production build |
+| Start       | `yarn start`      | Start the production server          |
+| Lint        | `yarn lint`       | Run ESLint                           |
+| Test        | `yarn test`       | Run Jest tests                       |
+| Test Watch  | `yarn test:watch` | Run tests in watch mode              |
+| Type Check  | `yarn type-check` | TypeScript type validation           |
+| Commit      | `yarn commit`     | Interactive commit with Commitizen   |
 
 ---
 
@@ -502,7 +502,7 @@ refactor: extract api calls into feature module
 ### Using Commitizen (Interactive)
 
 ```bash
-npm run commit
+yarn commit
 ```
 
 This launches an interactive CLI to guide you through writing a valid commit message.

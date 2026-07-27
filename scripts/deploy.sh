@@ -7,10 +7,10 @@ APP_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$APP_ROOT"
 
 echo "[majid-website] Installing dependencies"
-npm ci
+yarn install --frozen-lockfile
 
 echo "[majid-website] Building app"
-npm run build
+yarn build
 
 echo "[majid-website] Restarting PM2 process"
 pm2 startOrReload ecosystem.config.cjs --update-env

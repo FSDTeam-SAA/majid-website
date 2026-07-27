@@ -376,44 +376,53 @@ export default function Settings({
     },
   });
 
-  useEffect(() => {
-    if (profileData?.data) {
-      const user = profileData.data;
-      profileForm.reset({
-        firstName: user.firstName || "",
-        lastName: user.lastName || "",
-        email: user.email || "",
-        phone: user.phone || "",
-        shopName: user.shopName || "",
-        shopAddress: user.shopAddress || "",
-        whatsappNumber: user.whatsappNumber || "",
-        googleReviewPageUrl: user.googleReviewPageUrl || "",
-      });
+  const profile = profileData?.data;
 
-      if (shouldAutoDetectCurrency(user.currency)) {
-        if (detectedCurrencyUserIdRef.current === user._id) {
-          return;
-        }
-        detectedCurrencyUserIdRef.current = user._id;
-        (async () => {
-          try {
-            setIsDetectingCurrency(true);
-            const res = await detectCurrency();
-            if (res?.data?.currency) {
-              setDetectedCurrency(res.data.currency);
-              const formData = new FormData();
-              formData.append("currency", res.data.currency);
-              await updateProfileMutation.mutateAsync(formData);
-            }
-          } catch {
-            // Silent fallback to USD
-          } finally {
-            setIsDetectingCurrency(false);
-          }
-        })();
-      }
+  useEffect(() => {
+    if (!profile) {
+      return;
     }
-  }, [profileData, profileForm, updateProfileMutation]);
+
+    profileForm.reset({
+      firstName: profile.firstName || "",
+      lastName: profile.lastName || "",
+      email: profile.email || "",
+      phone: profile.phone || "",
+      shopName: profile.shopName || "",
+      shopAddress: profile.shopAddress || "",
+      whatsappNumber: profile.whatsappNumber || "",
+      googleReviewPageUrl: profile.googleReviewPageUrl || "",
+    });
+  }, [profile, profileForm.reset]);
+
+  useEffect(() => {
+    if (!profile || !shouldAutoDetectCurrency(profile.currency)) {
+      return;
+    }
+
+    if (detectedCurrencyUserIdRef.current === profile._id) {
+      return;
+    }
+
+    detectedCurrencyUserIdRef.current = profile._id;
+
+    (async () => {
+      try {
+        setIsDetectingCurrency(true);
+        const res = await detectCurrency();
+        if (res?.data?.currency) {
+          setDetectedCurrency(res.data.currency);
+          const formData = new FormData();
+          formData.append("currency", res.data.currency);
+          await updateProfileMutation.mutateAsync(formData);
+        }
+      } catch {
+        // Silent fallback to USD
+      } finally {
+        setIsDetectingCurrency(false);
+      }
+    })();
+  }, [profile, updateProfileMutation]);
 
   useEffect(() => {
     const timer = setTimeout(() => {

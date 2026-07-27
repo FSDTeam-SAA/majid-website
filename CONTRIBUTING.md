@@ -5,7 +5,7 @@ Welcome to the project! This guide will help you set up your environment and und
 ## 🛠 Prerequisites
 
 - [Node.js](https://nodejs.org/) (Latest LTS recommended)
-- [npm](https://www.npmjs.com/)
+- [Yarn Classic](https://classic.yarnpkg.com/)
 
 ## 🚀 Getting Started
 
@@ -19,24 +19,24 @@ Welcome to the project! This guide will help you set up your environment and und
 2.  **Install dependencies:**
 
     ```bash
-    npm install
+    yarn install
     ```
 
     _This will also automatically install Husky git hooks._
 
 3.  **Run the development server:**
     ```bash
-    npm run dev
+    yarn dev
     ```
 
 ## 🧪 Testing and Quality Checks
 
 We use a suite of tools to ensure code quality.
 
-- **Type Check**: `npm run type-check` - Runs TypeScript compiler to check for type errors.
-- **Lint**: `npm run lint` - Runs ESLint.
-- **Test**: `npm test` - Runs Jest unit tests.
-- **Test Watch**: `npm run test:watch` - Runs Jest in watch mode.
+- **Type Check**: `yarn type-check` - Runs TypeScript compiler to check for type errors.
+- **Lint**: `yarn lint` - Runs ESLint.
+- **Test**: `yarn test` - Runs Jest unit tests.
+- **Test Watch**: `yarn test:watch` - Runs Jest in watch mode.
 
 ## 📝 Commit Workflow (Important!)
 
@@ -52,7 +52,7 @@ We use **Conventional Commits** to ensure a clean adherence to semantic versioni
 
 2.  **Run the commit wizard:**
     ```bash
-    npm run commit
+    yarn commit
     ```
     This command will launch an interactive prompt (Commitizen) that guides you through creating a properly formatted commit message.
 
