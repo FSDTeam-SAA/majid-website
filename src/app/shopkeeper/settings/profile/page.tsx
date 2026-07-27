@@ -27,6 +27,8 @@ import {
 } from "@/features/shopkeeper/settings/types";
 import { detectCurrency } from "@/features/shopkeeper/settings/api/settings.api";
 import { CURRENCY_LIST, getCurrencySymbol } from "@/lib/currency";
+import { shouldAutoDetectCurrency } from "@/features/shopkeeper/settings/utils/currencyDetection";
+import { normalizeGoogleReviewPageUrl } from "@/features/shopkeeper/settings/utils/googleReviewQr";
 
 export default function ProfilePage() {
   const { data: profileData, isLoading } = useMyProfile();
@@ -35,9 +37,11 @@ export default function ProfilePage() {
   const [isEditing, setIsEditing] = useState(false);
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
-  const [currency, setCurrency] = useState<string>("USD");
+  const [manualCurrency, setManualCurrency] = useState<string | null>(null);
+  const [detectedCurrency, setDetectedCurrency] = useState<string | null>(null);
   const [isDetectingCurrency, setIsDetectingCurrency] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const detectedCurrencyUserIdRef = useRef<string | null>(null);
 
   const profileForm = useForm<ProfileValues>({
     resolver: zodResolver(profileSchema),
@@ -49,6 +53,7 @@ export default function ProfilePage() {
       shopName: "",
       shopAddress: "",
       whatsappNumber: "",
+      googleReviewPageUrl: "",
     },
   });
 
@@ -63,17 +68,20 @@ export default function ProfilePage() {
         shopName: user.shopName || "",
         shopAddress: user.shopAddress || "",
         whatsappNumber: user.whatsappNumber || "",
+        googleReviewPageUrl: user.googleReviewPageUrl || "",
       });
 
-      if (user.currency) {
-        setCurrency(user.currency);
-      } else {
+      if (
+        shouldAutoDetectCurrency(user.currency) &&
+        detectedCurrencyUserIdRef.current !== user._id
+      ) {
+        detectedCurrencyUserIdRef.current = user._id;
         (async () => {
           try {
             setIsDetectingCurrency(true);
             const res = await detectCurrency();
             if (res?.data?.currency) {
-              setCurrency(res.data.currency);
+              setDetectedCurrency(res.data.currency);
               const formData = new FormData();
               formData.append("currency", res.data.currency);
               await updateProfileMutation.mutateAsync(formData);
@@ -86,7 +94,7 @@ export default function ProfilePage() {
         })();
       }
     }
-  }, [profileData, profileForm]);
+  }, [profileData, profileForm, updateProfileMutation]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -106,6 +114,10 @@ export default function ProfilePage() {
     formData.append("shopName", values.shopName);
     formData.append("shopAddress", values.shopAddress);
     formData.append("whatsappNumber", values.whatsappNumber);
+    formData.append(
+      "googleReviewPageUrl",
+      normalizeGoogleReviewPageUrl(values.googleReviewPageUrl),
+    );
     formData.append("currency", currency);
 
     if (selectedImage) {
@@ -133,6 +145,8 @@ export default function ProfilePage() {
   }
 
   const user = profileData?.data;
+  const currency =
+    manualCurrency ?? user?.currency ?? detectedCurrency ?? "USD";
 
   return (
     <div className="space-y-6">
@@ -350,6 +364,29 @@ export default function ProfilePage() {
                 )}
               </div>
 
+              {/* Google Review URL */}
+              <div className="space-y-2 md:col-span-2">
+                <label className="text-[13px] font-black text-foreground ml-1 flex items-center gap-2">
+                  <Globe size={14} /> Google Review Page URL
+                </label>
+                <input
+                  type="url"
+                  disabled={!isEditing}
+                  placeholder="https://g.page/r/your-review-link/review"
+                  {...profileForm.register("googleReviewPageUrl")}
+                  className="w-full px-6 py-4 bg-background border border-border rounded-2xl outline-none focus:border-primary focus:ring-4 focus:ring-primary/5 transition-all text-sm font-semibold text-muted-foreground disabled:opacity-70"
+                />
+                {profileForm.formState.errors.googleReviewPageUrl && (
+                  <span className="text-xs text-destructive font-bold ml-1">
+                    {profileForm.formState.errors.googleReviewPageUrl.message}
+                  </span>
+                )}
+                <p className="text-[11px] text-muted-foreground ml-1">
+                  This link will be converted into a QR code on receipts and
+                  invoice PDFs.
+                </p>
+              </div>
+
               {/* Currency */}
               <div className="space-y-2">
                 <label className="text-[13px] font-black text-foreground ml-1 flex items-center gap-2">
@@ -364,7 +401,7 @@ export default function ProfilePage() {
                 <select
                   disabled={!isEditing}
                   value={currency}
-                  onChange={(e) => setCurrency(e.target.value)}
+                  onChange={(e) => setManualCurrency(e.target.value)}
                   className="w-full px-6 py-4 bg-background border border-border rounded-2xl outline-none focus:border-primary focus:ring-4 focus:ring-primary/5 transition-all text-sm font-semibold text-muted-foreground disabled:opacity-70 appearance-none cursor-pointer"
                 >
                   {CURRENCY_LIST.map((c) => (

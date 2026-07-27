@@ -258,6 +258,7 @@ export interface Shopkeeper {
   shopName: string;
   phone: string;
   currency?: string;
+  googleReviewPageUrl?: string;
 }
 
 export interface InvoiceHistoryItem {

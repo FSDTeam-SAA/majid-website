@@ -257,6 +257,7 @@ export interface CheckoutInvoicePDFProps {
   cartItems: any[];
   invoiceNumber: string;
   qrCodeDataUrl?: string;
+  reviewQrCodeDataUrl?: string | null;
   shopkeeper?: any;
   customer?: any;
   paymentMethod: string;
@@ -288,6 +289,7 @@ export default function CheckoutInvoicePDF({
   cartItems,
   invoiceNumber,
   qrCodeDataUrl,
+  reviewQrCodeDataUrl,
   shopkeeper,
   customer,
   paymentMethod,
@@ -486,6 +488,16 @@ export default function CheckoutInvoicePDF({
                 Scan Receipt
               </Text>
             </View>
+            {reviewQrCodeDataUrl ? (
+              <View>
+                <Image src={reviewQrCodeDataUrl} style={styles.qr} />
+                <Text
+                  style={[styles.muted, { textAlign: "center", marginTop: 2 }]}
+                >
+                  Scan To Review
+                </Text>
+              </View>
+            ) : null}
             <View style={styles.terms}>
               <Text style={styles.termsTitle}>
                 Thank you for your purchase!

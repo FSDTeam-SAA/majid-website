@@ -104,6 +104,8 @@ import {
 import { SupplierFormModal } from "../../../supplier/component/modals/SupplierFormModal";
 import { ScanResultModal } from "./ScanResultModal";
 import { useCurrency } from "@/hooks/useCurrency";
+import { useMyProfile } from "@/features/shopkeeper/settings/hooks/useSettings";
+import { generateGoogleReviewQrCodeDataUrl } from "@/features/shopkeeper/settings/utils/googleReviewQr";
 
 type BarcodeSearchItem = {
   name?: string;
@@ -616,6 +618,7 @@ export function InventoryFormModal({
   categoryId,
 }: InventoryFormModalProps) {
   const { currency, currencySymbol, formatCurrency } = useCurrency();
+  const { data: profileData } = useMyProfile();
   const isEditMode = !!item;
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
@@ -1202,6 +1205,9 @@ export function InventoryFormModal({
   const handleDownloadInvoice = async (values: CreateInventoryInput) => {
     try {
       const invoiceNumber = generateRandomInvoiceNumber();
+      const reviewQrCode = await generateGoogleReviewQrCodeDataUrl(
+        profileData?.data?.googleReviewPageUrl,
+      );
       const blob = await pdf(
         <SalesInvoicePDF
           data={
@@ -1209,6 +1215,7 @@ export function InventoryFormModal({
               ...values,
               invoiceNumber,
               currency,
+              reviewQrCodeDataUrl: reviewQrCode?.qrCodeDataUrl,
             } as SalesInvoicePDFProps["data"]
           }
         />,

@@ -2,13 +2,7 @@
 
 import React from "react";
 import QRCode from "react-qr-code";
-import {
-  BadgeCheck,
-  Calendar,
-  CheckCircle2,
-  Shield,
-  TriangleAlert,
-} from "lucide-react";
+import { Calendar, CheckCircle2, Shield, TriangleAlert } from "lucide-react";
 import { IMEIResult } from "../types/scanDevice.types";
 
 interface CertificatePDFProps {
@@ -311,20 +305,17 @@ export const CertificatePDF = React.forwardRef<
               display: "flex",
               justifyContent: "center",
               alignItems: "center",
-              gap: "8px",
             }}
           >
-            <span
+            <img
+              src="/images/logo.png"
+              alt="Imoscan logo"
               style={{
-                fontSize: "30px",
-                fontWeight: 900,
-                color: colors.primary,
-                lineHeight: 1,
+                height: "52px",
+                width: "auto",
+                objectFit: "contain",
               }}
-            >
-              imoscan
-            </span>
-            <BadgeCheck size={28} color="#3B9DF8" fill="#3B9DF8" />
+            />
           </div>
           <h1
             style={{

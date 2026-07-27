@@ -8,6 +8,13 @@ export const profileSchema = z.object({
   shopName: z.string().min(2, "Shop name is required"),
   shopAddress: z.string().min(5, "Shop address is required"),
   whatsappNumber: z.string().min(10, "Invalid WhatsApp number"),
+  googleReviewPageUrl: z
+    .string()
+    .trim()
+    .optional()
+    .refine((value) => !value || /^https?:\/\/\S+$/i.test(value), {
+      message: "Please enter a valid URL",
+    }),
   image: z.any().optional(),
 });
 
@@ -40,6 +47,7 @@ export interface UserProfile {
   shopName?: string;
   shopAddress?: string;
   whatsappNumber?: string;
+  googleReviewPageUrl?: string;
   currency?: string;
   image?: {
     url: string;

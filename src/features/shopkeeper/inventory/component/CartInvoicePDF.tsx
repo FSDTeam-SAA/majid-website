@@ -245,6 +245,7 @@ export interface CartInvoicePDFProps {
   cartItems: CartItem[];
   invoiceNumber: string;
   qrCodeDataUrl?: string;
+  reviewQrCodeDataUrl?: string | null;
   shopkeeper?: Shopkeeper;
   editedPrices?: Record<string, number>;
 }
@@ -253,6 +254,7 @@ export default function CartInvoicePDF({
   cartItems,
   invoiceNumber,
   qrCodeDataUrl,
+  reviewQrCodeDataUrl,
   shopkeeper,
   editedPrices = {},
 }: CartInvoicePDFProps) {
@@ -445,6 +447,14 @@ export default function CartInvoicePDF({
                 Scan for Records
               </Text>
             </View>
+            {reviewQrCodeDataUrl ? (
+              <View>
+                <Image src={reviewQrCodeDataUrl} style={styles.qr} />
+                <Text style={[styles.muted, { textAlign: "center" }]}>
+                  Scan To Review
+                </Text>
+              </View>
+            ) : null}
             <View style={styles.terms}>
               <Text style={styles.termsTitle}>Terms & Conditions</Text>
               <Text style={styles.muted}>

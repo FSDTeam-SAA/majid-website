@@ -48,6 +48,7 @@ import {
 } from "../../inventory/hooks/useInventory";
 import { useGetMyRepairRequests } from "@/features/customer/repairRequest/hooks/useRepairRequest";
 import { useMyProfile } from "@/features/shopkeeper/settings/hooks/useSettings";
+import { generateGoogleReviewQrCodeDataUrl } from "@/features/shopkeeper/settings/utils/googleReviewQr";
 
 // API instance
 import { api } from "@/lib/api";
@@ -704,6 +705,9 @@ export default function Checkout() {
         }),
         { margin: 1, width: 200 },
       );
+      const reviewQrCode = await generateGoogleReviewQrCodeDataUrl(
+        profileData?.data?.googleReviewPageUrl,
+      );
 
       // Generate invoice PDF Blob
       const doc = (
@@ -711,6 +715,7 @@ export default function Checkout() {
           cartItems={pricedOrderCartItems}
           invoiceNumber={invoiceNumber}
           qrCodeDataUrl={qrCodeDataUrl}
+          reviewQrCodeDataUrl={reviewQrCode?.qrCodeDataUrl}
           shopkeeper={profileData?.data}
           customer={selectedCustomer}
           paymentMethod={paymentMethod}

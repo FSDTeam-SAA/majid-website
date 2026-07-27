@@ -28,6 +28,8 @@ import QRCode from "qrcode";
 import CartInvoicePDF from "./CartInvoicePDF";
 import InvoicePreviewModal from "./InvoicePreviewModal";
 import { useCurrency } from "@/hooks/useCurrency";
+import { useMyProfile } from "@/features/shopkeeper/settings/hooks/useSettings";
+import { generateGoogleReviewQrCodeDataUrl } from "@/features/shopkeeper/settings/utils/googleReviewQr";
 
 const generateInvoiceNumber = () => `INV-${Date.now().toString().slice(-6)}`;
 
@@ -45,6 +47,7 @@ export default function ShopkeeperCart() {
   const { mutateAsync: deleteAllCartItems } =
     useDeleteAllShopkeeperCartItems(shopkeeperId);
   const { mutateAsync: createInvoice } = useCreateInvoice();
+  const { data: profileData } = useMyProfile();
   const [searchQuery, setSearchQuery] = useState("");
   const [isGeneratingInvoice, setIsGeneratingInvoice] = useState(false);
   const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false);
@@ -99,12 +102,16 @@ export default function ShopkeeperCart() {
         }),
         { margin: 1, width: 220 },
       );
+      const reviewQrCode = await generateGoogleReviewQrCodeDataUrl(
+        profileData?.data?.googleReviewPageUrl,
+      );
 
       const blob = await pdf(
         <CartInvoicePDF
           cartItems={cartItems}
           invoiceNumber={invoiceNumber}
           qrCodeDataUrl={qrCodeDataUrl}
+          reviewQrCodeDataUrl={reviewQrCode?.qrCodeDataUrl}
           shopkeeper={shopkeeper}
           editedPrices={editedPrices}
         />,
