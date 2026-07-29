@@ -152,9 +152,14 @@ export interface BatchImeiResponse {
 export interface FavouriteProviderResults {
   description?: string;
   model?: string;
+  image?: {
+    src?: string;
+    html?: string;
+  };
   imei?: string;
   imei1?: string;
   imei2?: string;
+  imei2_number?: string;
   deviceid?: string;
   full_name?: string;
   meid?: string;
@@ -163,9 +168,11 @@ export interface FavouriteProviderResults {
   warranty_status?: string;
   warranty_until?: string;
   purchase_date?: string;
+  estimated_purchase_date?: string;
   production_date?: string;
   replaced_device?: string;
   simlock?: string;
+  simlock_status?: string;
   icloud_lock?: string;
   manufacturer?: string;
   marketing_name?: string;

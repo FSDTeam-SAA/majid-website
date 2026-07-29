@@ -3,8 +3,7 @@ import { Check } from "lucide-react";
 
 const STEPS = [
   { id: 1, label: "Fetching Data" },
-  { id: 2, label: "Analyzing Components" },
-  { id: 3, label: "Generating Report" },
+  { id: 2, label: "Generating Report" },
 ];
 
 interface ScanProgressProps {

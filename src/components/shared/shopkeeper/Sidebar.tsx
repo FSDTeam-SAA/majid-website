@@ -109,6 +109,11 @@ const navItems = [
   },
 ];
 
+const getOpenSubmenuFromPath = (pathname: string) =>
+  navItems.find((item) =>
+    item.submenu?.some((subItem) => pathname.startsWith(subItem.href)),
+  )?.label ?? null;
+
 interface SidebarProps {
   collapsed?: boolean;
   onToggleCollapse?: () => void;
@@ -119,8 +124,9 @@ export default function Sidebar({
   onToggleCollapse,
 }: SidebarProps) {
   const pathname = usePathname();
+  const routeSubmenu = getOpenSubmenuFromPath(pathname);
   const [openSubmenu, setOpenSubmenu] = useState<string | null>(
-    pathname.startsWith("/shopkeeper/inventory") ? "Inventory" : "Payment",
+    () => routeSubmenu,
   );
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const { data: session } = useSession();
@@ -175,7 +181,10 @@ export default function Sidebar({
         <nav className="flex-1 px-3 space-y-2 overflow-y-auto custom-scrollbar">
           {visibleNavItems.map((item) => {
             const isActive = pathname.startsWith(item.href);
-            const isSubmenuOpen = !collapsed && openSubmenu === item.label;
+            const isSubmenuOpen =
+              !collapsed &&
+              (routeSubmenu === item.label ||
+                (routeSubmenu === null && openSubmenu === item.label));
 
             if (item.isSpecial) {
               return (

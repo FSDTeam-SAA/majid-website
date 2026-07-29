@@ -34,13 +34,13 @@ export const useScanDevice = () => {
     serviceId?: number;
   } | null>(null);
 
-  const isValidIdentifier = (value: string): boolean => {
+  const isValidIdentifier = useCallback((value: string): boolean => {
     const trimmedValue = value.trim();
 
     return (
       /^\d{15}$/.test(trimmedValue) || /^[a-zA-Z0-9]{8,20}$/.test(trimmedValue)
     );
-  };
+  }, []);
 
   const parseIMEIInput = useCallback(
     (input: string): string[] => {
@@ -60,6 +60,17 @@ export const useScanDevice = () => {
     // Favourite service IDs: 1000, 1001, 1002 etc.
     return [1000, 1001, 1002].includes(serviceId);
   }, []);
+
+  const finishGuestScan = useCallback(
+    async (onComplete?: () => void) => {
+      setIsScanning(false);
+      if (!isAuthenticated) {
+        await incrementGuestUsageCount();
+      }
+      onComplete?.();
+    },
+    [isAuthenticated],
+  );
 
   const handleScan = useCallback(
     async (imeiInput: string, serviceId: number, onComplete?: () => void) => {
@@ -100,9 +111,6 @@ export const useScanDevice = () => {
       setCurrentStep(1);
 
       try {
-        setTimeout(() => setCurrentStep(2), 1500);
-        setTimeout(() => setCurrentStep(3), 3000);
-
         const isBulk = imeiList.length > 1;
         const isFav = !isBulk && isFavouriteService(serviceId);
 
@@ -123,18 +131,13 @@ export const useScanDevice = () => {
           ) {
             const firstItem = response.data[0];
             if (firstItem.ok && firstItem.data) {
-              setTimeout(async () => {
-                setFavouriteResult(firstItem.data);
-                setSingleReportMeta({
-                  provider: firstItem.data.bundledServiceName,
-                  serviceId: firstItem.data.bundledServiceId,
-                });
-                setIsScanning(false);
-                if (!isAuthenticated) {
-                  await incrementGuestUsageCount();
-                }
-                onComplete?.();
-              }, 4500);
+              setCurrentStep(2);
+              setFavouriteResult(firstItem.data);
+              setSingleReportMeta({
+                provider: firstItem.data.bundledServiceName,
+                serviceId: firstItem.data.bundledServiceId,
+              });
+              await finishGuestScan(onComplete);
             } else {
               setError(firstItem.message || "No valid IMEI data received");
               setIsScanning(false);
@@ -175,14 +178,9 @@ export const useScanDevice = () => {
               summary: { total: imeiList.length, successCount, failedCount },
               data: bulkItems,
             };
+            setCurrentStep(2);
             setBatchResult(batchResponse);
-            setTimeout(async () => {
-              setIsScanning(false);
-              if (!isAuthenticated) {
-                await incrementGuestUsageCount();
-              }
-              onComplete?.();
-            }, 4500);
+            await finishGuestScan(onComplete);
           } else {
             setError(response.message || "Failed to check IMEIs");
             setIsScanning(false);
@@ -208,20 +206,15 @@ export const useScanDevice = () => {
                 ...firstItem.data,
                 imei: firstItem.imei || firstItem.data.imei || imeiList[0],
               };
-              setTimeout(async () => {
-                setScanResult(resultWithIMEI);
-                setSingleReportMeta({
-                  provider:
-                    firstItem.provider ||
-                    (firstItem.data as { provider?: string })?.provider,
-                  serviceId: firstItem.serviceId || serviceId,
-                });
-                setIsScanning(false);
-                if (!isAuthenticated) {
-                  await incrementGuestUsageCount();
-                }
-                onComplete?.();
-              }, 4500);
+              setCurrentStep(2);
+              setScanResult(resultWithIMEI);
+              setSingleReportMeta({
+                provider:
+                  firstItem.provider ||
+                  (firstItem.data as { provider?: string })?.provider,
+                serviceId: firstItem.serviceId || serviceId,
+              });
+              await finishGuestScan(onComplete);
             } else {
               setError(firstItem.message || "No valid IMEI data received");
               setIsScanning(false);
@@ -245,7 +238,7 @@ export const useScanDevice = () => {
         setIsScanning(false);
       }
     },
-    [parseIMEIInput, isFavouriteService, isValidIdentifier, isAuthenticated],
+    [parseIMEIInput, isFavouriteService, finishGuestScan, isAuthenticated],
   );
 
   const handleRegenerateScan = useCallback(
@@ -270,9 +263,6 @@ export const useScanDevice = () => {
       setCurrentStep(1);
 
       try {
-        setTimeout(() => setCurrentStep(2), 1500);
-        setTimeout(() => setCurrentStep(3), 3000);
-
         const isFav = isFavouriteService(serviceId);
 
         // Favourite service regeneration
@@ -296,18 +286,13 @@ export const useScanDevice = () => {
             const firstItem = response.data[0];
             if (firstItem.ok && firstItem.data) {
               const freshData = { ...firstItem.data, oldGenerated: false };
-              setTimeout(async () => {
-                setFavouriteResult(freshData);
-                setSingleReportMeta({
-                  provider: firstItem.data.bundledServiceName,
-                  serviceId: firstItem.data.bundledServiceId,
-                });
-                setIsScanning(false);
-                if (!isAuthenticated) {
-                  await incrementGuestUsageCount();
-                }
-                onComplete?.();
-              }, 4500);
+              setCurrentStep(2);
+              setFavouriteResult(freshData);
+              setSingleReportMeta({
+                provider: firstItem.data.bundledServiceName,
+                serviceId: firstItem.data.bundledServiceId,
+              });
+              await finishGuestScan(onComplete);
             } else {
               setError(firstItem.message || "No valid IMEI data received");
               setIsScanning(false);
@@ -336,18 +321,13 @@ export const useScanDevice = () => {
                 imei: firstItem.imei || firstItem.data.imei || imeiInput,
                 oldGenerated: false,
               };
-              setTimeout(async () => {
-                setScanResult(freshData);
-                setSingleReportMeta({
-                  provider: firstItem.provider,
-                  serviceId: firstItem.serviceId || serviceId,
-                });
-                setIsScanning(false);
-                if (!isAuthenticated) {
-                  await incrementGuestUsageCount();
-                }
-                onComplete?.();
-              }, 4500);
+              setCurrentStep(2);
+              setScanResult(freshData);
+              setSingleReportMeta({
+                provider: firstItem.provider,
+                serviceId: firstItem.serviceId || serviceId,
+              });
+              await finishGuestScan(onComplete);
             } else {
               setError(firstItem.message || "No valid IMEI data received");
               setIsScanning(false);
@@ -371,7 +351,7 @@ export const useScanDevice = () => {
         setIsScanning(false);
       }
     },
-    [isFavouriteService, isAuthenticated],
+    [finishGuestScan, isFavouriteService],
   );
 
   const clearResults = () => {
