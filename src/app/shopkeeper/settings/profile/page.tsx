@@ -19,7 +19,7 @@ import {
 import { motion } from "framer-motion";
 import Image from "next/image";
 import Link from "next/link";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
   useMyProfile,
@@ -35,6 +35,7 @@ import { detectCurrency } from "@/features/shopkeeper/settings/api/settings.api"
 import { CURRENCY_LIST, getCurrencySymbol } from "@/lib/currency";
 import { shouldAutoDetectCurrency } from "@/features/shopkeeper/settings/utils/currencyDetection";
 import { normalizeGoogleReviewPageUrl } from "@/features/shopkeeper/settings/utils/googleReviewQr";
+import { AddressAutocomplete } from "@/components/ui/address-autocomplete";
 
 export default function ProfilePage() {
   const { data: profileData, isLoading } = useMyProfile();
@@ -63,6 +64,10 @@ export default function ProfilePage() {
       whatsappNumber: "",
       googleReviewPageUrl: "",
     },
+  });
+  const shopAddress = useWatch({
+    control: profileForm.control,
+    name: "shopAddress",
   });
 
   const profile = profileData?.data;
@@ -603,10 +608,11 @@ export default function ProfilePage() {
                 <label className="text-[13px] font-black text-foreground ml-1 flex items-center gap-2">
                   <MapPin size={14} /> Shop Address
                 </label>
-                <input
+                <AddressAutocomplete
                   type="text"
                   disabled={!isEditing}
                   {...profileForm.register("shopAddress")}
+                  value={shopAddress || ""}
                   className="w-full px-6 py-4 bg-background border border-border rounded-2xl outline-none focus:border-primary focus:ring-4 focus:ring-primary/5 transition-all text-sm font-semibold text-muted-foreground disabled:opacity-70"
                 />
                 {profileForm.formState.errors.shopAddress && (

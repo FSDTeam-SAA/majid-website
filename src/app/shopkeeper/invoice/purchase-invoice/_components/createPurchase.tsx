@@ -37,6 +37,7 @@ import { createWorker } from "tesseract.js";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
+import { AddressAutocomplete } from "@/components/ui/address-autocomplete";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -45,7 +46,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
 import { useMyProfile } from "@/features/shopkeeper/settings/hooks/useSettings";
 import { useCurrency } from "@/hooks/useCurrency";
@@ -1107,7 +1107,7 @@ export default function CreatePurchaseReceipt() {
                     }
                   />
                   <div className="md:col-span-2">
-                    <Textarea
+                    <AddressAutocomplete
                       placeholder="Address"
                       className="rounded-2xl h-12 border-primary bg-background font-bold"
                       value={customer.address}

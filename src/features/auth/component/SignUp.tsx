@@ -16,6 +16,7 @@ import Link from "next/link";
 import { useSignUp } from "../hooks/useSignUp";
 import { useRouter } from "next/navigation";
 import { RegisterPayload } from "../types/auth.types";
+import { AddressAutocomplete } from "@/components/ui/address-autocomplete";
 
 export default function SignUp() {
   const [showPassword, setShowPassword] = useState(false);
@@ -210,7 +211,7 @@ export default function SignUp() {
                 </div>
                 <div className="relative">
                   <MapPin className="absolute left-6 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                  <input
+                  <AddressAutocomplete
                     type="text"
                     required
                     placeholder="Shop Address"

@@ -21,6 +21,7 @@ import axiosInstance from "@/lib/instance/axios-instance";
 import { useSession } from "next-auth/react";
 import { useCurrency } from "@/hooks/useCurrency";
 import { formatCurrency as baseFormatCurrency } from "@/lib/currency";
+import { AddressAutocomplete } from "@/components/ui/address-autocomplete";
 
 interface InvoiceModalProps {
   isOpen: boolean;
@@ -541,7 +542,7 @@ export const InvoiceModal = ({
                         size={16}
                         className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
                       />
-                      <input
+                      <AddressAutocomplete
                         type="text"
                         placeholder="Address *"
                         value={formData.customerAddress}

@@ -82,6 +82,7 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { AddressAutocomplete } from "@/components/ui/address-autocomplete";
 import { Button } from "@/components/ui/button";
 import { useCurrency } from "@/hooks/useCurrency";
 
@@ -1692,7 +1693,7 @@ export default function Checkout() {
                 <label className="text-[10px] font-black uppercase tracking-wider text-slate-500">
                   From
                 </label>
-                <Input
+                <AddressAutocomplete
                   value={deliveryDetails.from}
                   onChange={(event) =>
                     setDeliveryDetails((prev) => ({
@@ -1709,7 +1710,7 @@ export default function Checkout() {
                 <label className="text-[10px] font-black uppercase tracking-wider text-slate-500">
                   Delivery To
                 </label>
-                <Input
+                <AddressAutocomplete
                   value={deliveryDetails.deliveryTo}
                   onChange={(event) =>
                     setDeliveryDetails((prev) => ({
@@ -2575,7 +2576,7 @@ export default function Checkout() {
               <label className="text-[10px] font-black uppercase tracking-wider text-slate-500">
                 Billing Address
               </label>
-              <Input
+              <AddressAutocomplete
                 placeholder="123 Street Name, City"
                 value={newCustomer.address}
                 onChange={(e) =>

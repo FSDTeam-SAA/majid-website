@@ -27,7 +27,7 @@ import {
 import { motion, AnimatePresence } from "framer-motion";
 import Image from "next/image";
 import Link from "next/link";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import QRCode from "react-qr-code";
 import {
@@ -47,6 +47,7 @@ import { shouldAutoDetectCurrency } from "../utils/currencyDetection";
 import { normalizeGoogleReviewPageUrl } from "../utils/googleReviewQr";
 import { useMyPayments } from "@/features/shopkeeper/payment/hooks/usePayments";
 import { useSubscriptions } from "@/features/shopkeeper/payment/hooks/useSubscriptions";
+import { AddressAutocomplete } from "@/components/ui/address-autocomplete";
 
 function generateShopkeeperId(id: string, name: string): string {
   const prefix = "IMS";
@@ -365,6 +366,10 @@ export default function Settings({
       whatsappNumber: "",
       googleReviewPageUrl: "",
     },
+  });
+  const shopAddress = useWatch({
+    control: profileForm.control,
+    name: "shopAddress",
   });
 
   const passwordForm = useForm<PasswordValues>({
@@ -1077,10 +1082,11 @@ export default function Settings({
                 <label className="text-[13px] font-black text-foreground ml-1 flex items-center gap-2">
                   <MapPin size={14} /> Shop Address
                 </label>
-                <input
+                <AddressAutocomplete
                   type="text"
                   disabled={!isEditing}
                   {...profileForm.register("shopAddress")}
+                  value={shopAddress || ""}
                   className="w-full px-6 py-4 bg-background border border-border rounded-2xl outline-none focus:border-primary focus:ring-4 focus:ring-primary/5 transition-all text-sm font-semibold text-muted-foreground disabled:opacity-70"
                 />
                 {profileForm.formState.errors.shopAddress && (

@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import {
   Dialog,
   DialogContent,
@@ -9,6 +9,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { AddressAutocomplete } from "@/components/ui/address-autocomplete";
 import { Label } from "@/components/ui/label";
 import {
   Loader2,
@@ -64,6 +65,7 @@ export function CustomerFormModal({
     register,
     handleSubmit,
     reset,
+    control,
     setValue,
     formState: { errors },
   } = useForm<CustomerFormValues>({
@@ -77,6 +79,7 @@ export function CustomerFormModal({
       alreadyPaid: 0,
     },
   });
+  const address = useWatch({ control, name: "address" });
 
   useEffect(() => {
     if (customer) {
@@ -260,8 +263,9 @@ export function CustomerFormModal({
             </Label>
             <div className="relative">
               <MapPin className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-              <Input
+              <AddressAutocomplete
                 {...register("address", { required: "Address is required" })}
+                value={address || ""}
                 placeholder="123 Main St, City, Country"
                 className="h-12 rounded-xl border-border pl-11 font-bold focus-visible:ring-[#84CC16]"
               />
