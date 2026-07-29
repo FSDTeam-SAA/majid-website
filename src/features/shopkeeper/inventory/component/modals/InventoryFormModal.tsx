@@ -61,6 +61,7 @@ import {
   ShoppingCart,
   Phone,
   Truck,
+  Sparkles,
 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
@@ -602,6 +603,46 @@ const getSuggestionTitle = (product?: BarcodeSearchItem) => {
   return product?.brand?.trim() || "Unnamed Product";
 };
 
+const buildInventoryAiDescription = (
+  values: Partial<CreateInventoryInput>,
+  currencySymbol: string,
+) => {
+  const specs = [
+    values.brand,
+    values.itemName,
+    values.modelNumber,
+    values.storage,
+    values.color,
+  ]
+    .map((value) => String(value || "").trim())
+    .filter(Boolean);
+
+  const uniqueSpecs = Array.from(new Set(specs));
+  const itemTitle = uniqueSpecs.join(" ");
+  const condition = String(values.currentState || "").trim();
+  const quantity = Number(values.quantity || 1);
+  const expectedPrice = Number(values.expectedPrice || 0);
+  const imeiNumber = String(values.imeiNumber || "").trim();
+
+  const descriptionParts = [
+    itemTitle
+      ? `${itemTitle} is available in stock`
+      : "This device is available in stock",
+    condition ? `with ${condition.toLowerCase()} condition` : "",
+    quantity > 1 ? `and quantity ${quantity}` : "",
+  ].filter(Boolean);
+
+  const secondaryParts = [
+    expectedPrice > 0
+      ? `Expected selling price is ${currencySymbol}${expectedPrice}.`
+      : "",
+    imeiNumber ? `IMEI/Serial: ${imeiNumber}.` : "",
+    "Suitable for daily use with reliable performance and clean presentation.",
+  ].filter(Boolean);
+
+  return `${descriptionParts.join(" ")}. ${secondaryParts.join(" ")}`.trim();
+};
+
 interface InventoryFormModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -657,6 +698,8 @@ export function InventoryFormModal({
   const [isCustomStorage, setIsCustomStorage] = useState(false);
   const [isCustomColor, setIsCustomColor] = useState(false);
   const [isCustomSaleMethod, setIsCustomSaleMethod] = useState(false);
+  const [isGeneratingAiDescription, setIsGeneratingAiDescription] =
+    useState(false);
   const [colorValues, setColorValues] = useState<string[]>([""]);
   const [storageValues, setStorageValues] = useState<string[]>([""]);
 
@@ -939,6 +982,29 @@ export function InventoryFormModal({
         },
       },
     );
+  };
+
+  const handleGenerateAiDescription = () => {
+    const values = form.getValues();
+    if (!String(values.itemName || "").trim()) {
+      toast.error("Please enter the item name first.");
+      return;
+    }
+
+    setIsGeneratingAiDescription(true);
+
+    const generatedDescription = buildInventoryAiDescription(
+      values,
+      currencySymbol,
+    );
+
+    form.setValue("aiDescription", generatedDescription, {
+      shouldDirty: true,
+      shouldValidate: true,
+    });
+
+    setIsGeneratingAiDescription(false);
+    toast.success("AI description generated.");
   };
 
   const form = useForm<CreateInventoryInput>({
@@ -1623,37 +1689,6 @@ export function InventoryFormModal({
                 : Number(deviceData.quantity);
             if (!Number.isFinite(scannedQuantity) || scannedQuantity < 1) {
               form.setValue("quantity", 1, options);
-            }
-
-            // Map top-level productDetails and aiDescription if result ones are missing
-            if (
-              responseData?.productDetails &&
-              !form.getValues("productDetails")
-            ) {
-              form.setValue(
-                "productDetails",
-                responseData.productDetails,
-                options,
-              );
-            }
-
-            if (
-              responseData?.aiDescription &&
-              !form.getValues("aiDescription")
-            ) {
-              form.setValue(
-                "aiDescription",
-                responseData.aiDescription,
-                options,
-              );
-            }
-
-            const aiInsightMessage =
-              typeof responseData?.aiInsight?.message === "string"
-                ? responseData.aiInsight.message
-                : "";
-            if (aiInsightMessage && !form.getValues("aiDescription")) {
-              form.setValue("aiDescription", aiInsightMessage, options);
             }
 
             toast.success("Device details auto-populated! Please review.");
@@ -3180,38 +3215,34 @@ export function InventoryFormModal({
               Descriptions & Details
             </h4>
             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-              Additional notes and AI-generated content
+              Generate AI content only when you need it
             </p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-1 gap-6">
             <FormField
               control={form.control}
-              name="productDetails"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel className="text-[10px] font-black uppercase tracking-widest text-slate-700 dark:text-white mb-2 block ml-1">
-                    Product Details
-                  </FormLabel>
-                  <FormControl>
-                    <textarea
-                      placeholder="e.g. Used phone, good condition..."
-                      className="w-full min-h-[120px] p-4 bg-slate-50/80 border border-slate-200 hover:border-slate-300 hover:bg-slate-50 rounded-[20px] font-bold text-slate-900 placeholder:text-slate-400 focus:bg-white focus:ring-4 focus:ring-[#84CC16]/15 focus:border-[#84CC16] transition-all shadow-sm outline-none resize-none"
-                      {...field}
-                    />
-                  </FormControl>
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
               name="aiDescription"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel className="text-[10px] font-black uppercase tracking-widest text-slate-700 dark:text-white mb-2 block ml-1">
-                    AI Description
-                  </FormLabel>
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <FormLabel className="text-[10px] font-black uppercase tracking-widest text-slate-700 dark:text-white block ml-1">
+                      AI Description
+                    </FormLabel>
+                    <Button
+                      type="button"
+                      onClick={handleGenerateAiDescription}
+                      className="bg-[#84CC16] hover:bg-[#65a30d] text-white rounded-2xl px-5 h-11 font-black uppercase tracking-widest shadow-lg shadow-[#84CC16]/20 flex items-center gap-2"
+                      disabled={isGeneratingAiDescription}
+                    >
+                      {isGeneratingAiDescription ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <Sparkles className="w-4 h-4" />
+                      )}
+                      Generate AI Description
+                    </Button>
+                  </div>
                   <FormControl>
                     <textarea
                       placeholder="AI-generated description will appear here..."

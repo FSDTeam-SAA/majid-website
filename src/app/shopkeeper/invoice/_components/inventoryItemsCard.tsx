@@ -94,6 +94,33 @@ export function InventoryItemsCard({
     );
   };
 
+  const updatePrimarySerial = (itemIndex: number, value: string) => {
+    const trimmedValue = value.trim();
+
+    setItems((prev) =>
+      prev.map((item, index) => {
+        if (index !== itemIndex) return item;
+
+        const nextSerials = [...item.serials];
+
+        if (trimmedValue) {
+          nextSerials[0] = trimmedValue;
+        } else if (nextSerials.length > 0) {
+          nextSerials.shift();
+        }
+
+        return {
+          ...item,
+          serials: nextSerials,
+          quantity:
+            nextSerials.length > Number(item.quantity || 1)
+              ? nextSerials.length
+              : item.quantity,
+        };
+      }),
+    );
+  };
+
   const appendSerial = (itemIndex: number, code: string) => {
     const trimmedCode = code.trim();
     if (!trimmedCode) return;
@@ -333,7 +360,7 @@ export function InventoryItemsCard({
       <CardContent className="p-8 space-y-6">
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div>
-            <h2 className="text-2xl font-black">Purchase Items</h2>
+            <h2 className="text-2xl font-black">Items</h2>
             <p className="text-sm text-muted-foreground">
               Add missing invoice devices directly into inventory
             </p>
@@ -437,6 +464,14 @@ export function InventoryItemsCard({
                     value={item.condition || ""}
                     onChange={(e) =>
                       updateItem(itemIndex, "condition", e.target.value)
+                    }
+                  />
+                  <Input
+                    placeholder="IMEI Number or Serial Number"
+                    className="rounded-2xl h-12 border-primary bg-background font-bold md:col-span-2"
+                    value={item.serials[0] || ""}
+                    onChange={(e) =>
+                      updatePrimarySerial(itemIndex, e.target.value)
                     }
                   />
                   <div>
