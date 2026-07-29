@@ -194,7 +194,16 @@ export function useCreateInvoice() {
       invoice: File;
       customerInfo?: string;
       itemsIds?: string[];
+      totalAmount?: number;
       dueAmount?: number;
+      amountPaid?: number;
+      tax?: number;
+      paymentMethod?: string;
+      paymentStatus?: "paid" | "partial" | "due";
+      paymentDetails?: Record<string, string | number | undefined>;
+      invoiceNumber?: string;
+      currency?: string;
+      orderDetails?: Record<string, string | undefined>;
       discountName?: string;
       discountPercentage?: number;
       discountAmount?: number;
@@ -243,7 +252,6 @@ export function useUpdateCustomer() {
     mutationFn: ({
       id,
       input,
-      shopkeeperId,
     }: {
       id: string;
       input: Record<string, unknown>;
@@ -260,7 +268,7 @@ export function useUpdateCustomer() {
 export function useDeleteCustomer() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, shopkeeperId }: { id: string; shopkeeperId: string }) =>
+    mutationFn: ({ id }: { id: string; shopkeeperId: string }) =>
       deleteCustomer(id),
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({

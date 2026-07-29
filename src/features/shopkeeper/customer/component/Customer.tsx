@@ -211,6 +211,55 @@ const formatDate = (date?: string) => {
   });
 };
 
+const formatInvoiceAmount = (amount?: number, currency = "USD") => {
+  if (amount === undefined || amount === null) return "N/A";
+
+  try {
+    return new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency,
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(amount);
+  } catch {
+    return `${amount.toFixed(2)} ${currency}`;
+  }
+};
+
+const getInvoicePaymentDetail = (invoice: CustomerInvoice) => {
+  const details = invoice.paymentDetails;
+
+  if (invoice.paymentMethod === "card" && details?.cardLastFour) {
+    return `•••• ${details.cardLastFour}${
+      details.transactionReference
+        ? ` · Ref ${details.transactionReference}`
+        : ""
+    }`;
+  }
+
+  if (invoice.paymentMethod === "bank") {
+    return [details?.bankName, details?.transactionReference]
+      .filter(Boolean)
+      .join(" · ");
+  }
+
+  if (invoice.paymentMethod === "cash" && details?.amountReceived != null) {
+    return `Received ${formatInvoiceAmount(
+      details.amountReceived,
+      invoice.currency,
+    )} · Change ${formatInvoiceAmount(
+      details.changeGiven || 0,
+      invoice.currency,
+    )}`;
+  }
+
+  if (invoice.paymentMethod === "due" && details?.dueDate) {
+    return `Due ${formatDate(details.dueDate)}`;
+  }
+
+  return "";
+};
+
 const getInitial = (customer: Customer) =>
   customer.firstName?.charAt(0).toUpperCase() ||
   customer.lastName?.charAt(0).toUpperCase() ||
@@ -1509,76 +1558,127 @@ export default function Customer() {
                     Loading invoices...
                   </div>
                 ) : selectedCustomerInvoices.length > 0 ? (
-                  <Table>
-                    <TableHeader className="bg-white dark:bg-card">
-                      <TableRow>
-                        <TableHead className="px-5 py-3 text-xs font-black uppercase tracking-wider text-slate-500">
-                          Invoice ID
-                        </TableHead>
-                        <TableHead className="px-5 py-3 text-xs font-black uppercase tracking-wider text-slate-500">
-                          Type
-                        </TableHead>
-                        <TableHead className="px-5 py-3 text-xs font-black uppercase tracking-wider text-slate-500">
-                          Date
-                        </TableHead>
-                        <TableHead className="px-5 py-3 text-right text-xs font-black uppercase tracking-wider text-slate-500">
-                          Actions
-                        </TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {selectedCustomerInvoices.map((invoice) => (
-                        <TableRow key={invoice._id}>
-                          <TableCell className="px-5 py-4 font-mono text-xs font-bold text-slate-600 dark:text-slate-300">
-                            #INV-{invoice._id.slice(-8).toUpperCase()}
-                          </TableCell>
-                          <TableCell className="px-5 py-4">
-                            <span className="inline-flex rounded-full border border-orange-100 bg-orange-50 px-2.5 py-1 text-xs font-bold text-orange-700">
-                              {invoice.type || "N/A"}
-                            </span>
-                          </TableCell>
-                          <TableCell className="px-5 py-4 text-sm font-bold text-slate-500">
-                            <span className="flex items-center gap-1.5">
-                              <Calendar className="h-3.5 w-3.5 text-slate-400" />
-                              {formatDate(invoice.createdAt)}
-                            </span>
-                          </TableCell>
-                          <TableCell className="px-5 py-4 text-right">
-                            <div className="flex items-center justify-end gap-2">
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="rounded-xl text-xs font-bold"
-                                onClick={() =>
-                                  window.open(
-                                    invoice.invoice.url,
-                                    "_blank",
-                                    "noopener,noreferrer",
-                                  )
-                                }
-                              >
-                                <Eye className="h-3.5 w-3.5" />
-                                View
-                              </Button>
-                              <Button
-                                size="sm"
-                                className="rounded-xl text-xs font-bold"
-                                onClick={() =>
-                                  handleDownload(
-                                    invoice.invoice.url,
-                                    `invoice_${invoice._id.slice(-6)}.pdf`,
-                                  )
-                                }
-                              >
-                                <Download className="h-3.5 w-3.5" />
-                                Download
-                              </Button>
-                            </div>
-                          </TableCell>
+                  <div className="overflow-x-auto">
+                    <Table>
+                      <TableHeader className="bg-white dark:bg-card">
+                        <TableRow>
+                          <TableHead className="px-5 py-3 text-xs font-black uppercase tracking-wider text-slate-500">
+                            Invoice ID
+                          </TableHead>
+                          <TableHead className="px-5 py-3 text-xs font-black uppercase tracking-wider text-slate-500">
+                            Type
+                          </TableHead>
+                          <TableHead className="px-5 py-3 text-xs font-black uppercase tracking-wider text-slate-500">
+                            Date
+                          </TableHead>
+                          <TableHead className="px-5 py-3 text-xs font-black uppercase tracking-wider text-slate-500">
+                            Payment
+                          </TableHead>
+                          <TableHead className="px-5 py-3 text-xs font-black uppercase tracking-wider text-slate-500">
+                            Amount
+                          </TableHead>
+                          <TableHead className="px-5 py-3 text-right text-xs font-black uppercase tracking-wider text-slate-500">
+                            Actions
+                          </TableHead>
                         </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
+                      </TableHeader>
+                      <TableBody>
+                        {selectedCustomerInvoices.map((invoice) => (
+                          <TableRow key={invoice._id}>
+                            <TableCell className="px-5 py-4 font-mono text-xs font-bold text-slate-600 dark:text-slate-300">
+                              {invoice.invoiceNumber ||
+                                `INV-${invoice._id.slice(-8).toUpperCase()}`}
+                            </TableCell>
+                            <TableCell className="px-5 py-4">
+                              <span className="inline-flex rounded-full border border-orange-100 bg-orange-50 px-2.5 py-1 text-xs font-bold text-orange-700">
+                                {invoice.type || "N/A"}
+                              </span>
+                            </TableCell>
+                            <TableCell className="px-5 py-4 text-sm font-bold text-slate-500">
+                              <span className="flex items-center gap-1.5">
+                                <Calendar className="h-3.5 w-3.5 text-slate-400" />
+                                {formatDate(invoice.createdAt)}
+                              </span>
+                            </TableCell>
+                            <TableCell className="px-5 py-4">
+                              <div className="min-w-36">
+                                <div className="flex items-center gap-2">
+                                  <span className="inline-flex rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-black uppercase text-slate-700">
+                                    {invoice.paymentMethod || "Not recorded"}
+                                  </span>
+                                  {invoice.paymentStatus && (
+                                    <span
+                                      className={`text-[10px] font-black uppercase ${
+                                        invoice.paymentStatus === "paid"
+                                          ? "text-lime-600"
+                                          : "text-orange-600"
+                                      }`}
+                                    >
+                                      {invoice.paymentStatus}
+                                    </span>
+                                  )}
+                                </div>
+                                {getInvoicePaymentDetail(invoice) && (
+                                  <p className="mt-1 max-w-60 break-words text-[10px] font-semibold text-slate-500">
+                                    {getInvoicePaymentDetail(invoice)}
+                                  </p>
+                                )}
+                              </div>
+                            </TableCell>
+                            <TableCell className="px-5 py-4">
+                              <p className="text-sm font-black text-slate-900 dark:text-white">
+                                {formatInvoiceAmount(
+                                  invoice.totalAmount,
+                                  invoice.currency,
+                                )}
+                              </p>
+                              {!!invoice.dueAmount && invoice.dueAmount > 0 && (
+                                <p className="mt-1 text-[10px] font-black text-orange-600">
+                                  Due{" "}
+                                  {formatInvoiceAmount(
+                                    invoice.dueAmount,
+                                    invoice.currency,
+                                  )}
+                                </p>
+                              )}
+                            </TableCell>
+                            <TableCell className="px-5 py-4 text-right">
+                              <div className="flex items-center justify-end gap-2">
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="rounded-xl text-xs font-bold"
+                                  onClick={() =>
+                                    window.open(
+                                      invoice.invoice.url,
+                                      "_blank",
+                                      "noopener,noreferrer",
+                                    )
+                                  }
+                                >
+                                  <Eye className="h-3.5 w-3.5" />
+                                  View
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  className="rounded-xl text-xs font-bold"
+                                  onClick={() =>
+                                    handleDownload(
+                                      invoice.invoice.url,
+                                      `${invoice.invoiceNumber || `invoice_${invoice._id.slice(-6)}`}.pdf`,
+                                    )
+                                  }
+                                >
+                                  <Download className="h-3.5 w-3.5" />
+                                  Download
+                                </Button>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
                 ) : (
                   <div className="flex h-32 flex-col items-center justify-center text-center">
                     <FileText className="mb-2 h-8 w-8 text-slate-300" />

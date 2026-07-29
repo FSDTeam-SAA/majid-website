@@ -28,6 +28,11 @@ import {
   Smartphone,
   X as CloseIcon,
   CheckCircle2,
+  Banknote,
+  Building2,
+  Clock3,
+  CreditCard,
+  Printer,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
@@ -56,6 +61,16 @@ import { api } from "@/lib/api";
 // PDF Document
 import CheckoutInvoicePDF from "./CheckoutInvoicePDF";
 import ReturnInvoiceModal from "./ReturnInvoiceModal";
+import {
+  CheckoutPaymentResult,
+  createCheckoutPaymentForm,
+  getPaymentMethodLabel,
+  validateCheckoutPayment,
+} from "./checkoutPayment";
+import {
+  openThermalReceiptWindow,
+  printThermalReceipt,
+} from "./thermalReceipt";
 
 // UI Components
 import {
@@ -74,7 +89,8 @@ export default function Checkout() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const { data: session } = useSession();
-  const { currencySymbol, formatCurrency, convertAmount } = useCurrency();
+  const { currency, currencySymbol, formatCurrency, convertAmount } =
+    useCurrency();
   const shopkeeperId = (session?.user as { id?: string })?.id;
 
   // Data fetching queries
@@ -106,20 +122,21 @@ export default function Checkout() {
   const [isReturnModalOpen, setIsReturnModalOpen] = useState(false);
   const [isCustomerSelectorOpen, setIsCustomerSelectorOpen] = useState(false);
   const [isNewCustomerModalOpen, setIsNewCustomerModalOpen] = useState(false);
+  const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const [customerSearchQuery, setCustomerSearchQuery] = useState("");
   const [isPlacingOrder, setIsPlacingOrder] = useState(false);
   const [onlineOrderDetails, setOnlineOrderDetails] = useState({
     marketplace: "",
     orderNumber: "",
-    paymentMethod: "online" as "cash" | "online" | "card",
   });
   const [deliveryDetails, setDeliveryDetails] = useState({
     from: "",
     deliveryTo: "",
-    paymentMethod: "cash-on-delivery" as
-      "cash-on-delivery" | "cash" | "online" | "card",
     selectedCartItemIds: [] as string[],
   });
+  const [paymentForm, setPaymentForm] = useState(() =>
+    createCheckoutPaymentForm(0),
+  );
 
   // Local item quantities (for Browse Inventory cards)
   const [localQuantities, setLocalQuantities] = useState<
@@ -137,9 +154,7 @@ export default function Checkout() {
   });
   const [manualPrices, setManualPrices] = useState<Record<string, string>>({});
   const [pulledRepairItem, setPulledRepairItem] = useState<any | null>(null);
-  const [dismissedRecommendationKey, setDismissedRecommendationKey] = useState<
-    string | null
-  >(null);
+  const [, setDismissedRecommendationKey] = useState<string | null>(null);
   const [selectedRecommendationState, setSelectedRecommendationState] =
     useState<{
       key: string;
@@ -284,7 +299,12 @@ export default function Checkout() {
   }, [subtotalBeforeDiscount, subtotal]);
 
   const tax = 0;
-  const totalPayment = useMemo(() => subtotal, [subtotal]);
+  // Browser number inputs validate against their exact `min` value. Keep the
+  // charged amount at the same two-decimal precision displayed to the cashier.
+  const totalPayment = useMemo(
+    () => Math.round(subtotal * 100) / 100,
+    [subtotal],
+  );
   const totalCartCount = useMemo(
     () =>
       orderCartItems.reduce(
@@ -547,7 +567,13 @@ export default function Checkout() {
 
   // ─── Ready for Collection Handler ──────────────────────────────────────────
   const handlePullRepairOrder = (req: any) => {
+    const matchingCustomer = customers.find(
+      (customer: any) =>
+        (req.phoneNumber && customer.phone === req.phoneNumber) ||
+        (req.email && customer.email === req.email),
+    );
     const requestCustomer = {
+      ...(matchingCustomer || {}),
       firstName: req.firstName || "Customer",
       lastName: req.lastName || "",
       email: req.email || "",
@@ -585,8 +611,8 @@ export default function Checkout() {
     );
   };
 
-  // ─── Place Order (Receipt Generation & Completion) ─────────────────────────
-  const handlePlaceOrder = async () => {
+  // ─── Place Order (Payment, Receipt & Completion) ────────────────────────────
+  const handlePlaceOrder = () => {
     if (checkoutMode === "return") {
       setIsReturnModalOpen(true);
       return;
@@ -625,10 +651,48 @@ export default function Checkout() {
       }
     }
 
+    setPaymentForm(createCheckoutPaymentForm(totalPayment));
+    setIsPaymentModalOpen(true);
+  };
+
+  const handleConfirmPayment = async (event: React.FormEvent) => {
+    event.preventDefault();
+
+    if (paymentForm.method === "due" && !selectedCustomer?._id) {
+      toast.error(
+        "Select a registered customer before recording an amount due",
+      );
+      return;
+    }
+
+    const { error, payment } = validateCheckoutPayment(
+      paymentForm,
+      totalPayment,
+    );
+
+    if (error || !payment) {
+      toast.error(error || "Payment details are incomplete");
+      return;
+    }
+
+    await processCheckout(payment);
+  };
+
+  const processCheckout = async (payment: CheckoutPaymentResult) => {
+    if (!shopkeeperId) {
+      toast.error("Session expired");
+      return;
+    }
+
+    const receiptWindow = openThermalReceiptWindow();
+
     try {
       setIsPlacingOrder(true);
+      const transactionDate = new Date();
       const pricedOrderCartItems = orderCartItems.map((cartItem: any) => {
-        const originalPrice = Number(cartItem.itemId?.expectedPrice || 0);
+        const originalPrice = convertAmount(
+          Number(cartItem.itemId?.expectedPrice || 0),
+        );
         const manualValue = manualPrices[cartItem._id];
         const parsedManual = Number(manualValue);
         const sellingPrice =
@@ -647,13 +711,15 @@ export default function Checkout() {
           lineOriginalTotal: originalPrice * cartItem.quantity,
         };
       });
-      const invoiceNumber = `REC-${Date.now().toString().slice(-6)}`;
+      const invoiceNumber = `INV-${transactionDate
+        .toISOString()
+        .slice(0, 10)
+        .replaceAll("-", "")}-${Date.now().toString().slice(-6)}`;
       const onlineOrderMeta =
         checkoutMode === "online"
           ? {
               marketplace: onlineOrderDetails.marketplace.trim(),
               orderNumber: onlineOrderDetails.orderNumber.trim(),
-              paymentMethod: onlineOrderDetails.paymentMethod,
             }
           : null;
       const deliveryOrderMeta =
@@ -661,36 +727,14 @@ export default function Checkout() {
           ? {
               from: deliveryDetails.from.trim(),
               deliveryTo: deliveryDetails.deliveryTo.trim(),
-              paymentMethod: deliveryDetails.paymentMethod,
               selectedCartItemIds: deliveryDetails.selectedCartItemIds,
             }
           : null;
-      const fallbackCustomer = {
-        firstName: checkoutMode === "delivery" ? "Delivery" : "Online",
-        lastName: "Customer",
-        email: "",
-        phone: "",
-        address: "",
-      };
-      const customerInfoPayload =
-        onlineOrderMeta || deliveryOrderMeta
-          ? JSON.stringify({
-              ...(selectedCustomer || fallbackCustomer),
-              onlineOrder: onlineOrderMeta,
-              deliveryOrder: deliveryOrderMeta,
-            })
-          : selectedCustomer
-            ? JSON.stringify(selectedCustomer)
-            : "Walk-in";
       const invoiceType = onlineOrderMeta
         ? `ONLINE Receipt - ${onlineOrderMeta.marketplace} #${onlineOrderMeta.orderNumber}`
         : deliveryOrderMeta
           ? `DELIVERY Receipt - ${deliveryOrderMeta.from} to ${deliveryOrderMeta.deliveryTo}`
           : `${checkoutMode.toUpperCase()} Receipt`;
-      const paymentMethod =
-        deliveryOrderMeta?.paymentMethod ||
-        onlineOrderMeta?.paymentMethod ||
-        checkoutMode;
 
       // Generate QRCode
       const qrCodeDataUrl = await QRCode.toDataURL(
@@ -699,7 +743,9 @@ export default function Checkout() {
           shopkeeperId,
           total: totalPayment.toFixed(2),
           items: orderCartItems.length,
-          payment: paymentMethod,
+          payment: payment.method,
+          paymentStatus: payment.status,
+          dueAmount: payment.dueAmount,
           onlineOrder: onlineOrderMeta,
           deliveryOrder: deliveryOrderMeta,
         }),
@@ -718,17 +764,19 @@ export default function Checkout() {
           reviewQrCodeDataUrl={reviewQrCode?.qrCodeDataUrl}
           shopkeeper={profileData?.data}
           customer={selectedCustomer}
-          paymentMethod={paymentMethod}
+          paymentMethod={payment.method}
+          payment={payment}
           subtotalBeforeDiscount={subtotalBeforeDiscount}
           subtotal={subtotal}
           discount={totalDiscount}
           tax={tax}
           total={totalPayment}
+          currency={currency}
         />
       );
 
       const blob = await pdf(doc).toBlob();
-      const fileName = `${invoiceNumber}-receipt.pdf`;
+      const fileName = `${invoiceNumber}-invoice.pdf`;
       const invoiceFile = new File([blob], fileName, {
         type: "application/pdf",
       });
@@ -743,34 +791,80 @@ export default function Checkout() {
         shopkeeperId,
         type: invoiceType,
         invoice: invoiceFile,
-        customerInfo: customerInfoPayload,
+        customerInfo: selectedCustomer?._id,
         itemsIds,
-        dueAmount: 0, // fully paid
+        totalAmount: totalPayment,
+        amountPaid: payment.amountPaid,
+        dueAmount: payment.dueAmount,
+        tax,
+        paymentMethod: payment.method,
+        paymentStatus: payment.status,
+        paymentDetails: payment.details,
+        invoiceNumber,
+        currency,
+        orderDetails: {
+          checkoutMode,
+          marketplace: onlineOrderMeta?.marketplace,
+          orderNumber: onlineOrderMeta?.orderNumber,
+          deliveryFrom: deliveryOrderMeta?.from,
+          deliveryTo: deliveryOrderMeta?.deliveryTo,
+        },
+        discountAmount: totalDiscount,
       });
 
-      // Download file locally
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = fileName;
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      URL.revokeObjectURL(url);
+      const receiptOpened = printThermalReceipt(
+        {
+          invoiceNumber,
+          createdAt: transactionDate,
+          shopName: profileData?.data?.shopName || "imoscan Store",
+          logoUrl: `${window.location.origin}/images/logo.png`,
+          shopAddress: profileData?.data?.shopAddress,
+          shopPhone: profileData?.data?.phone,
+          cashierName:
+            [profileData?.data?.firstName, profileData?.data?.lastName]
+              .filter(Boolean)
+              .join(" ") || "Shopkeeper",
+          customerName: selectedCustomer
+            ? [selectedCustomer.firstName, selectedCustomer.lastName]
+                .filter(Boolean)
+                .join(" ")
+            : "Walk-in Customer",
+          orderNumber: onlineOrderMeta?.orderNumber || invoiceNumber,
+          items: pricedOrderCartItems.map((cartItem: any) => ({
+            name: cartItem.itemId?.itemName || cartItem.name || "Unknown Item",
+            quantity: Number(cartItem.quantity || 0),
+            originalPrice: Number(cartItem.originalPrice || 0),
+            sellingPrice: Number(cartItem.sellingPrice || 0),
+          })),
+          subtotalBeforeDiscount,
+          discount: totalDiscount,
+          total: totalPayment,
+          currency,
+          payment,
+        },
+        receiptWindow,
+      );
 
-      // Clear completed items from the shopkeeper cart.
-      if (deliveryOrderMeta) {
-        await Promise.all(
-          orderCartItems.map((cartItem: any) => deleteCartItem(cartItem._id)),
-        );
-      } else {
-        await deleteAllCartItems();
+      // The invoice is already committed at this point. A cart cleanup failure
+      // must not make the cashier retry the payment and create a duplicate.
+      let cartCleared = true;
+      try {
+        if (deliveryOrderMeta) {
+          await Promise.all(
+            orderCartItems.map((cartItem: any) => deleteCartItem(cartItem._id)),
+          );
+        } else {
+          await deleteAllCartItems();
+        }
+      } catch (cartError) {
+        cartCleared = false;
+        console.error("Invoice saved, but cart cleanup failed", cartError);
       }
+
       setSelectedCustomer(null);
       setOnlineOrderDetails({
         marketplace: "",
         orderNumber: "",
-        paymentMethod: "online",
       });
       setManualPrices({});
       setPulledRepairItem(null);
@@ -778,13 +872,24 @@ export default function Checkout() {
         ...prev,
         from: "",
         deliveryTo: "",
-        paymentMethod: "cash-on-delivery",
         selectedCartItemIds: [],
       }));
+      setIsPaymentModalOpen(false);
 
-      toast.success("Order Placed Successfully! Receipt Downloaded.");
+      if (!cartCleared) {
+        toast.warning(
+          "Invoice saved, but the cart could not be cleared. Remove those items before charging again.",
+        );
+      } else {
+        toast.success(
+          receiptOpened
+            ? "Order placed. Invoice saved and receipt opened for printing."
+            : "Order placed and invoice saved. Allow popups to print the receipt.",
+        );
+      }
     } catch (_err) {
       console.error(_err);
+      receiptWindow?.close();
       toast.error("Failed to process checkout transaction.");
     } finally {
       setIsPlacingOrder(false);
@@ -1670,28 +1775,6 @@ export default function Checkout() {
                 )}
               </div>
             </div>
-
-            <div className="space-y-1.5">
-              <label className="text-[10px] font-black uppercase tracking-wider text-slate-500">
-                Payment Completed By
-              </label>
-              <select
-                value={deliveryDetails.paymentMethod}
-                onChange={(event) =>
-                  setDeliveryDetails((prev) => ({
-                    ...prev,
-                    paymentMethod: event.target.value as
-                      "cash-on-delivery" | "cash" | "online" | "card",
-                  }))
-                }
-                className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-xs font-black text-slate-800 outline-none focus:border-[#84CC16] focus:ring-2 focus:ring-[#84CC16]/20"
-              >
-                <option value="cash-on-delivery">Cash on Delivery</option>
-                <option value="cash">Cash</option>
-                <option value="online">Online</option>
-                <option value="card">Card</option>
-              </select>
-            </div>
           </div>
         )}
 
@@ -1740,27 +1823,6 @@ export default function Checkout() {
                 className="h-10 rounded-xl border-slate-200 bg-white text-xs font-bold focus-visible:ring-[#84CC16]"
               />
             </div>
-
-            <div className="space-y-1.5">
-              <label className="text-[10px] font-black uppercase tracking-wider text-slate-500">
-                Payment
-              </label>
-              <select
-                value={onlineOrderDetails.paymentMethod}
-                onChange={(event) =>
-                  setOnlineOrderDetails((prev) => ({
-                    ...prev,
-                    paymentMethod: event.target.value as
-                      "cash" | "online" | "card",
-                  }))
-                }
-                className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-xs font-black text-slate-800 outline-none focus:border-[#84CC16] focus:ring-2 focus:ring-[#84CC16]/20"
-              >
-                <option value="cash">Cash</option>
-                <option value="online">Online</option>
-                <option value="card">Card</option>
-              </select>
-            </div>
           </div>
         )}
 
@@ -1807,6 +1869,375 @@ export default function Checkout() {
           )}
         </button>
       </div>
+
+      {/* ─── PAYMENT DIALOG ─── */}
+      <Dialog
+        open={isPaymentModalOpen}
+        onOpenChange={(open) => {
+          if (!isPlacingOrder) {
+            setIsPaymentModalOpen(open);
+          }
+        }}
+      >
+        <DialogContent className="max-h-[92vh] overflow-y-auto rounded-3xl border-none bg-white p-0 font-poppins sm:max-w-2xl">
+          <DialogHeader className="border-b border-slate-100 px-6 py-5 text-left">
+            <DialogTitle className="flex items-center gap-3 text-xl font-black text-slate-950">
+              <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-lime-50 text-[#84CC16]">
+                <CreditCard size={19} />
+              </span>
+              Collect Payment
+            </DialogTitle>
+            <DialogDescription className="text-xs font-semibold text-slate-500">
+              Select how the customer is paying{" "}
+              <span className="font-black text-slate-900">
+                {formatCurrency(totalPayment, currency)}
+              </span>
+              . The payment record will be saved with the customer invoice.
+            </DialogDescription>
+          </DialogHeader>
+
+          <form onSubmit={handleConfirmPayment} className="space-y-5 p-6">
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+              {[
+                {
+                  id: "cash" as const,
+                  label: "Cash",
+                  description: "Cash received",
+                  icon: Banknote,
+                },
+                {
+                  id: "card" as const,
+                  label: "Card",
+                  description: "Debit or credit",
+                  icon: CreditCard,
+                },
+                {
+                  id: "bank" as const,
+                  label: "Bank",
+                  description: "Bank transfer",
+                  icon: Building2,
+                },
+                {
+                  id: "due" as const,
+                  label: "Due",
+                  description: "Pay later",
+                  icon: Clock3,
+                },
+              ].map(({ id, label, description, icon: Icon }) => {
+                const isSelected = paymentForm.method === id;
+                const isDisabled = id === "due" && !selectedCustomer?._id;
+
+                return (
+                  <button
+                    key={id}
+                    type="button"
+                    disabled={isDisabled}
+                    onClick={() =>
+                      setPaymentForm((current) => ({
+                        ...current,
+                        method: id,
+                      }))
+                    }
+                    className={`rounded-2xl border p-3 text-left transition-all ${
+                      isSelected
+                        ? "border-[#84CC16] bg-lime-50 shadow-sm"
+                        : "border-slate-200 bg-white hover:border-slate-300"
+                    } ${isDisabled ? "cursor-not-allowed opacity-45" : ""}`}
+                  >
+                    <span
+                      className={`flex h-9 w-9 items-center justify-center rounded-xl ${
+                        isSelected
+                          ? "bg-[#84CC16] text-white"
+                          : "bg-slate-100 text-slate-500"
+                      }`}
+                    >
+                      <Icon size={17} />
+                    </span>
+                    <span className="mt-3 block text-sm font-black text-slate-950">
+                      {label}
+                    </span>
+                    <span className="mt-0.5 block text-[10px] font-bold text-slate-500">
+                      {isDisabled ? "Customer required" : description}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+
+            {!paymentForm.method ? (
+              <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-7 text-center">
+                <CreditCard className="mx-auto h-7 w-7 text-slate-300" />
+                <p className="mt-2 text-xs font-black text-slate-600">
+                  Choose a payment method to continue
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-4 rounded-2xl border border-slate-100 bg-slate-50 p-4">
+                <div>
+                  <p className="text-sm font-black text-slate-950">
+                    {getPaymentMethodLabel(paymentForm.method)} details
+                  </p>
+                  <p className="text-[10px] font-bold text-slate-500">
+                    Only transaction references and last four digits are stored.
+                  </p>
+                </div>
+
+                {paymentForm.method === "cash" && (
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <label className="space-y-1.5">
+                      <span className="text-[10px] font-black uppercase tracking-wider text-slate-500">
+                        Cash Received
+                      </span>
+                      <Input
+                        type="number"
+                        min={totalPayment}
+                        step="0.01"
+                        value={paymentForm.amountReceived}
+                        onChange={(event) =>
+                          setPaymentForm((current) => ({
+                            ...current,
+                            amountReceived: event.target.value,
+                          }))
+                        }
+                        className="h-11 rounded-xl border-slate-200 bg-white text-sm font-black focus-visible:ring-[#84CC16]"
+                      />
+                    </label>
+                    <div className="rounded-xl border border-lime-100 bg-lime-50 px-4 py-3">
+                      <span className="text-[10px] font-black uppercase tracking-wider text-lime-700">
+                        Change
+                      </span>
+                      <p className="mt-1 text-lg font-black text-lime-700">
+                        {formatCurrency(
+                          Math.max(
+                            0,
+                            Number(paymentForm.amountReceived || 0) -
+                              totalPayment,
+                          ),
+                          currency,
+                        )}
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {paymentForm.method === "card" && (
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <label className="space-y-1.5">
+                      <span className="text-[10px] font-black uppercase tracking-wider text-slate-500">
+                        Cardholder Name
+                      </span>
+                      <Input
+                        value={paymentForm.cardholderName}
+                        onChange={(event) =>
+                          setPaymentForm((current) => ({
+                            ...current,
+                            cardholderName: event.target.value,
+                          }))
+                        }
+                        placeholder="Optional"
+                        autoComplete="off"
+                        className="h-11 rounded-xl border-slate-200 bg-white text-xs font-bold focus-visible:ring-[#84CC16]"
+                      />
+                    </label>
+                    <label className="space-y-1.5">
+                      <span className="text-[10px] font-black uppercase tracking-wider text-slate-500">
+                        Card Last 4 *
+                      </span>
+                      <Input
+                        inputMode="numeric"
+                        maxLength={4}
+                        value={paymentForm.cardLastFour}
+                        onChange={(event) =>
+                          setPaymentForm((current) => ({
+                            ...current,
+                            cardLastFour: event.target.value
+                              .replace(/\D/g, "")
+                              .slice(0, 4),
+                          }))
+                        }
+                        placeholder="1234"
+                        autoComplete="off"
+                        className="h-11 rounded-xl border-slate-200 bg-white text-xs font-bold focus-visible:ring-[#84CC16]"
+                      />
+                    </label>
+                    <label className="space-y-1.5 sm:col-span-2">
+                      <span className="text-[10px] font-black uppercase tracking-wider text-slate-500">
+                        Transaction / Authorization Reference *
+                      </span>
+                      <Input
+                        value={paymentForm.transactionReference}
+                        onChange={(event) =>
+                          setPaymentForm((current) => ({
+                            ...current,
+                            transactionReference: event.target.value,
+                          }))
+                        }
+                        placeholder="Card terminal transaction reference"
+                        autoComplete="off"
+                        className="h-11 rounded-xl border-slate-200 bg-white text-xs font-bold focus-visible:ring-[#84CC16]"
+                      />
+                    </label>
+                  </div>
+                )}
+
+                {paymentForm.method === "bank" && (
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <label className="space-y-1.5">
+                      <span className="text-[10px] font-black uppercase tracking-wider text-slate-500">
+                        Bank Name *
+                      </span>
+                      <Input
+                        value={paymentForm.bankName}
+                        onChange={(event) =>
+                          setPaymentForm((current) => ({
+                            ...current,
+                            bankName: event.target.value,
+                          }))
+                        }
+                        placeholder="Customer's bank"
+                        className="h-11 rounded-xl border-slate-200 bg-white text-xs font-bold focus-visible:ring-[#84CC16]"
+                      />
+                    </label>
+                    <label className="space-y-1.5">
+                      <span className="text-[10px] font-black uppercase tracking-wider text-slate-500">
+                        Account Last 4
+                      </span>
+                      <Input
+                        inputMode="numeric"
+                        maxLength={4}
+                        value={paymentForm.accountLastFour}
+                        onChange={(event) =>
+                          setPaymentForm((current) => ({
+                            ...current,
+                            accountLastFour: event.target.value
+                              .replace(/\D/g, "")
+                              .slice(0, 4),
+                          }))
+                        }
+                        placeholder="Optional"
+                        autoComplete="off"
+                        className="h-11 rounded-xl border-slate-200 bg-white text-xs font-bold focus-visible:ring-[#84CC16]"
+                      />
+                    </label>
+                    <label className="space-y-1.5 sm:col-span-2">
+                      <span className="text-[10px] font-black uppercase tracking-wider text-slate-500">
+                        Transfer Reference *
+                      </span>
+                      <Input
+                        value={paymentForm.transactionReference}
+                        onChange={(event) =>
+                          setPaymentForm((current) => ({
+                            ...current,
+                            transactionReference: event.target.value,
+                          }))
+                        }
+                        placeholder="Bank transfer reference"
+                        className="h-11 rounded-xl border-slate-200 bg-white text-xs font-bold focus-visible:ring-[#84CC16]"
+                      />
+                    </label>
+                  </div>
+                )}
+
+                {paymentForm.method === "due" && (
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <label className="space-y-1.5">
+                      <span className="text-[10px] font-black uppercase tracking-wider text-slate-500">
+                        Amount Paid Now
+                      </span>
+                      <Input
+                        type="number"
+                        min="0"
+                        max={Math.max(0, totalPayment - 0.01)}
+                        step="0.01"
+                        value={paymentForm.amountPaid}
+                        onChange={(event) =>
+                          setPaymentForm((current) => ({
+                            ...current,
+                            amountPaid: event.target.value,
+                          }))
+                        }
+                        className="h-11 rounded-xl border-slate-200 bg-white text-xs font-bold focus-visible:ring-[#84CC16]"
+                      />
+                    </label>
+                    <label className="space-y-1.5">
+                      <span className="text-[10px] font-black uppercase tracking-wider text-slate-500">
+                        Due Date *
+                      </span>
+                      <Input
+                        type="date"
+                        value={paymentForm.dueDate}
+                        onChange={(event) =>
+                          setPaymentForm((current) => ({
+                            ...current,
+                            dueDate: event.target.value,
+                          }))
+                        }
+                        className="h-11 rounded-xl border-slate-200 bg-white text-xs font-bold focus-visible:ring-[#84CC16]"
+                      />
+                    </label>
+                    <div className="rounded-xl border border-orange-100 bg-orange-50 px-4 py-3 sm:col-span-2">
+                      <span className="text-[10px] font-black uppercase tracking-wider text-orange-700">
+                        Balance Due
+                      </span>
+                      <p className="mt-1 text-lg font-black text-orange-700">
+                        {formatCurrency(
+                          Math.max(
+                            0,
+                            totalPayment - Number(paymentForm.amountPaid || 0),
+                          ),
+                          currency,
+                        )}
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                <label className="block space-y-1.5">
+                  <span className="text-[10px] font-black uppercase tracking-wider text-slate-500">
+                    Payment Note
+                  </span>
+                  <textarea
+                    rows={2}
+                    value={paymentForm.notes}
+                    onChange={(event) =>
+                      setPaymentForm((current) => ({
+                        ...current,
+                        notes: event.target.value,
+                      }))
+                    }
+                    placeholder="Optional note"
+                    className="w-full resize-none rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-xs font-bold outline-none transition focus:border-[#84CC16] focus:ring-2 focus:ring-[#84CC16]/20"
+                  />
+                </label>
+              </div>
+            )}
+
+            <div className="flex flex-col-reverse gap-3 border-t border-slate-100 pt-5 sm:flex-row sm:justify-end">
+              <Button
+                type="button"
+                variant="outline"
+                disabled={isPlacingOrder}
+                onClick={() => setIsPaymentModalOpen(false)}
+                className="h-11 rounded-xl px-5 text-xs font-black"
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                disabled={!paymentForm.method || isPlacingOrder}
+                className="h-11 rounded-xl bg-[#84CC16] px-5 text-xs font-black text-white hover:bg-[#75b213]"
+              >
+                {isPlacingOrder ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Printer className="h-4 w-4" />
+                )}
+                {isPlacingOrder ? "Saving Invoice…" : "Confirm & Print Receipt"}
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
 
       {/* ─── CUSTOMER SELECTOR DIALOG ─── */}
       <Dialog

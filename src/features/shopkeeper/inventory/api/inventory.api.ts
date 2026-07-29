@@ -232,7 +232,16 @@ export const createInvoice = async (input: {
   invoice: File;
   customerInfo?: string;
   itemsIds?: string[];
+  totalAmount?: number;
   dueAmount?: number;
+  amountPaid?: number;
+  tax?: number;
+  paymentMethod?: string;
+  paymentStatus?: "paid" | "partial" | "due";
+  paymentDetails?: Record<string, string | number | undefined>;
+  invoiceNumber?: string;
+  currency?: string;
+  orderDetails?: Record<string, string | undefined>;
   discountName?: string;
   discountPercentage?: number;
   discountAmount?: number;
@@ -242,10 +251,34 @@ export const createInvoice = async (input: {
   formData.append("shopkeeperId", input.shopkeeperId);
   formData.append("type", input.type);
   formData.append("invoice", input.invoice);
-  console.log(input.dueAmount);
-  if (input.dueAmount) formData.append("dueAmount", String(input.dueAmount));
 
   if (input.customerInfo) formData.append("customerInfo", input.customerInfo);
+  if (input.totalAmount !== undefined) {
+    formData.append("totalAmount", String(input.totalAmount));
+  }
+  if (input.dueAmount !== undefined) {
+    formData.append("dueAmount", String(input.dueAmount));
+  }
+  if (input.amountPaid !== undefined) {
+    formData.append("amountPaid", String(input.amountPaid));
+  }
+  if (input.tax !== undefined) formData.append("tax", String(input.tax));
+  if (input.paymentMethod) {
+    formData.append("paymentMethod", input.paymentMethod);
+  }
+  if (input.paymentStatus) {
+    formData.append("paymentStatus", input.paymentStatus);
+  }
+  if (input.paymentDetails) {
+    formData.append("paymentDetails", JSON.stringify(input.paymentDetails));
+  }
+  if (input.invoiceNumber) {
+    formData.append("invoiceNumber", input.invoiceNumber);
+  }
+  if (input.currency) formData.append("currency", input.currency);
+  if (input.orderDetails) {
+    formData.append("orderDetails", JSON.stringify(input.orderDetails));
+  }
   if (input.discountName) formData.append("discountName", input.discountName);
   if (input.discountPercentage !== undefined) {
     formData.append("discountPercentage", String(input.discountPercentage));

@@ -266,6 +266,36 @@ export interface InvoiceHistoryItem {
   invoice: InvoiceFile;
   shopkeeperId: Shopkeeper;
   type: string;
+  customerInfo?: Partial<Customer> | string | null;
+  itemsIds?: InventoryItem[];
+  totalAmount?: number;
+  dueAmount?: number;
+  amountPaid?: number;
+  tax?: number;
+  paymentMethod?: "cash" | "card" | "bank" | "due" | string;
+  paymentStatus?: "paid" | "partial" | "due";
+  paymentDetails?: {
+    amountReceived?: number;
+    changeGiven?: number;
+    cardholderName?: string;
+    cardLastFour?: string;
+    bankName?: string;
+    accountLastFour?: string;
+    transactionReference?: string;
+    amountPaid?: number;
+    dueAmount?: number;
+    dueDate?: string;
+    notes?: string;
+  };
+  invoiceNumber?: string;
+  currency?: string;
+  orderDetails?: {
+    checkoutMode?: string;
+    marketplace?: string;
+    orderNumber?: string;
+    deliveryFrom?: string;
+    deliveryTo?: string;
+  };
   createdAt: string;
   updatedAt: string;
 }

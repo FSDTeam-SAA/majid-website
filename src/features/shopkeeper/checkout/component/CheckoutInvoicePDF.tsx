@@ -8,6 +8,10 @@ import {
   Text,
   View,
 } from "@react-pdf/renderer";
+import {
+  CheckoutPaymentResult,
+  getPaymentMethodLabel,
+} from "./checkoutPayment";
 
 const colors = {
   teal: "#155E63",
@@ -153,6 +157,11 @@ const styles = StyleSheet.create({
     color: "#84CC16",
     textTransform: "uppercase",
   },
+  paymentDetail: {
+    fontSize: 8,
+    color: colors.slate500,
+    marginTop: 3,
+  },
   tableHeader: {
     flexDirection: "row",
     backgroundColor: colors.teal,
@@ -261,6 +270,7 @@ export interface CheckoutInvoicePDFProps {
   shopkeeper?: any;
   customer?: any;
   paymentMethod: string;
+  payment?: CheckoutPaymentResult;
   subtotalBeforeDiscount?: number;
   subtotal: number;
   discount?: number;
@@ -293,6 +303,7 @@ export default function CheckoutInvoicePDF({
   shopkeeper,
   customer,
   paymentMethod,
+  payment,
   subtotalBeforeDiscount,
   subtotal,
   discount,
@@ -304,13 +315,18 @@ export default function CheckoutInvoicePDF({
   currency = "USD",
 }: CheckoutInvoicePDFProps) {
   const invoiceDate = new Date();
-  const dueDate = new Date(invoiceDate);
-  dueDate.setDate(invoiceDate.getDate() + 7);
 
   const shopName = shopkeeper?.shopName || "imoscan Store";
   const contactEmail = shopkeeper?.email || "info@imoscan.com";
   const contactPhone = shopkeeper?.phone || "N/A";
   const shopAddress = shopkeeper?.shopAddress || "N/A";
+  const paymentLabel = getPaymentMethodLabel(payment?.method || paymentMethod);
+  const paymentStatus =
+    payment?.status === "partial"
+      ? "PARTIALLY PAID"
+      : payment?.status === "due"
+        ? "PAYMENT DUE"
+        : "FULLY PAID";
 
   return (
     <Document>
@@ -352,9 +368,13 @@ export default function CheckoutInvoicePDF({
               </Text>
             </View>
             <View style={styles.metaBlock}>
-              <Text style={styles.metaLabel}>Due Date:</Text>
+              <Text style={styles.metaLabel}>
+                {payment?.method === "due" ? "Due Date:" : "Payment Status:"}
+              </Text>
               <Text style={styles.metaText}>
-                {dueDate.toLocaleDateString("en-GB")}
+                {payment?.method === "due"
+                  ? String(payment.details.dueDate || "N/A")
+                  : "Paid"}
               </Text>
             </View>
           </View>
@@ -386,10 +406,45 @@ export default function CheckoutInvoicePDF({
             </View>
             <View style={styles.paymentPill}>
               <Text style={styles.paymentTitle}>Payment Details</Text>
-              <Text style={styles.paymentText}>Method: {paymentMethod}</Text>
-              <Text style={[styles.customerDetail, { marginTop: 6 }]}>
-                Status: FULLY PAID
-              </Text>
+              <Text style={styles.paymentText}>Method: {paymentLabel}</Text>
+              <Text style={styles.paymentDetail}>Status: {paymentStatus}</Text>
+              {payment?.method === "card" && (
+                <Text style={styles.paymentDetail}>
+                  Card: •••• {payment.details.cardLastFour} · Ref:{" "}
+                  {payment.details.transactionReference}
+                </Text>
+              )}
+              {payment?.method === "bank" && (
+                <Text style={styles.paymentDetail}>
+                  Bank: {payment.details.bankName} · Ref:{" "}
+                  {payment.details.transactionReference}
+                </Text>
+              )}
+              {payment?.method === "cash" && (
+                <Text style={styles.paymentDetail}>
+                  Received:{" "}
+                  {formatCurrency(
+                    Number(payment.details.amountReceived || 0),
+                    currency,
+                  )}{" "}
+                  · Change:{" "}
+                  {formatCurrency(
+                    Number(payment.details.changeGiven || 0),
+                    currency,
+                  )}
+                </Text>
+              )}
+              {payment?.method === "due" && (
+                <>
+                  <Text style={styles.paymentDetail}>
+                    Paid: {formatCurrency(payment.amountPaid, currency)} · Due:{" "}
+                    {formatCurrency(payment.dueAmount, currency)}
+                  </Text>
+                  <Text style={styles.paymentDetail}>
+                    Due date: {String(payment.details.dueDate || "N/A")}
+                  </Text>
+                </>
+              )}
             </View>
           </View>
 
@@ -404,11 +459,11 @@ export default function CheckoutInvoicePDF({
           {cartItems.map((cartItem, index) => {
             const item = cartItem.itemId;
             const price =
-              cartItem.sellingPrice ||
-              cartItem.price ||
-              item?.expectedPrice ||
+              cartItem.sellingPrice ??
+              cartItem.price ??
+              item?.expectedPrice ??
               0;
-            const lineTotal = cartItem.lineTotal || price * cartItem.quantity;
+            const lineTotal = cartItem.lineTotal ?? price * cartItem.quantity;
 
             return (
               <View
@@ -468,14 +523,28 @@ export default function CheckoutInvoicePDF({
                 <Text>-{formatCurrency(discountAmount, currency)}</Text>
               </View>
             ) : null}
-            <View style={styles.totalLine}>
-              <Text>Tax (8.5%)</Text>
-              <Text>{formatCurrency(tax, currency)}</Text>
-            </View>
+            {tax > 0 && (
+              <View style={styles.totalLine}>
+                <Text>Tax</Text>
+                <Text>{formatCurrency(tax, currency)}</Text>
+              </View>
+            )}
             <View style={styles.amountDue}>
-              <Text>Total Paid:</Text>
+              <Text>Grand Total:</Text>
               <Text>{formatCurrency(total, currency)}</Text>
             </View>
+            {payment && payment.dueAmount > 0 && (
+              <>
+                <View style={styles.totalLine}>
+                  <Text>Paid Now</Text>
+                  <Text>{formatCurrency(payment.amountPaid, currency)}</Text>
+                </View>
+                <View style={styles.totalLine}>
+                  <Text>Balance Due</Text>
+                  <Text>{formatCurrency(payment.dueAmount, currency)}</Text>
+                </View>
+              </>
+            )}
           </View>
 
           {/* Footer */}
