@@ -85,6 +85,13 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useCurrency } from "@/hooks/useCurrency";
 
+const getInventoryImageUrl = (item: any) =>
+  item?.image?.url ||
+  item?.images?.[0] ||
+  item?.sourceImageUrl ||
+  item?.sourceImageUrls?.[0] ||
+  "";
+
 export default function Checkout() {
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -1142,6 +1149,8 @@ export default function Checkout() {
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 pt-2">
               {filteredInventory.map((item: any) => {
                 const qty = localQuantities[item._id] || 1;
+                const itemImageUrl = getInventoryImageUrl(item);
+
                 return (
                   <motion.div
                     key={item._id}
@@ -1152,12 +1161,14 @@ export default function Checkout() {
                   >
                     {/* Item Image */}
                     <div className="relative w-full h-32 bg-slate-50 border border-slate-100 rounded-xl overflow-hidden mb-3 flex items-center justify-center">
-                      {item.image?.url ? (
+                      {itemImageUrl ? (
                         <Image
-                          src={item.image.url}
+                          src={itemImageUrl}
                           alt={item.itemName}
                           fill
-                          className="object-cover"
+                          sizes="(max-width: 639px) calc(100vw - 5rem), (max-width: 767px) 50vw, 33vw"
+                          className="object-contain object-center p-3"
+                          unoptimized
                         />
                       ) : (
                         <Package className="w-10 h-10 text-slate-350" />

@@ -365,12 +365,15 @@ export default function Inventory() {
                     }}
                     className="group cursor-pointer overflow-hidden rounded-2xl border border-border bg-card shadow-sm transition hover:-translate-y-1 hover:border-[#84CC16]/50 hover:shadow-lg"
                   >
-                    <div className="relative h-40 bg-slate-100 dark:bg-slate-900">
+                    <div className="relative h-40 bg-slate-50 dark:bg-slate-900">
                       {categoryImageUrl ? (
-                        <img
+                        <Image
                           src={getCategoryImageSrc(categoryImageUrl)}
                           alt={category.name}
-                          className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
+                          fill
+                          sizes="(max-width: 767px) calc(100vw - 3rem), (max-width: 1279px) 50vw, 25vw"
+                          className="h-full w-full object-contain object-center p-3 transition duration-500 group-hover:scale-105"
+                          unoptimized
                         />
                       ) : (
                         <div className="flex h-full items-center justify-center text-slate-300">
@@ -601,7 +604,8 @@ export default function Inventory() {
                               src={getInventoryImageUrl(item)}
                               alt={item.itemName}
                               fill
-                              className="object-cover transition-transform duration-500"
+                              sizes="(max-width: 639px) calc(100vw - 4rem), 128px"
+                              className="object-contain object-center p-3 transition-transform duration-500 group-hover:scale-105"
                               unoptimized
                             />
                           ) : (
@@ -826,7 +830,7 @@ function CategoryFormDialog({
             <div className="rounded-2xl border border-dashed border-border bg-surface p-4">
               {imagePreview ? (
                 <div
-                  className="mb-4 h-40 rounded-xl bg-cover bg-center"
+                  className="mb-4 h-40 rounded-xl bg-slate-50 bg-contain bg-center bg-no-repeat"
                   style={{
                     backgroundImage: `url("${getCategoryImageSrc(imagePreview)}")`,
                   }}
