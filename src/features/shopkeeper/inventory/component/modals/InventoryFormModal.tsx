@@ -1798,7 +1798,10 @@ export function InventoryFormModal({
                             <span className="text-[10px] font-black uppercase tracking-wider text-[#84CC16] bg-[#84CC16]/10 px-3 py-1 rounded-full border border-[#84CC16]/20 flex items-center gap-1.5 shadow-sm">
                               <Tag className="w-3 h-3 text-[#84CC16]" />
                               Expected Price:{" "}
-                              {formatCurrency(Number(suggestedExpectedPrice))}
+                              {formatCurrency(
+                                Number(suggestedExpectedPrice),
+                                currency,
+                              )}
                             </span>
                           ) : null}
                         </div>

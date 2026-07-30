@@ -90,7 +90,7 @@ const getInventoryDisplayPrice = (item: InventoryItem) =>
   item.expectedPrice ?? item.salePrice ?? 0;
 
 export default function Inventory() {
-  const { formatCurrency } = useCurrency();
+  const { currency, formatCurrency } = useCurrency();
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(
     null,
   );
@@ -709,7 +709,7 @@ export default function Inventory() {
                               <span className="text-xl font-black text-foreground">
                                 {formatCurrency(
                                   getInventoryDisplayPrice(item),
-                                  "GBP",
+                                  currency,
                                 )}
                               </span>
                             </div>

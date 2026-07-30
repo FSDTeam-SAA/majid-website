@@ -52,7 +52,7 @@ export default function ShopkeeperCart() {
   const [isGeneratingInvoice, setIsGeneratingInvoice] = useState(false);
   const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false);
   const [editedPrices, setEditedPrices] = useState<Record<string, number>>({});
-  const { formatCurrency } = useCurrency();
+  const { currency, formatCurrency } = useCurrency();
 
   const cartItems = useMemo(() => cartData?.data || [], [cartData]);
 
@@ -198,7 +198,7 @@ export default function ShopkeeperCart() {
             </h1>
             <p className="mt-1 text-sm font-bold text-[#64748B] dark:text-slate-300">
               {totalQuantity} units in cart ({cartItems.length} models) -{" "}
-              {formatCurrency(totalValue)} total value
+              {formatCurrency(totalValue, currency)} total value
             </p>
           </div>
         </div>
@@ -207,7 +207,10 @@ export default function ShopkeeperCart() {
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
             <SummaryTile label="Models" value={cartItems.length} />
             <SummaryTile label="Units" value={totalQuantity} />
-            <SummaryTile label="Value" value={formatCurrency(totalValue)} />
+            <SummaryTile
+              label="Value"
+              value={formatCurrency(totalValue, currency)}
+            />
           </div>
           <button
             onClick={() => setIsPreviewModalOpen(true)}
@@ -319,7 +322,7 @@ function CartProductCard({
   onDelete: (cartId: string) => void;
   editedPrice?: number;
 }) {
-  const { formatCurrency } = useCurrency();
+  const { currency, formatCurrency } = useCurrency();
   const item = cartItem.itemId;
   const originalPrice = item?.expectedPrice || 0;
   const currentPrice = editedPrice !== undefined ? editedPrice : originalPrice;
@@ -381,11 +384,11 @@ function CartProductCard({
               </p>
               <div className="flex items-center gap-2">
                 <p className="text-xl font-black text-[#0F172A] dark:text-white">
-                  {formatCurrency(currentPrice)}
+                  {formatCurrency(currentPrice, currency)}
                 </p>
                 {originalPrice > currentPrice && (
                   <p className="text-xs font-bold text-slate-400 line-through">
-                    {formatCurrency(originalPrice)}
+                    {formatCurrency(originalPrice, currency)}
                   </p>
                 )}
               </div>
@@ -396,7 +399,7 @@ function CartProductCard({
                 Total
               </div>
               <p className="text-sm font-black text-[#0F172A] dark:text-white">
-                {formatCurrency(lineTotal)}
+                {formatCurrency(lineTotal, currency)}
               </p>
             </div>
           </div>

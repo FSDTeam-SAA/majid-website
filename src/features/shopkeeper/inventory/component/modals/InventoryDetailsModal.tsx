@@ -35,7 +35,7 @@ export function InventoryDetailsModal({
   item,
   onClose,
 }: InventoryDetailsModalProps) {
-  const { formatCurrency } = useCurrency();
+  const { currency, formatCurrency } = useCurrency();
   if (!item) return null;
 
   return (
@@ -89,7 +89,7 @@ export function InventoryDetailsModal({
             </p>
             <div className="flex items-baseline gap-1">
               <span className="text-3xl font-black text-[#0F172A]">
-                {formatCurrency(getInventoryDisplayPrice(item), "GBP")}
+                {formatCurrency(getInventoryDisplayPrice(item), currency)}
               </span>
             </div>
           </div>
@@ -144,7 +144,7 @@ export function InventoryDetailsModal({
                   Selling
                 </span>
                 <span className="text-xs font-black text-[#84CC16]">
-                  {formatCurrency(getInventoryDisplayPrice(item), "GBP")}
+                  {formatCurrency(getInventoryDisplayPrice(item), currency)}
                 </span>
               </div>
               <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 text-center">

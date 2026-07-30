@@ -24,7 +24,7 @@ export default function InvoicePreviewModal({
   onDownload,
   isGeneratingInvoice,
 }: InvoicePreviewModalProps) {
-  const { currencySymbol, formatCurrency } = useCurrency();
+  const { currency, currencySymbol, formatCurrency } = useCurrency();
   if (!isOpen) return null;
 
   const handlePriceChange = (cartItemId: string, newPrice: string) => {
@@ -280,7 +280,7 @@ export default function InvoicePreviewModal({
                         </div>
                         {isDiscounted && (
                           <div className="text-[8px] text-slate-400 line-through">
-                            {formatCurrency(originalPrice)}
+                            {formatCurrency(originalPrice, currency)}
                           </div>
                         )}
                         {isDiscounted && originalPrice > 0 && (
@@ -302,17 +302,17 @@ export default function InvoicePreviewModal({
                     <div className="flex justify-between border-b border-slate-200 py-2">
                       <span>Total Discount</span>
                       <span className="text-[#F97316]">
-                        -{formatCurrency(totalDiscount)}
+                        -{formatCurrency(totalDiscount, currency)}
                       </span>
                     </div>
                   )}
                   <div className="flex justify-between border-b border-slate-200 py-2">
                     <span>Subtotal</span>
-                    <span>{formatCurrency(finalTotal)}</span>
+                    <span>{formatCurrency(finalTotal, currency)}</span>
                   </div>
                   <div className="flex justify-between bg-[#F97316] text-white rounded-b-md px-3 py-2.5 font-bold text-sm">
                     <span>Amount Due:</span>
-                    <span>{formatCurrency(finalTotal)}</span>
+                    <span>{formatCurrency(finalTotal, currency)}</span>
                   </div>
                 </div>
               </div>
