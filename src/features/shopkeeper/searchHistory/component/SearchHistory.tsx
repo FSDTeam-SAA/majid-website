@@ -21,9 +21,10 @@ import {
   X,
 } from "lucide-react";
 import { motion } from "framer-motion";
-import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 import { useSearchHistory } from "../hooks/useSearchHistory";
 import { SearchHistoryRecord } from "../types/search-history.types";
+import { getSearchHistoryReportPdf } from "../api/search-history.api";
 import { useCurrency } from "@/hooks/useCurrency";
 
 type StatusFilter = "all" | "clean" | "unknown" | "blocked" | "blacklisted";
@@ -131,7 +132,6 @@ const buildPageItems = (currentPage: number, totalPages: number) => {
 };
 
 export default function SearchHistory() {
-  const router = useRouter();
   const { formatCurrency } = useCurrency();
   const [page, setPage] = React.useState(1);
   const [limit, setLimit] = React.useState(10);
@@ -221,15 +221,31 @@ export default function SearchHistory() {
     error instanceof Error ? error.message : "Failed to load search history.";
 
   const handleRowClick = React.useCallback(
-    (record: SearchHistoryRecord) => {
-      const params = new URLSearchParams({
-        imei: record.imei,
-        deviceName: record.deviceName || "Unknown Device",
-        from: "search-history",
-      });
-      router.push(`/shopkeeper/scan-device?${params.toString()}`);
+    async (record: SearchHistoryRecord) => {
+      // Open the tab synchronously, otherwise browser popup protection may
+      // block it while the authenticated PDF request is in progress.
+      const pdfWindow = window.open("", "_blank");
+
+      try {
+        const pdf = await getSearchHistoryReportPdf(record._id);
+        const pdfUrl = URL.createObjectURL(pdf);
+
+        if (pdfWindow) {
+          pdfWindow.location.href = pdfUrl;
+        } else {
+          window.location.assign(pdfUrl);
+        }
+
+        window.setTimeout(() => URL.revokeObjectURL(pdfUrl), 60_000);
+      } catch (openError: unknown) {
+        pdfWindow?.close();
+        const message =
+          (openError as { response?: { data?: { message?: string } } })
+            ?.response?.data?.message || "Could not open the saved PDF report.";
+        toast.error(message);
+      }
     },
-    [router],
+    [],
   );
 
   return (

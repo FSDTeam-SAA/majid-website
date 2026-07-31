@@ -54,6 +54,7 @@ export interface TechnicalBreakdown {
 
 export interface IMEIResult {
   _id?: string;
+  serviceId?: number;
   deviceName: string;
   imei: string;
   deviceStatus: string;
@@ -211,6 +212,7 @@ export interface FavouriteProviderResults {
 }
 
 export interface FavouriteIMEIData {
+  reportId?: string;
   bundledServiceId: number;
   bundledServiceName: string;
   bundledServiceCategory?: string;

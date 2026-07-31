@@ -244,7 +244,7 @@ export const buildThermalReceiptHtml = (payload: ThermalReceiptPayload) => {
       <div><span>Receipt #:</span><b>${escapeHtml(payload.invoiceNumber)}</b></div>
       <div><span>Date:</span><b>${escapeHtml(date)}</b></div>
       <div><span>Time:</span><b>${escapeHtml(time)}</b></div>
-      <div><span>Cashier:</span><b>${escapeHtml(payload.cashierName || "Shopkeeper")}</b></div>
+      <div><span>Served by:</span><b>${escapeHtml(payload.cashierName || "Shopkeeper")}</b></div>
     </section>
 
     <div class="rule"></div>

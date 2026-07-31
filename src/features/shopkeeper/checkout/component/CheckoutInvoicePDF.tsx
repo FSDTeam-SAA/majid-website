@@ -362,7 +362,7 @@ export default function CheckoutInvoicePDF({
             </View>
             <View style={styles.metaDivider} />
             <View style={styles.metaBlock}>
-              <Text style={styles.metaLabel}>Cashier:</Text>
+              <Text style={styles.metaLabel}>Served by:</Text>
               <Text style={styles.metaText}>
                 {shopkeeper?.firstName} {shopkeeper?.lastName}
               </Text>

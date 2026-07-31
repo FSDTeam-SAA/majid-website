@@ -4,6 +4,7 @@ import type {
   UpdateInventoryInput,
   InventoryListResponse,
   CreateFromBarcodeBulkInput,
+  CartItem,
   InvoiceHistoryResponse,
   CartListResponse,
   CategoryInput,
@@ -352,6 +353,15 @@ export const getShopkeeperCart = async (
 ): Promise<CartListResponse> => {
   const response = await api.get(`/add-to-cart/shopkeeper/${shopkeeperId}`);
   return response.data;
+};
+
+export const addToShopkeeperCart = async (input: {
+  shopkeeperId: string;
+  itemId: string;
+  quantity: number;
+}): Promise<CartItem> => {
+  const response = await api.post(`/add-to-cart/create`, input);
+  return response.data.data;
 };
 
 export const deleteCartItem = async (cartId: string) => {

@@ -19,6 +19,7 @@ import {
   deleteCustomer,
   getCustomersByShopkeeper,
   getShopkeeperCart,
+  addToShopkeeperCart,
   deleteCartItem,
   deleteAllShopkeeperCartItems,
   importCsvInventory,
@@ -29,7 +30,9 @@ import type {
   UpdateInventoryInput,
   CreateFromBarcodeBulkInput,
   InvoiceHistoryResponse,
+  CartItem,
   CartListResponse,
+  InventoryItem,
   CategoryInput,
   CategoryListResponse,
   CustomersResponse,
@@ -291,6 +294,96 @@ export function useShopkeeperCart(shopkeeperId?: string) {
     queryKey: INVENTORY_KEYS.shopkeeperCart(shopkeeperId || ""),
     queryFn: () => getShopkeeperCart(shopkeeperId || ""),
     enabled: !!shopkeeperId,
+  });
+}
+
+export function useAddToShopkeeperCart(shopkeeperId?: string) {
+  const queryClient = useQueryClient();
+  const queryKey = INVENTORY_KEYS.shopkeeperCart(shopkeeperId || "");
+
+  return useMutation({
+    mutationFn: ({
+      item,
+      quantity,
+    }: {
+      item: InventoryItem;
+      quantity: number;
+    }) =>
+      addToShopkeeperCart({
+        shopkeeperId: shopkeeperId || "",
+        itemId: item._id,
+        quantity,
+      }),
+    onMutate: ({ item, quantity }) => {
+      // Prevent an in-flight cart fetch from replacing this immediate update.
+      void queryClient.cancelQueries({ queryKey });
+      const previousCart = queryClient.getQueryData<CartListResponse>(queryKey);
+
+      queryClient.setQueryData<CartListResponse>(queryKey, (currentCart) => {
+        const currentItems = currentCart?.data || [];
+        const existingItem = currentItems.find(
+          (cartItem) => cartItem.itemId?._id === item._id,
+        );
+
+        const data = existingItem
+          ? currentItems.map((cartItem) =>
+              cartItem.itemId?._id === item._id
+                ? { ...cartItem, quantity: cartItem.quantity + quantity }
+                : cartItem,
+            )
+          : [
+              {
+                _id: `optimistic:${item._id}`,
+                shopkeeperId: { _id: shopkeeperId } as CartItem["shopkeeperId"],
+                itemId: item,
+                quantity,
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString(),
+              },
+              ...currentItems,
+            ];
+
+        return {
+          success: currentCart?.success ?? true,
+          message: currentCart?.message ?? "Cart item added",
+          statusCode: currentCart?.statusCode ?? 200,
+          data,
+        };
+      });
+
+      return { previousCart };
+    },
+    onError: (_error, _variables, context) => {
+      queryClient.setQueryData(queryKey, context?.previousCart);
+    },
+    onSuccess: (savedCartItem, { item }) => {
+      queryClient.setQueryData<CartListResponse>(queryKey, (currentCart) => {
+        if (!currentCart) {
+          return {
+            success: true,
+            message: "Cart item added",
+            statusCode: 200,
+            data: [savedCartItem],
+          };
+        }
+
+        const hasItem = currentCart.data.some(
+          (cartItem) => cartItem.itemId?._id === item._id,
+        );
+
+        return {
+          ...currentCart,
+          data: hasItem
+            ? currentCart.data.map((cartItem) =>
+                cartItem.itemId?._id === item._id ? savedCartItem : cartItem,
+              )
+            : [savedCartItem, ...currentCart.data],
+        };
+      });
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey });
+    },
   });
 }
 

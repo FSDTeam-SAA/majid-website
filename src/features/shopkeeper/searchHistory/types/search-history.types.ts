@@ -14,6 +14,7 @@ export interface SearchHistoryRecord {
   imei: string;
   createdAt: string;
   updatedAt: string;
+  serviceId?: number;
   deviceName: string;
   deviceStatus: string;
   marketValue?: SearchHistoryMarketValue;
@@ -33,6 +34,12 @@ export interface SearchHistoryResponse {
   message: string;
   data: SearchHistoryRecord[];
   meta: SearchHistoryMeta;
+}
+
+export interface SearchHistoryReportResponse {
+  success: boolean;
+  message: string;
+  data: import("../../scanDevice/types/scanDevice.types").IMEIResult;
 }
 
 export interface SearchHistoryParams {

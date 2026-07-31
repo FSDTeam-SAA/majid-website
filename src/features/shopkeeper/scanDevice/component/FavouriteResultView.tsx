@@ -12,12 +12,14 @@ import {
   Clock,
 } from "lucide-react";
 import { FavouriteIMEIData } from "../../scanDevice/types/scanDevice.types";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { InvoiceModal, InvoiceFormData } from "./InvoiceModal";
 import { useCertificateDownload } from "../hooks/useCertificateDownload";
 import { CertificatePDF } from "./CertificatePDF";
 import { SmartInvoicePDF } from "./SmartInvoicePDF";
 import Image from "next/image";
+import { useSession } from "next-auth/react";
+import { saveImeiReportPdfApi } from "../api/scanDevice.api";
 
 interface FavouriteResultViewProps {
   scanResult: FavouriteIMEIData;
@@ -52,6 +54,7 @@ export const FavouriteResultView = ({
   isDownloading,
   onRegenerate,
 }: FavouriteResultViewProps) => {
+  const { status } = useSession();
   const providerData = scanResult.providerResults;
   const riskScoreValue = getRiskScoreValue(scanResult.riskMeter);
   const [copied, setCopied] = useState(false);
@@ -61,8 +64,39 @@ export const FavouriteResultView = ({
     useState<InvoiceFormData | null>(null);
   const [isInvoiceGenerating, setIsInvoiceGenerating] = useState(false);
   const { downloadCertificatePdf } = useCertificateDownload();
+  const savedPdfReportId = useRef<string | null>(null);
 
   const isOldGenerated = (scanResult as any).oldGenerated === true;
+
+  useEffect(() => {
+    const reportId = scanResult.reportId;
+    if (
+      status !== "authenticated" ||
+      !reportId ||
+      savedPdfReportId.current === reportId
+    ) {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      void downloadCertificatePdf(
+        ["saved-report-pdf-favourite"],
+        `IMEI-Report-${imei}.pdf`,
+        undefined,
+        {
+          download: false,
+          onPdfReady: async (pdf) => {
+            await saveImeiReportPdfApi(reportId, pdf);
+            savedPdfReportId.current = reportId;
+          },
+        },
+      ).catch((error) => {
+        console.error("Failed to save the visual report PDF:", error);
+      });
+    }, 800);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [downloadCertificatePdf, imei, scanResult.reportId, status]);
 
   // Extract values from providerResults
   const deviceName =
@@ -266,7 +300,10 @@ AI Insight: ${scanResult.aiInsight?.message || "N/A"}
         )}
 
         {/* Main Card - Same design for mobile and desktop */}
-        <div className="bg-white border border-slate-200 rounded-[32px] p-5 shadow-sm relative">
+        <div
+          id="saved-report-pdf-favourite"
+          className="bg-white border border-slate-200 rounded-[32px] p-5 shadow-sm relative"
+        >
           <div className="space-y-3 text-center text-[14px] text-[#5F6368] leading-relaxed">
             <p>
               <span className="font-semibold">Service:</span>{" "}

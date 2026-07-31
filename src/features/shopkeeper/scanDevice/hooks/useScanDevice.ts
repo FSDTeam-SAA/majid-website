@@ -365,6 +365,19 @@ export const useScanDevice = () => {
     setImei("");
   };
 
+  const restoreSavedReport = useCallback((report: IMEIResult) => {
+    setImei(report.imei || "");
+    setIsScanning(false);
+    setScanResult(report);
+    setFavouriteResult(null);
+    setBatchResult(null);
+    setError(null);
+    setCurrentStep(2);
+    setSingleReportMeta({
+      serviceId: report.serviceId,
+    });
+  }, []);
+
   return {
     imei,
     setImei,
@@ -378,6 +391,7 @@ export const useScanDevice = () => {
     singleReportMeta,
     handleScan,
     handleRegenerateScan,
+    restoreSavedReport,
     clearResults,
     parseIMEIInput,
     showGuestLimitModal,

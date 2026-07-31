@@ -9,7 +9,6 @@ import {
   Trash2,
   Edit2,
   Package,
-  ShoppingCart,
   ArrowLeft,
   FolderOpen,
   ImageIcon,
@@ -18,19 +17,16 @@ import {
 import { motion, AnimatePresence } from "framer-motion";
 import Image from "next/image";
 import {
-  INVENTORY_KEYS,
   useInventoryByCategory,
   useDeleteInventory,
-  useShopkeeperCart,
+  useAddToShopkeeperCart,
   useCategories,
   useCreateCategory,
   useUpdateCategory,
   useDeleteCategory,
 } from "../hooks/useInventory";
 import { useSession } from "next-auth/react";
-import axiosInstance from "@/lib/instance/axios-instance";
 import { useRouter } from "next/navigation";
-import { useQueryClient } from "@tanstack/react-query";
 import { useCurrency } from "@/hooks/useCurrency";
 
 import { InventorySkeleton } from "./skeletons/InventorySkeleton";
@@ -112,9 +108,8 @@ export default function Inventory() {
   const { mutate: deleteCategory } = useDeleteCategory();
   const { data: session } = useSession();
   const router = useRouter();
-  const queryClient = useQueryClient();
   const shopkeeperId = (session?.user as { id?: string })?.id;
-  const { data: cartData } = useShopkeeperCart(shopkeeperId);
+  const { mutate: addToShopkeeperCart } = useAddToShopkeeperCart(shopkeeperId);
 
   const [activeTab, setActiveTab] = useState<ActiveTab>("inventory");
   const [isCategoryFormOpen, setIsCategoryFormOpen] = useState(false);
@@ -125,37 +120,23 @@ export default function Inventory() {
 
   const categories = categoriesData?.data || [];
 
-  const cartItems = cartData?.data || [];
-  const cartQuantity = cartItems.reduce(
-    (sum, item) => sum + (item.quantity || 0),
-    0,
-  );
-
-  const handleSell = async (item: InventoryItem) => {
-    try {
-      if (!shopkeeperId) {
-        toast.error("Session not found");
-        return;
-      }
-
-      const payload = {
-        shopkeeperId,
-        itemId: item._id,
-        quantity: SELL_QUANTITY,
-      };
-
-      await axiosInstance.post("/add-to-cart/create", payload);
-      queryClient.invalidateQueries({
-        queryKey: INVENTORY_KEYS.shopkeeperCart(shopkeeperId),
-      });
-      toast.success("Added for sale successfully");
-    } catch (error) {
-      console.error(error);
-      const err = error as { response?: { data?: { message?: string } } };
-      toast.error(
-        err.response?.data?.message || "Failed to process sell action",
-      );
+  const handleSell = (item: InventoryItem) => {
+    if (!shopkeeperId) {
+      toast.error("Session not found");
+      return;
     }
+
+    addToShopkeeperCart(
+      { item, quantity: SELL_QUANTITY },
+      {
+        onSuccess: () => toast.success("Added to the walk-in order"),
+        onError: (error) => {
+          console.error(error);
+          toast.error("Failed to add the item to the order");
+        },
+      },
+    );
+    router.push("/shopkeeper/checkout");
   };
 
   const items = useMemo(() => {
@@ -503,26 +484,6 @@ export default function Inventory() {
                   <ArrowLeft size={18} strokeWidth={2.6} />
                   <span className="hidden text-sm font-black sm:inline">
                     Categories
-                  </span>
-                </button>
-                <button
-                  onClick={() => router.push("/shopkeeper/cart")}
-                  className="relative flex h-12 items-center gap-3 rounded-xl border border-border bg-card px-4 text-foreground shadow-sm transition hover:border-[#84CC16]/50 hover:bg-[#84CC16]/5 active:scale-95 cursor-pointer"
-                  aria-label="Open cart"
-                >
-                  <span className="relative flex h-9 w-9 items-center justify-center rounded-lg bg-[#84CC16]/10 text-[#84CC16] cursor-pointer">
-                    <ShoppingCart size={19} strokeWidth={2.6} />
-                    {cartQuantity > 0 && (
-                      <span className="absolute -right-2 -top-2 flex min-w-5 items-center justify-center rounded-full bg-[#84CC16] px-1.5 text-[10px] font-black leading-5 text-white shadow shadow-lime-500/30">
-                        {cartQuantity}
-                      </span>
-                    )}
-                  </span>
-                  <span className="hidden text-left sm:block">
-                    <span className="block text-xs font-black">Cart</span>
-                    <span className="block text-[10px] font-bold text-slate-400">
-                      {cartItems.length} item{cartItems.length === 1 ? "" : "s"}
-                    </span>
                   </span>
                 </button>
                 <div className="relative hidden md:block">

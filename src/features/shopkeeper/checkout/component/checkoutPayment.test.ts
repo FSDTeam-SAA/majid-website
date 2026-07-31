@@ -63,6 +63,8 @@ describe("thermal receipt", () => {
       invoiceNumber: "INV-000125",
       createdAt: new Date("2026-07-14T21:07:00Z"),
       shopName: "Eclat Tech",
+      logoUrl: "https://cdn.example.com/eclat-tech-logo.png",
+      cashierName: "Ada Lovelace",
       customerName: "<script>alert(1)</script>",
       items: [
         {
@@ -93,5 +95,8 @@ describe("thermal receipt", () => {
     expect(html).toContain("&lt;script&gt;alert(1)&lt;/script&gt;");
     expect(html).not.toContain("<script>alert(1)</script>");
     expect(html).toContain("Payment Method:");
+    expect(html).toContain('src="https://cdn.example.com/eclat-tech-logo.png"');
+    expect(html).toContain("Served by:");
+    expect(html).not.toContain("Cashier:");
   });
 });

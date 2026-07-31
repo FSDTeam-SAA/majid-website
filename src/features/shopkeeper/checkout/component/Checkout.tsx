@@ -5,7 +5,6 @@ import React, { useState, useMemo, useRef } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
-import { useQueryClient } from "@tanstack/react-query";
 import {
   Wrench,
   Search,
@@ -44,19 +43,16 @@ import {
   useCategories,
   useMyInventory,
   useShopkeeperCart,
+  useAddToShopkeeperCart,
   useDeleteCartItem,
   useDeleteAllShopkeeperCartItems,
   useCreateInvoice,
   useCustomersByShopkeeper,
   useCreateCustomer,
-  INVENTORY_KEYS,
 } from "../../inventory/hooks/useInventory";
 import { useGetMyRepairRequests } from "@/features/customer/repairRequest/hooks/useRepairRequest";
 import { useMyProfile } from "@/features/shopkeeper/settings/hooks/useSettings";
 import { generateGoogleReviewQrCodeDataUrl } from "@/features/shopkeeper/settings/utils/googleReviewQr";
-
-// API instance
-import { api } from "@/lib/api";
 
 // PDF Document
 import CheckoutInvoicePDF from "./CheckoutInvoicePDF";
@@ -95,7 +91,6 @@ const getInventoryImageUrl = (item: any) =>
 
 export default function Checkout() {
   const router = useRouter();
-  const queryClient = useQueryClient();
   const { data: session } = useSession();
   const { currency, currencySymbol, formatCurrency, convertAmount } =
     useCurrency();
@@ -117,6 +112,8 @@ export default function Checkout() {
   const { mutateAsync: deleteCartItem } = useDeleteCartItem(shopkeeperId);
   const { mutateAsync: deleteAllCartItems } =
     useDeleteAllShopkeeperCartItems(shopkeeperId);
+  const { mutateAsync: addToShopkeeperCart } =
+    useAddToShopkeeperCart(shopkeeperId);
   const { mutateAsync: createInvoice } = useCreateInvoice();
   const createCustomerMutation = useCreateCustomer();
 
@@ -442,16 +439,17 @@ export default function Checkout() {
 
     try {
       setAddingItemId(itemId);
-      await api.post("/add-to-cart/create", {
-        shopkeeperId,
-        itemId,
-        quantity: qtyToAdd,
-      });
+      const item = inventoryItems.find(
+        (inventoryItem: any) => inventoryItem._id === itemId,
+      );
+      if (!item) {
+        toast.error("This inventory item is no longer available");
+        return;
+      }
 
-      // Invalidate query to refetch cart
-      queryClient.invalidateQueries({
-        queryKey: INVENTORY_KEYS.shopkeeperCart(shopkeeperId),
-      });
+      // The mutation updates the cart cache before the request completes, so
+      // the Walk-In order details panel receives the item immediately.
+      await addToShopkeeperCart({ item, quantity: qtyToAdd });
 
       toast.success("Added to cart");
       // Reset local quantity count
@@ -484,15 +482,15 @@ export default function Checkout() {
     }
 
     try {
-      await api.post("/add-to-cart/create", {
-        shopkeeperId,
-        itemId,
-        quantity: delta,
-      });
+      const item = inventoryItems.find(
+        (inventoryItem: any) => inventoryItem._id === itemId,
+      );
+      if (!item) {
+        toast.error("This inventory item is no longer available");
+        return;
+      }
 
-      queryClient.invalidateQueries({
-        queryKey: INVENTORY_KEYS.shopkeeperCart(shopkeeperId),
-      });
+      await addToShopkeeperCart({ item, quantity: delta });
     } catch {
       toast.error("Failed to adjust quantity");
     }
@@ -825,7 +823,7 @@ export default function Checkout() {
           invoiceNumber,
           createdAt: transactionDate,
           shopName: profileData?.data?.shopName || "imoscan Store",
-          logoUrl: `${window.location.origin}/images/logo.png`,
+          logoUrl: profileData?.data?.image?.url,
           shopAddress: profileData?.data?.shopAddress,
           shopPhone: profileData?.data?.phone,
           cashierName:

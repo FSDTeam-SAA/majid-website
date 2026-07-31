@@ -10,6 +10,11 @@ const CERTIFICATE_PDF_HEIGHT = 1100;
 const CERTIFICATE_SCALE = 2;
 const MAX_SINGLE_PAGE_HEIGHT = 1600;
 
+type PdfOutputOptions = {
+  download?: boolean;
+  onPdfReady?: (pdf: Blob) => Promise<void> | void;
+};
+
 export const useCertificateDownload = () => {
   const [isDownloading, setIsDownloading] = useState(false);
   const [downloadProgress, setDownloadProgress] = useState(0);
@@ -155,6 +160,7 @@ export const useCertificateDownload = () => {
       elementIds: string[],
       filename: string,
       onProgress?: (progress: number) => void,
+      options?: PdfOutputOptions,
     ) => {
       if (elementIds.length === 0) {
         setError("No certificate elements found");
@@ -233,7 +239,12 @@ export const useCertificateDownload = () => {
           );
         }
 
-        savePdf(pdf, filename);
+        const pdfBlob = pdf.output("blob");
+        await options?.onPdfReady?.(pdfBlob);
+
+        if (options?.download !== false) {
+          savePdf(pdf, filename);
+        }
       } catch (err: any) {
         setError(err.message || "Failed to generate PDF");
         throw err;

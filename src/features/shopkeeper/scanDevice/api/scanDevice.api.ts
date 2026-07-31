@@ -90,6 +90,20 @@ export const extractImeiFromImageApi = async (
   return response.data;
 };
 
+export const saveImeiReportPdfApi = async (
+  reportId: string,
+  pdf: Blob,
+): Promise<void> => {
+  const formData = new FormData();
+  formData.append("pdf", pdf, `IMEI-Report-${reportId}.pdf`);
+
+  await axiosInstance.post(`/imei/history/${reportId}/pdf`, formData, {
+    headers: {
+      "Content-Type": "multipart/form-data",
+    },
+  });
+};
+
 export const getServicesApi = async (): Promise<
   ApiResponse<ServiceListResponse["data"]>
 > => {

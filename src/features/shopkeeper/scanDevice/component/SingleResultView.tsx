@@ -16,11 +16,12 @@ import { IMEIResult } from "../../scanDevice/types/scanDevice.types";
 import { CertificatePDF } from "./CertificatePDF";
 import { InvoiceModal, InvoiceFormData } from "./InvoiceModal";
 import { useCertificateDownload } from "../hooks/useCertificateDownload";
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import { useSession } from "next-auth/react";
 import { SmartInvoicePDF } from "./SmartInvoicePDF";
 import { toast } from "sonner";
 import Image from "next/image";
+import { saveImeiReportPdfApi } from "../api/scanDevice.api";
 
 interface SingleResultViewProps {
   scanResult: IMEIResult;
@@ -729,7 +730,9 @@ export const SingleResultView = ({
 }: SingleResultViewProps) => {
   const { status } = useSession();
   const isGuest = status === "unauthenticated";
+  const isAuthenticated = status === "authenticated";
   const { downloadCertificatePdf } = useCertificateDownload();
+  const savedPdfReportId = useRef<string | null>(null);
 
   const [isCertificateDownloading, setIsCertificateDownloading] =
     useState(false);
@@ -745,6 +748,45 @@ export const SingleResultView = ({
     () => extractDeviceData(scanResult),
     [scanResult],
   );
+
+  useEffect(() => {
+    const reportId = scanResult._id;
+    if (
+      !isAuthenticated ||
+      !reportId ||
+      extractedData.hasError ||
+      extractedData.isEmpty ||
+      savedPdfReportId.current === reportId
+    ) {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      void downloadCertificatePdf(
+        ["saved-report-pdf-single"],
+        `IMEI-Report-${scanResult.imei}.pdf`,
+        undefined,
+        {
+          download: false,
+          onPdfReady: async (pdf) => {
+            await saveImeiReportPdfApi(reportId, pdf);
+            savedPdfReportId.current = reportId;
+          },
+        },
+      ).catch((error) => {
+        console.error("Failed to save the visual report PDF:", error);
+      });
+    }, 800);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [
+    downloadCertificatePdf,
+    extractedData.hasError,
+    extractedData.isEmpty,
+    isAuthenticated,
+    scanResult._id,
+    scanResult.imei,
+  ]);
 
   const {
     deviceName,
@@ -1577,7 +1619,10 @@ export const SingleResultView = ({
         )}
 
         {/* Main Card */}
-        <div className="bg-white border border-slate-200 rounded-[32px] p-5 shadow-sm relative">
+        <div
+          id="saved-report-pdf-single"
+          className="bg-white border border-slate-200 rounded-[32px] p-5 shadow-sm relative"
+        >
           <div className="space-y-3 text-center text-[14px] text-[#5F6368] leading-relaxed">
             {image && (
               <div className="flex justify-center mb-2">

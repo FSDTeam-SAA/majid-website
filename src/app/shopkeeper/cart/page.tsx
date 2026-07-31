@@ -1,10 +1,10 @@
-import ShopkeeperCart from "@/features/shopkeeper/inventory/component/ShopkeeperCart";
+import { redirect } from "next/navigation";
 
 export const metadata = {
-  title: "Cart Items | Shopkeeper Dashboard",
-  description: "Shopkeeper cart items ready for sale",
+  title: "Checkout | Shopkeeper Dashboard",
+  description: "Shopkeeper checkout and order processing",
 };
 
 export default function CartPage() {
-  return <ShopkeeperCart />;
+  redirect("/shopkeeper/checkout");
 }
