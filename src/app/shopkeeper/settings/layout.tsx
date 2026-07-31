@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useSession } from "next-auth/react";
 import {
   User,
   KeyRound,
@@ -25,6 +26,10 @@ const tabs = [
   { label: "Support", href: "/shopkeeper/settings/support", icon: Headphones },
 ];
 
+const staffTabs = tabs.filter((tab) =>
+  ["Profile", "Password", "Support"].includes(tab.label),
+);
+
 export default function SettingsLayout({
   children,
 }: {
@@ -32,6 +37,9 @@ export default function SettingsLayout({
 }) {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
+  const { data: session } = useSession();
+  const isStaff = session?.user?.role?.toLowerCase() === "staff";
+  const visibleTabs = isStaff ? staffTabs : tabs;
 
   return (
     <div className="flex min-h-screen bg-background">
@@ -43,7 +51,7 @@ export default function SettingsLayout({
       >
         {/* Nav Items */}
         <nav className="flex-1 space-y-1 px-3 pt-6 pb-4 overflow-y-auto custom-scrollbar">
-          {tabs.map((tab) => {
+          {visibleTabs.map((tab) => {
             const isActive = pathname === tab.href;
             return (
               <Link
@@ -88,7 +96,7 @@ export default function SettingsLayout({
       {/* Mobile Tabs (horizontal scroll) */}
       <div className="fixed left-0 right-0 top-16 z-20 block border-b border-border bg-background/90 backdrop-blur-md lg:hidden">
         <nav className="flex overflow-x-auto px-4 py-2">
-          {tabs.map((tab) => {
+          {visibleTabs.map((tab) => {
             const isActive = pathname === tab.href;
             return (
               <Link

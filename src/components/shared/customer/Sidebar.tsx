@@ -385,16 +385,15 @@
 
 import React, { useState } from "react";
 import {
-  LayoutDashboard,
   Settings,
   LogOut,
   Scan,
   CreditCard,
   Mail,
   ChevronDown,
-  History,
   HelpCircle,
-  Phone,
+  MessageCircle,
+  SearchCheckIcon,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -416,9 +415,9 @@ const navItems = [
     isSpecial: true,
   },
   {
-    icon: <LayoutDashboard size={20} />,
-    label: "Dashboard Overview",
-    href: "/customer/dashboard",
+    icon: <SearchCheckIcon size={20} />,
+    label: "Scan History",
+    href: "/customer/search-history",
   },
   {
     icon: <CreditCard size={20} />,
@@ -428,16 +427,6 @@ const navItems = [
       { label: "Payment History", href: "/customer/payment/history" },
       { label: "Add funds", href: "/customer/payment/add-funds" },
     ],
-  },
-  {
-    icon: <Settings size={20} />,
-    label: "Repair Requests",
-    href: "/customer/repair-request",
-  },
-  {
-    icon: <History size={20} />,
-    label: "Repair History",
-    href: "/customer/repair-history",
   },
   {
     icon: <Settings size={20} />,
@@ -664,15 +653,17 @@ export default function Sidebar() {
               >
                 <div className="mt-2 p-5 bg-surface rounded-[24px] border border-border space-y-3">
                   <Link
-                    href="tel:+447777787771"
+                    href="https://wa.me/447777787771"
+                    aria-label="Contact support on WhatsApp"
+                    title="Contact support on WhatsApp"
                     className="flex items-center gap-3 group transition-transform hover:translate-x-1"
                   >
                     <div className="w-8 h-8 bg-[#25D366]/10 rounded-lg flex items-center justify-center">
-                      <Phone size={14} className="text-[#25D366]" />
+                      <MessageCircle size={14} className="text-[#25D366]" />
                     </div>
 
                     <span className="text-[13px] font-bold text-muted-foreground group-hover:text-foreground transition">
-                      +447777787771
+                      WhatsApp
                     </span>
                   </Link>
 

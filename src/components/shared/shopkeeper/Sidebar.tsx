@@ -21,7 +21,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import Image from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
-import { signOut, useSession } from "next-auth/react";
+import { signOut } from "next-auth/react";
 import { useMyProfile } from "@/features/shopkeeper/settings/hooks/useSettings";
 import {
   getShopkeeperDisplayName,
@@ -110,9 +110,8 @@ const navItems = [
 ];
 
 const getOpenSubmenuFromPath = (pathname: string) =>
-  navItems.find((item) =>
-    item.submenu?.some((subItem) => pathname.startsWith(subItem.href)),
-  )?.label ?? null;
+  navItems.find((item) => item.submenu && pathname.startsWith(item.href))
+    ?.label ?? null;
 
 interface SidebarProps {
   collapsed?: boolean;
@@ -124,23 +123,15 @@ export default function Sidebar({
   onToggleCollapse,
 }: SidebarProps) {
   const pathname = usePathname();
-  const routeSubmenu = getOpenSubmenuFromPath(pathname);
-  const [openSubmenu, setOpenSubmenu] = useState<string | null>(
-    () => routeSubmenu,
+  const [openSubmenu, setOpenSubmenu] = useState<string | null>(() =>
+    getOpenSubmenuFromPath(pathname),
   );
   const [showLogoutModal, setShowLogoutModal] = useState(false);
-  const { data: session } = useSession();
   const { data: profileData } = useMyProfile();
   const user = profileData?.data;
   const profileName = getShopkeeperDisplayName(user);
   const profileImage = getShopkeeperImage(user);
   const profileSubtitle = getShopkeeperSubtitle(user);
-  const isStaff =
-    session?.user?.role?.toLowerCase() === "staff" ||
-    user?.role?.toLowerCase() === "staff";
-  const visibleNavItems = navItems.filter(
-    (item) => !(isStaff && item.href === "/shopkeeper/settings"),
-  );
 
   const handleLogout = async () => {
     // Clear all storage to ensure no sensitive data remains
@@ -179,12 +170,9 @@ export default function Sidebar({
 
         {/* Navigation */}
         <nav className="flex-1 px-3 space-y-2 overflow-y-auto custom-scrollbar">
-          {visibleNavItems.map((item) => {
+          {navItems.map((item) => {
             const isActive = pathname.startsWith(item.href);
-            const isSubmenuOpen =
-              !collapsed &&
-              (routeSubmenu === item.label ||
-                (routeSubmenu === null && openSubmenu === item.label));
+            const isSubmenuOpen = !collapsed && openSubmenu === item.label;
 
             if (item.isSpecial) {
               return (
@@ -331,7 +319,7 @@ export default function Sidebar({
         <div className="p-4 pt-0">
           <div className="bg-surface border border-border rounded-[28px] p-4 flex flex-col gap-4 shadow-sm">
             <Link
-              href={isStaff ? "/shopkeeper/dashboard" : "/shopkeeper/settings"}
+              href="/shopkeeper/settings"
               className={`flex items-center ${collapsed ? "justify-center" : "gap-3"} px-1 hover:bg-slate-100/50 dark:hover:bg-slate-800/40 p-1.5 rounded-2xl transition-all cursor-pointer min-w-0`}
             >
               <div className="relative w-11 h-11 rounded-2xl overflow-hidden border-2 border-white/10 flex-shrink-0">

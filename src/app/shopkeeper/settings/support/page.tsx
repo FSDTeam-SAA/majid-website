@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Phone, Mail, Headphones } from "lucide-react";
+import { MessageCircle, Mail, Headphones } from "lucide-react";
 import { motion } from "framer-motion";
 
 export default function SupportPage() {
@@ -30,18 +30,16 @@ export default function SupportPage() {
 
         <div className="p-8 space-y-4">
           <Link
-            href="tel:+447777787771"
+            href="https://wa.me/447777787771"
+            aria-label="Contact support on WhatsApp"
             className="flex items-center gap-4 p-5 rounded-2xl bg-background transition-all hover:bg-[#25D366]/5 group"
           >
             <div className="w-12 h-12 bg-[#25D366]/10 rounded-xl flex items-center justify-center">
-              <Phone size={20} className="text-[#25D366]" />
+              <MessageCircle size={20} className="text-[#25D366]" />
             </div>
             <div>
               <p className="text-[13px] font-bold text-muted-foreground uppercase tracking-widest">
-                Phone
-              </p>
-              <p className="text-foreground font-black text-lg group-hover:text-[#25D366] transition">
-                +447777787771
+                WhatsApp
               </p>
             </div>
           </Link>

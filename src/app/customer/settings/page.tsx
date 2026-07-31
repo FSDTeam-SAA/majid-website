@@ -6,5 +6,5 @@ export const metadata = {
 };
 
 export default function SettingsPage() {
-  return <Settings showSubscriptionSummary />;
+  return <Settings showSubscriptionSummary showShopkeeperIdCard={false} />;
 }
