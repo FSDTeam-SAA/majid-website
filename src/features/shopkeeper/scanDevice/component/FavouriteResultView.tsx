@@ -253,12 +253,12 @@ AI Insight: ${scanResult.aiInsight?.message || "N/A"}
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100 p-4 md:p-6">
+    <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100 dark:from-slate-950 dark:to-slate-900 p-4 md:p-6">
       <div className="max-w-4xl mx-auto">
         {/* Back Button */}
         <button
           onClick={onBack}
-          className="flex items-center gap-2 text-slate-600 hover:text-slate-900 font-medium mb-4 transition"
+          className="flex items-center gap-2 text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white font-medium mb-4 transition"
         >
           <ArrowLeft size={18} />
           Back to favourites
@@ -302,19 +302,19 @@ AI Insight: ${scanResult.aiInsight?.message || "N/A"}
         {/* Main Card - Same design for mobile and desktop */}
         <div
           id="saved-report-pdf-favourite"
-          className="bg-white border border-slate-200 rounded-[32px] p-5 shadow-sm relative"
+          className="bg-white dark:bg-card border border-slate-200 dark:border-border rounded-[32px] p-5 shadow-sm relative"
         >
-          <div className="space-y-3 text-center text-[14px] text-[#5F6368] leading-relaxed">
+          <div className="space-y-3 text-center text-[14px] text-[#5F6368] dark:text-muted-foreground leading-relaxed">
             <p>
               <span className="font-semibold">Service:</span>{" "}
               {scanResult.bundledServiceName}
             </p>
 
-            <div className="border-t border-slate-100 pt-2 mt-1"></div>
+            <div className="border-t border-slate-100 dark:border-border pt-2 mt-1"></div>
 
             {deviceImage && (
               <div className="flex justify-center">
-                <div className="relative h-28 w-28 overflow-hidden rounded-3xl border border-slate-200 bg-slate-50">
+                <div className="relative h-28 w-28 overflow-hidden rounded-3xl border border-slate-200 dark:border-border bg-slate-50 dark:bg-muted">
                   <Image
                     src={deviceImage}
                     alt={deviceName}
@@ -417,7 +417,7 @@ AI Insight: ${scanResult.aiInsight?.message || "N/A"}
               </p>
             )}
 
-            <div className="border-t border-slate-100 pt-2 mt-1"></div>
+            <div className="border-t border-slate-100 dark:border-border pt-2 mt-1"></div>
 
             {warrantyStatus && (
               <p>
@@ -515,7 +515,7 @@ AI Insight: ${scanResult.aiInsight?.message || "N/A"}
               </p>
             )}
 
-            <div className="border-t border-slate-100 pt-2 mt-1"></div>
+            <div className="border-t border-slate-100 dark:border-border pt-2 mt-1"></div>
 
             {icloudLock && (
               <div className="flex flex-wrap items-center justify-center gap-2">
@@ -617,7 +617,7 @@ AI Insight: ${scanResult.aiInsight?.message || "N/A"}
               </div>
             )}
 
-            <div className="border-t border-slate-100 pt-2 mt-1"></div>
+            <div className="border-t border-slate-100 dark:border-border pt-2 mt-1"></div>
 
             {/* Risk Meter Section */}
             <div>
@@ -644,7 +644,7 @@ AI Insight: ${scanResult.aiInsight?.message || "N/A"}
                 <span className="font-semibold">Risk Score:</span>{" "}
                 {riskScoreValue}/100
               </div>
-              <div className="mt-2 h-2 bg-slate-200 rounded-full overflow-hidden">
+              <div className="mt-2 h-2 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
                 <div
                   className={`h-full ${riskScoreValue <= 25 ? "bg-emerald-500" : riskScoreValue <= 60 ? "bg-amber-500" : "bg-red-500"}`}
                   style={{ width: `${riskScoreValue}%` }}
@@ -654,9 +654,9 @@ AI Insight: ${scanResult.aiInsight?.message || "N/A"}
 
             {/* AI Insight Section */}
             {scanResult.aiInsight && (
-              <div className="border-t border-slate-100 pt-3 mt-2">
+              <div className="border-t border-slate-100 dark:border-border pt-3 mt-2">
                 <p className="font-semibold mb-1">AI Insight:</p>
-                <p className="text-sm italic text-slate-600">
+                <p className="text-sm italic text-slate-600 dark:text-slate-300">
                   {scanResult.aiInsight.message}
                 </p>
               </div>
@@ -666,7 +666,7 @@ AI Insight: ${scanResult.aiInsight?.message || "N/A"}
           {/* Copy Button */}
           <button
             onClick={handleCopyToClipboard}
-            className="absolute bottom-4 right-4 text-slate-300 hover:text-slate-500 transition"
+            className="absolute bottom-4 right-4 text-slate-300 hover:text-slate-500 dark:text-slate-600 dark:hover:text-slate-300 transition"
           >
             <Copy size={22} />
           </button>
@@ -684,7 +684,7 @@ AI Insight: ${scanResult.aiInsight?.message || "N/A"}
           <button
             onClick={() => setIsInvoiceModalOpen(true)}
             disabled={isInvoiceGenerating}
-            className="flex-1 py-2.5 px-4 rounded-xl border-2 border-[#84CC16] text-[#84CC16] font-bold text-sm flex items-center justify-center gap-2 hover:bg-lime-50 transition disabled:opacity-50"
+            className="flex-1 py-2.5 px-4 rounded-xl border-2 border-[#84CC16] text-[#84CC16] font-bold text-sm flex items-center justify-center gap-2 hover:bg-lime-50 dark:hover:bg-lime-950/30 transition disabled:opacity-50"
           >
             {isInvoiceGenerating ? (
               <Loader2 size={14} className="animate-spin" />

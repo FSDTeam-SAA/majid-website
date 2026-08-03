@@ -72,10 +72,10 @@ export const ServiceSelector = ({
       <button
         onClick={() => setIsDropdownOpen(!isDropdownOpen)}
         disabled={disabled}
-        className="w-full flex items-center justify-between px-6 py-4 rounded-2xl border bg-white hover:border-[#84CC16]/30 transition-all cursor-pointer group disabled:opacity-50"
+        className="w-full flex items-center justify-between px-6 py-4 rounded-2xl border border-border bg-card hover:border-[#84CC16]/30 transition-all cursor-pointer group disabled:opacity-50"
       >
         <div className="flex flex-col items-start">
-          <span className="text-base font-black text-[#0F172A] group-hover:text-[#84CC16] transition-colors">
+          <span className="text-base font-black text-foreground group-hover:text-[#84CC16] transition-colors">
             {selectedService ? selectedService.name : "Choose Service"}
           </span>
           {selectedService && (
@@ -96,10 +96,10 @@ export const ServiceSelector = ({
             initial={{ opacity: 0, y: 10, scale: 0.95 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 10, scale: 0.95 }}
-            className="absolute left-0 right-0 mt-2 z-[100] w-[min(400px,calc(100vw-32px))] overflow-hidden rounded-2xl border border-border bg-white shadow-2xl"
+            className="absolute left-0 right-0 mt-2 z-[100] w-[min(400px,calc(100vw-32px))] overflow-hidden rounded-2xl border border-border bg-popover shadow-2xl"
           >
             {/* Search Input */}
-            <div className="p-3 border-b border-gray-100 bg-gray-50/50">
+            <div className="p-3 border-b border-border bg-muted/50">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                 <input
@@ -107,7 +107,7 @@ export const ServiceSelector = ({
                   placeholder="Search for a service..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-9 pr-3 py-2 bg-white border border-gray-200 rounded-xl outline-none focus:border-[#84CC16] focus:ring-2 focus:ring-[#84CC16]/20 transition-all text-sm font-medium text-[#0F172A] placeholder:text-gray-400"
+                  className="w-full pl-9 pr-3 py-2 bg-background border border-input rounded-xl outline-none focus:border-[#84CC16] focus:ring-2 focus:ring-[#84CC16]/20 transition-all text-sm font-medium text-foreground placeholder:text-muted-foreground"
                   autoFocus
                 />
               </div>
@@ -123,14 +123,16 @@ export const ServiceSelector = ({
                   return (
                     <div
                       key={cat.category}
-                      className={`border-b border-gray-50 last:border-0 ${
-                        isFavourite ? "bg-amber-50/30" : ""
+                      className={`border-b border-border last:border-0 ${
+                        isFavourite ? "bg-amber-50/30 dark:bg-amber-950/20" : ""
                       }`}
                     >
                       {/* Category Header */}
                       <div
                         className={`px-4 py-2 ${
-                          isFavourite ? "bg-amber-100/50" : "bg-gray-50/30"
+                          isFavourite
+                            ? "bg-amber-100/50 dark:bg-amber-950/40"
+                            : "bg-muted/30"
                         }`}
                       >
                         <div className="flex items-center gap-2">
@@ -142,7 +144,9 @@ export const ServiceSelector = ({
                           )}
                           <h3
                             className={`text-[10px] font-black uppercase tracking-wider ${
-                              isFavourite ? "text-amber-600" : "text-gray-400"
+                              isFavourite
+                                ? "text-amber-600 dark:text-amber-400"
+                                : "text-muted-foreground"
                             }`}
                           >
                             {cat.category}
@@ -180,8 +184,8 @@ export const ServiceSelector = ({
                                 isSelected
                                   ? "bg-[#84CC16] text-white shadow-sm"
                                   : isFavouriteService
-                                    ? "hover:bg-amber-50"
-                                    : "hover:bg-gray-50"
+                                    ? "hover:bg-amber-50 dark:hover:bg-amber-950/40"
+                                    : "hover:bg-muted"
                               }`}
                             >
                               {/* Icon */}
@@ -190,12 +194,12 @@ export const ServiceSelector = ({
                                   isSelected
                                     ? "bg-white/20 text-white"
                                     : isFavouriteService
-                                      ? "bg-amber-100 text-amber-600"
+                                      ? "bg-amber-100 text-amber-600 dark:bg-amber-950/50 dark:text-amber-400"
                                       : isApple
-                                        ? "bg-gray-100 text-gray-600"
+                                        ? "bg-muted text-muted-foreground"
                                         : isSamsung
-                                          ? "bg-blue-50 text-blue-500"
-                                          : "bg-green-50 text-green-500"
+                                          ? "bg-blue-50 text-blue-500 dark:bg-blue-950/40 dark:text-blue-400"
+                                          : "bg-green-50 text-green-500 dark:bg-green-950/40 dark:text-green-400"
                                 }`}
                               >
                                 {isFavouriteService ? (
@@ -209,7 +213,9 @@ export const ServiceSelector = ({
                               <div className="flex flex-col items-start flex-1 min-w-0">
                                 <span
                                   className={`text-[13px] font-black truncate w-full text-left ${
-                                    isSelected ? "text-white" : "text-[#0F172A]"
+                                    isSelected
+                                      ? "text-white"
+                                      : "text-foreground"
                                   }`}
                                 >
                                   {svc.name}
@@ -219,7 +225,7 @@ export const ServiceSelector = ({
                                     className={`text-[9px] font-bold uppercase tracking-wider ${
                                       isSelected
                                         ? "text-white/70"
-                                        : "text-gray-400"
+                                        : "text-muted-foreground"
                                     }`}
                                   >
                                     ID: {svc.serviceId || "N/A"}
@@ -256,10 +262,10 @@ export const ServiceSelector = ({
                 })
               ) : (
                 <div className="p-8 text-center space-y-2">
-                  <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mx-auto">
-                    <Search size={20} className="text-gray-400" />
+                  <div className="w-12 h-12 bg-muted rounded-full flex items-center justify-center mx-auto">
+                    <Search size={20} className="text-muted-foreground" />
                   </div>
-                  <p className="text-gray-500 font-medium text-sm">
+                  <p className="text-muted-foreground font-medium text-sm">
                     No services found for &quot;{searchTerm}&quot;
                   </p>
                 </div>
@@ -267,8 +273,8 @@ export const ServiceSelector = ({
             </div>
 
             {/* Footer */}
-            <div className="p-3 bg-gray-50/50 border-t border-gray-100 flex items-center justify-between">
-              <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">
+            <div className="p-3 bg-muted/50 border-t border-border flex items-center justify-between">
+              <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
                 {totalServices} Services Available
               </span>
               {searchTerm && filteredCategories.length > 0 && (

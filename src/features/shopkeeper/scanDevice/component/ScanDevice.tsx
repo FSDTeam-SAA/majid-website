@@ -322,7 +322,7 @@ export default function ScanDevice() {
             />
 
             {error && (
-              <div className="p-4 bg-red-50 border border-red-100 text-red-600 rounded-2xl text-sm font-semibold text-center">
+              <div className="p-4 bg-red-50 dark:bg-red-950/40 border border-red-100 dark:border-red-900 text-red-600 dark:text-red-400 rounded-2xl text-sm font-semibold text-center">
                 {error}
               </div>
             )}

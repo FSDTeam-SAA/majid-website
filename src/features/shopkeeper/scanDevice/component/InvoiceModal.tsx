@@ -438,26 +438,26 @@ export const InvoiceModal = ({
             initial={{ opacity: 0, scale: 0.95, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 20 }}
-            className="relative w-full max-w-lg bg-white rounded-2xl shadow-2xl overflow-hidden max-h-[90vh] overflow-y-auto"
+            className="relative w-full max-w-lg bg-white dark:bg-card text-foreground rounded-2xl shadow-2xl overflow-hidden max-h-[90vh] overflow-y-auto"
           >
             {/* Header */}
-            <div className="sticky top-0 bg-white border-b border-gray-100 px-6 py-4 flex justify-between items-center">
+            <div className="sticky top-0 bg-white dark:bg-card border-b border-gray-100 dark:border-border px-6 py-4 flex justify-between items-center">
               <div className="flex items-center gap-3">
                 <div className="p-2 bg-[#84CC16]/10 rounded-xl">
                   <DollarSign size={20} className="text-[#84CC16]" />
                 </div>
                 <div>
-                  <h2 className="text-lg font-bold text-slate-900">
+                  <h2 className="text-lg font-bold text-slate-900 dark:text-foreground">
                     Smart Invoice
                   </h2>
-                  <p className="text-xs text-gray-500">
+                  <p className="text-xs text-gray-500 dark:text-muted-foreground">
                     Fill customer & payment details
                   </p>
                 </div>
               </div>
               <button
                 onClick={onClose}
-                className="p-2 hover:bg-gray-100 rounded-full transition cursor-pointer"
+                className="p-2 hover:bg-gray-100 dark:hover:bg-muted rounded-full transition cursor-pointer"
               >
                 <X size={20} className="text-gray-500" />
               </button>
@@ -478,7 +478,7 @@ export const InvoiceModal = ({
             <div className="p-6 space-y-5">
               {/* Customer Information */}
               <div>
-                <label className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3 block">
+                <label className="text-xs font-bold text-gray-500 dark:text-muted-foreground uppercase tracking-wider mb-3 block">
                   Customer Information
                 </label>
                 <div className="space-y-3">
@@ -495,10 +495,10 @@ export const InvoiceModal = ({
                         onChange={(e) =>
                           handleInputChange("customerName", e.target.value)
                         }
-                        className={`w-full pl-10 pr-4 py-2.5 border rounded-xl focus:ring-2 focus:ring-[#84CC16]/20 outline-none transition ${
+                        className={`w-full pl-10 pr-4 py-2.5 border bg-background text-foreground rounded-xl focus:ring-2 focus:ring-[#84CC16]/20 outline-none transition ${
                           getFieldError("customerName")
                             ? "border-red-500 focus:border-red-500"
-                            : "border-gray-200 focus:border-[#84CC16]"
+                            : "border-gray-200 dark:border-input focus:border-[#84CC16]"
                         }`}
                       />
                     </div>
@@ -522,10 +522,10 @@ export const InvoiceModal = ({
                         onChange={(e) =>
                           handleInputChange("customerEmail", e.target.value)
                         }
-                        className={`w-full pl-10 pr-4 py-2.5 border rounded-xl focus:ring-2 focus:ring-[#84CC16]/20 outline-none transition ${
+                        className={`w-full pl-10 pr-4 py-2.5 border bg-background text-foreground rounded-xl focus:ring-2 focus:ring-[#84CC16]/20 outline-none transition ${
                           getFieldError("customerEmail")
                             ? "border-red-500 focus:border-red-500"
-                            : "border-gray-200 focus:border-[#84CC16]"
+                            : "border-gray-200 dark:border-input focus:border-[#84CC16]"
                         }`}
                       />
                     </div>
@@ -549,10 +549,10 @@ export const InvoiceModal = ({
                         onChange={(e) =>
                           handleInputChange("customerAddress", e.target.value)
                         }
-                        className={`w-full pl-10 pr-4 py-2.5 border rounded-xl focus:ring-2 focus:ring-[#84CC16]/20 outline-none transition ${
+                        className={`w-full pl-10 pr-4 py-2.5 border bg-background text-foreground rounded-xl focus:ring-2 focus:ring-[#84CC16]/20 outline-none transition ${
                           getFieldError("customerAddress")
                             ? "border-red-500 focus:border-red-500"
-                            : "border-gray-200 focus:border-[#84CC16]"
+                            : "border-gray-200 dark:border-input focus:border-[#84CC16]"
                         }`}
                       />
                     </div>
@@ -576,10 +576,10 @@ export const InvoiceModal = ({
                         onChange={(e) =>
                           handleInputChange("customerPhone", e.target.value)
                         }
-                        className={`w-full pl-10 pr-4 py-2.5 border rounded-xl focus:ring-2 focus:ring-[#84CC16]/20 outline-none transition ${
+                        className={`w-full pl-10 pr-4 py-2.5 border bg-background text-foreground rounded-xl focus:ring-2 focus:ring-[#84CC16]/20 outline-none transition ${
                           getFieldError("customerPhone")
                             ? "border-red-500 focus:border-red-500"
-                            : "border-gray-200 focus:border-[#84CC16]"
+                            : "border-gray-200 dark:border-input focus:border-[#84CC16]"
                         }`}
                       />
                     </div>
@@ -594,18 +594,18 @@ export const InvoiceModal = ({
 
               {/* Price */}
               <div>
-                <label className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3 block">
+                <label className="text-xs font-bold text-gray-500 dark:text-muted-foreground uppercase tracking-wider mb-3 block">
                   Price Details
                 </label>
                 <div className="space-y-3">
                   <div>
-                    <label className="text-[11px] font-semibold text-gray-500 mb-1 block">
+                    <label className="text-[11px] font-semibold text-gray-500 dark:text-muted-foreground mb-1 block">
                       Currency
                     </label>
                     <select
                       value={selectedCurrency}
                       onChange={(e) => handleCurrencyChange(e.target.value)}
-                      className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#84CC16]/20 focus:border-[#84CC16] outline-none transition bg-white"
+                      className="w-full px-4 py-2.5 border border-gray-200 dark:border-input rounded-xl focus:ring-2 focus:ring-[#84CC16]/20 focus:border-[#84CC16] outline-none transition bg-white dark:bg-background text-foreground"
                     >
                       {currencyOptions.map((option) => (
                         <option key={option.code} value={option.code}>
@@ -625,14 +625,14 @@ export const InvoiceModal = ({
                       onChange={(e) =>
                         handleInputChange("price", Number(e.target.value))
                       }
-                      className={`w-full pl-10 pr-4 py-2.5 border rounded-xl focus:ring-2 focus:ring-[#84CC16]/20 outline-none transition ${
+                      className={`w-full pl-10 pr-4 py-2.5 border bg-background text-foreground rounded-xl focus:ring-2 focus:ring-[#84CC16]/20 outline-none transition ${
                         getFieldError("price")
                           ? "border-red-500 focus:border-red-500"
-                          : "border-gray-200 focus:border-[#84CC16]"
+                          : "border-gray-200 dark:border-input focus:border-[#84CC16]"
                       }`}
                     />
                   </div>
-                  <p className="text-xs text-gray-500">
+                  <p className="text-xs text-gray-500 dark:text-muted-foreground">
                     Current invoice amount:{" "}
                     {formatSelectedCurrency(formData.price)}
                   </p>
@@ -646,7 +646,7 @@ export const InvoiceModal = ({
 
               {/* Payment Method */}
               <div>
-                <label className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3 block">
+                <label className="text-xs font-bold text-gray-500 dark:text-muted-foreground uppercase tracking-wider mb-3 block">
                   Payment Method
                 </label>
                 <div className="grid grid-cols-3 gap-3">
@@ -656,7 +656,7 @@ export const InvoiceModal = ({
                     className={`py-2.5 rounded-xl border-2 flex items-center justify-center gap-2 transition cursor-pointer ${
                       formData.paymentMethod === "cash"
                         ? "border-[#84CC16] bg-[#84CC16]/5 text-[#84CC16]"
-                        : "border-gray-200 text-gray-500 hover:border-gray-300"
+                        : "border-gray-200 dark:border-input text-gray-500 dark:text-muted-foreground hover:border-gray-300 dark:hover:border-slate-600"
                     }`}
                   >
                     <CreditCard size={16} />
@@ -668,7 +668,7 @@ export const InvoiceModal = ({
                     className={`py-2.5 rounded-xl border-2 flex items-center justify-center gap-2 transition cursor-pointer ${
                       formData.paymentMethod === "bank"
                         ? "border-[#84CC16] bg-[#84CC16]/5 text-[#84CC16]"
-                        : "border-gray-200 text-gray-500 hover:border-gray-300"
+                        : "border-gray-200 dark:border-input text-gray-500 dark:text-muted-foreground hover:border-gray-300 dark:hover:border-slate-600"
                     }`}
                   >
                     <Landmark size={16} />
@@ -679,7 +679,7 @@ export const InvoiceModal = ({
 
               {/* Bank Transfer Details */}
               {formData.paymentMethod === "bank" && (
-                <div className="bg-blue-50 rounded-xl p-4 border border-blue-200">
+                <div className="bg-blue-50 dark:bg-blue-950/40 rounded-xl p-4 border border-blue-200 dark:border-blue-900">
                   <p className="text-xs font-bold text-blue-700 mb-2">
                     Bank Transfer Details
                   </p>
@@ -688,7 +688,7 @@ export const InvoiceModal = ({
                     placeholder="Account Number *"
                     value={bankAccountNumber}
                     onChange={(e) => handleBankDetailsChange(e.target.value)}
-                    className={`w-full px-4 py-2 bg-white border rounded-lg focus:border-[#84CC16] outline-none text-sm ${
+                    className={`w-full px-4 py-2 bg-white dark:bg-background text-foreground border rounded-lg focus:border-[#84CC16] outline-none text-sm ${
                       getFieldError("bankAccount")
                         ? "border-red-500"
                         : "border-blue-200"
@@ -707,11 +707,11 @@ export const InvoiceModal = ({
             </div>
 
             {/* Footer */}
-            <div className="sticky bottom-0 bg-white border-t border-gray-100 px-6 py-4 flex gap-3">
+            <div className="sticky bottom-0 bg-white dark:bg-card border-t border-gray-100 dark:border-border px-6 py-4 flex gap-3">
               <button
                 type="button"
                 onClick={onClose}
-                className="flex-1 py-2.5 rounded-xl border border-gray-300 text-gray-700 font-semibold text-sm hover:bg-gray-50 transition cursor-pointer"
+                className="flex-1 py-2.5 rounded-xl border border-gray-300 dark:border-input text-gray-700 dark:text-foreground font-semibold text-sm hover:bg-gray-50 dark:hover:bg-muted transition cursor-pointer"
               >
                 Cancel
               </button>

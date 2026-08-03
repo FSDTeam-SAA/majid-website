@@ -64,7 +64,7 @@ export const ScanButtons = ({
         type="button"
         onClick={() => imageInputRef.current?.click()}
         disabled={isScanning || isUploadingImage}
-        className="w-full bg-white border-2 border-gray-100 text-[#0F172A] hover:border-[#84CC16]/30 hover:bg-gray-50 font-black py-4 rounded-full transition-all text-xl active:scale-[0.98] disabled:opacity-50 flex items-center justify-center gap-3 cursor-pointer"
+        className="w-full bg-card border-2 border-border text-foreground hover:border-[#84CC16]/30 hover:bg-muted font-black py-4 rounded-full transition-all text-xl active:scale-[0.98] disabled:opacity-50 flex items-center justify-center gap-3 cursor-pointer"
       >
         {isUploadingImage ? (
           <Loader2 size={24} className="animate-spin" />

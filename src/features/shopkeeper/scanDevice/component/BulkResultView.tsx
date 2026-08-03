@@ -11,6 +11,8 @@ import {
   RefreshCw,
   Clock,
   Shield,
+  Gauge,
+  Tag,
   ArrowLeft,
   XCircle,
 } from "lucide-react";
@@ -167,6 +169,7 @@ const extractBatchDeviceData = (item: BatchImeiItemResult | null) => {
       errorR01: "",
       riskScore: 0,
       riskLevel: "N/A",
+      marketValue: "",
       image: null,
       aiInsight: null,
       provider: null,
@@ -220,6 +223,12 @@ const extractBatchDeviceData = (item: BatchImeiItemResult | null) => {
   const manufacturer = parsedProviderData.manufacturer || "";
   const fullName = parsedProviderData.full_name || "";
   const deviceConfiguration = parsedProviderData.device_configuration || "";
+  const marketValueAmount = (mainData as any)?.marketValue?.amount;
+  const marketValueCurrency = (mainData as any)?.marketValue?.currency || "USD";
+  const marketValue =
+    typeof marketValueAmount === "number"
+      ? `${marketValueCurrency} ${marketValueAmount}`
+      : parsedProviderData.price || "";
 
   // Identifiers
   const imeiValue =
@@ -486,6 +495,7 @@ const extractBatchDeviceData = (item: BatchImeiItemResult | null) => {
     errorR01,
     riskScore,
     riskLevel,
+    marketValue,
     image,
     aiInsight,
     provider,
@@ -598,6 +608,7 @@ export const BulkResultView = ({
     errorR01,
     riskScore,
     riskLevel,
+    marketValue,
     image,
     aiInsight,
     provider,
@@ -963,18 +974,18 @@ export const BulkResultView = ({
         {/* Back Button */}
         <button
           onClick={onBack}
-          className="flex items-center gap-2 text-slate-600 hover:text-slate-900 font-medium mb-4 transition"
+          className="flex items-center gap-2 text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white font-medium mb-4 transition"
         >
           <ArrowLeft size={18} />
           Back to scan
         </button>
 
         {/* Summary Stats */}
-        <div className="bg-white rounded-[32px] p-4 mb-4 shadow-sm border border-slate-200">
+        <div className="bg-white dark:bg-card rounded-[32px] p-4 mb-4 shadow-sm border border-slate-200 dark:border-border">
           <div className="flex justify-between items-center">
             <div className="text-center flex-1">
               <p className="text-[10px] text-slate-400">Total</p>
-              <p className="text-xl font-bold text-slate-900">
+              <p className="text-xl font-bold text-slate-900 dark:text-foreground">
                 {batchResult.summary.total}
               </p>
             </div>
@@ -998,7 +1009,7 @@ export const BulkResultView = ({
           <div className="relative" ref={selectRef}>
             <button
               onClick={() => setIsSelectOpen(!isSelectOpen)}
-              className="w-full flex items-center justify-between gap-2 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-medium text-slate-700 hover:border-slate-300 transition-all"
+              className="w-full flex items-center justify-between gap-2 rounded-xl border border-slate-200 dark:border-border bg-white dark:bg-card px-4 py-3 text-sm font-medium text-slate-700 dark:text-foreground hover:border-slate-300 dark:hover:border-slate-600 transition-all"
             >
               <span className="truncate">
                 {selectedBatchRow
@@ -1011,15 +1022,15 @@ export const BulkResultView = ({
             </button>
 
             {isSelectOpen && (
-              <div className="absolute z-50 mt-1 w-full max-h-60 overflow-auto rounded-xl border border-slate-200 bg-white shadow-lg">
+              <div className="absolute z-50 mt-1 w-full max-h-60 overflow-auto rounded-xl border border-slate-200 dark:border-border bg-white dark:bg-popover shadow-lg">
                 {batchRows.map((row, index) => (
                   <button
                     key={`${row.rowNumber}-${row.imei}-${index}`}
                     onClick={() => handleSelectedBatchIndexChange(index)}
-                    className={`w-full px-4 py-2 text-left text-sm font-medium transition-colors hover:bg-slate-50 ${
+                    className={`w-full px-4 py-2 text-left text-sm font-medium transition-colors hover:bg-slate-50 dark:hover:bg-muted ${
                       selectedBatchIndex === index
                         ? "bg-emerald-500/10 text-emerald-600"
-                        : "text-slate-700"
+                        : "text-slate-700 dark:text-foreground"
                     }`}
                   >
                     {`Device ${row.rowNumber} - ${row.imei} ${!row.ok ? "(Failed)" : ""}`}
@@ -1034,14 +1045,14 @@ export const BulkResultView = ({
             <button
               onClick={handlePrevClick}
               disabled={selectedBatchIndex === 0}
-              className="flex-1 py-2 rounded-xl border border-slate-200 bg-white text-sm font-medium text-slate-700 transition hover:border-slate-300 disabled:opacity-40"
+              className="flex-1 py-2 rounded-xl border border-slate-200 dark:border-border bg-white dark:bg-card text-sm font-medium text-slate-700 dark:text-foreground transition hover:border-slate-300 dark:hover:border-slate-600 disabled:opacity-40"
             >
               ← Previous
             </button>
             <button
               onClick={handleNextClick}
               disabled={selectedBatchIndex === batchRows.length - 1}
-              className="flex-1 py-2 rounded-xl border border-slate-200 bg-white text-sm font-medium text-slate-700 transition hover:border-slate-300 disabled:opacity-40"
+              className="flex-1 py-2 rounded-xl border border-slate-200 dark:border-border bg-white dark:bg-card text-sm font-medium text-slate-700 dark:text-foreground transition hover:border-slate-300 dark:hover:border-slate-600 disabled:opacity-40"
             >
               Next →
             </button>
@@ -1054,7 +1065,7 @@ export const BulkResultView = ({
             {/* Provider Badge */}
             {provider && (
               <div className="mb-3 flex justify-end">
-                <span className="text-xs px-2 py-1 bg-slate-100 text-slate-600 rounded-full">
+                <span className="text-xs px-2 py-1 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-full">
                   Provider: {provider === "sickw" ? "Sickw" : "Apple Official"}
                 </span>
               </div>
@@ -1096,8 +1107,61 @@ export const BulkResultView = ({
             )}
 
             {/* Main Card */}
-            <div className="bg-white border border-slate-200 rounded-[32px] p-5 shadow-sm relative">
-              <div className="space-y-3 text-center text-[14px] text-[#5F6368] leading-relaxed">
+            <div className="bg-white dark:bg-card border border-slate-200 dark:border-border rounded-[32px] p-5 shadow-sm relative">
+              <div className="space-y-3 text-center text-[14px] text-[#5F6368] dark:text-muted-foreground leading-relaxed">
+                {/* Report summary */}
+                <div className="grid gap-3 rounded-2xl border border-slate-200 dark:border-border bg-slate-50 dark:bg-muted p-4 text-left sm:grid-cols-2">
+                  <div className="rounded-xl border border-slate-200 dark:border-border bg-white dark:bg-card p-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-2 text-slate-500 dark:text-muted-foreground">
+                        <Gauge size={16} className="text-[#84CC16]" />
+                        <span className="text-[11px] font-bold uppercase tracking-wide">
+                          Risk meter
+                        </span>
+                      </div>
+                      <span
+                        className={`px-2 py-0.5 rounded-md text-[10px] font-bold ${getRiskBadgeColor(riskScore)}`}
+                      >
+                        {riskLevel.toUpperCase()} RISK
+                      </span>
+                    </div>
+                    <div className="mt-3 flex items-end justify-between gap-3">
+                      <p className="text-2xl font-bold text-slate-900 dark:text-foreground">
+                        {riskScore}
+                        <span className="text-sm font-medium text-slate-400 dark:text-muted-foreground">
+                          /100
+                        </span>
+                      </p>
+                      <p className="text-xs font-semibold text-slate-500 dark:text-muted-foreground">
+                        Risk score
+                      </p>
+                    </div>
+                    <div className="mt-2 h-2 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
+                      <div
+                        className={`h-full ${getRiskColor(riskScore)}`}
+                        style={{
+                          width: `${Math.max(0, Math.min(riskScore, 100))}%`,
+                        }}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="rounded-xl border border-slate-200 dark:border-border bg-white dark:bg-card p-3">
+                    <div className="flex items-center gap-2 text-slate-500 dark:text-muted-foreground">
+                      <Tag size={16} className="text-[#84CC16]" />
+                      <span className="text-[11px] font-bold uppercase tracking-wide">
+                        Market price
+                      </span>
+                    </div>
+                    <p className="mt-4 text-2xl font-bold text-slate-900 dark:text-foreground break-words">
+                      {marketValue || "Not available"}
+                    </p>
+                    <p className="mt-1 text-xs font-medium text-slate-500 dark:text-muted-foreground">
+                      Estimated market value
+                    </p>
+                  </div>
+                </div>
+
                 {/* Device Image */}
                 {image && (
                   <div className="flex justify-center mb-2">
@@ -1129,38 +1193,16 @@ export const BulkResultView = ({
                   </button>
                 )}
 
-                {/* Risk Meter Section */}
-                <div className="border-t border-slate-100 pt-3 mt-2">
-                  <div className="flex justify-between items-center mb-2">
-                    <span className="font-semibold">Risk Level:</span>
-                    <span
-                      className={`px-2 py-0.5 rounded-md text-[10px] font-bold ${getRiskBadgeColor(riskScore)}`}
-                    >
-                      {riskLevel.toUpperCase()} RISK
-                    </span>
-                  </div>
-                  <div>
-                    <span className="font-semibold">Risk Score:</span>{" "}
-                    {riskScore}/100
-                  </div>
-                  <div className="mt-2 h-2 bg-slate-200 rounded-full overflow-hidden">
-                    <div
-                      className={`h-full ${getRiskColor(riskScore)}`}
-                      style={{ width: `${riskScore}%` }}
-                    />
-                  </div>
-                </div>
-
                 {/* AI Insight Section */}
                 {aiInsight && aiInsight.message && (
-                  <div className="border-t border-slate-100 pt-3 mt-2">
+                  <div className="border-t border-slate-100 dark:border-border pt-3 mt-2">
                     <div className="flex items-center justify-center gap-2 mb-1">
                       <Shield size={14} className="text-indigo-500" />
                       <p className="font-semibold text-indigo-600">
                         {aiInsight.title || "AI INSIGHT"}
                       </p>
                     </div>
-                    <p className="text-sm italic text-slate-600">
+                    <p className="text-sm italic text-slate-600 dark:text-slate-300">
                       {aiInsight.message}
                     </p>
                   </div>
@@ -1170,7 +1212,7 @@ export const BulkResultView = ({
               {/* Copy Button */}
               <button
                 onClick={handleCopyToClipboard}
-                className="absolute bottom-4 right-4 text-slate-300 hover:text-slate-500 transition"
+                className="absolute bottom-4 right-4 text-slate-300 hover:text-slate-500 dark:text-slate-600 dark:hover:text-slate-300 transition"
                 title="Copy to clipboard"
               >
                 <Copy size={22} />
@@ -1190,7 +1232,7 @@ export const BulkResultView = ({
                 <button
                   onClick={() => setIsInvoiceModalOpen(true)}
                   disabled={isInvoiceGenerating}
-                  className="flex-1 py-2.5 px-4 rounded-xl border-2 border-[#84CC16] text-[#84CC16] font-bold text-sm flex items-center justify-center gap-2 hover:bg-lime-50 transition disabled:opacity-50"
+                  className="flex-1 py-2.5 px-4 rounded-xl border-2 border-[#84CC16] text-[#84CC16] font-bold text-sm flex items-center justify-center gap-2 hover:bg-lime-50 dark:hover:bg-lime-950/30 transition disabled:opacity-50"
                 >
                   {isInvoiceGenerating ? (
                     <Loader2 size={14} className="animate-spin" />
@@ -1215,7 +1257,7 @@ export const BulkResultView = ({
             )}
           </>
         ) : selectedBatchRow ? (
-          <div className="bg-white border border-red-200 rounded-[32px] p-5 shadow-sm">
+          <div className="bg-white dark:bg-card border border-red-200 dark:border-red-900 rounded-[32px] p-5 shadow-sm">
             <div className="text-center">
               <XCircle size={48} className="mx-auto text-red-500 mb-3" />
               <p className="text-lg font-bold text-red-700">Failed Result</p>

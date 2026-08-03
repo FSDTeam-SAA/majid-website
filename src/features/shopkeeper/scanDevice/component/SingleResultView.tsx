@@ -11,6 +11,8 @@ import {
   RefreshCw,
   Clock,
   Shield,
+  Gauge,
+  Tag,
 } from "lucide-react";
 import { IMEIResult } from "../../scanDevice/types/scanDevice.types";
 import { CertificatePDF } from "./CertificatePDF";
@@ -941,8 +943,6 @@ export const SingleResultView = ({
     { label: "Model Code", value: modelCode, condition: !!modelCode },
     { label: "Full Name", value: fullName, condition: !!fullName },
     { label: "Manufacturer", value: manufacturer, condition: !!manufacturer },
-    { label: "Price", value: marketValue, condition: !!marketValue },
-
     // Identifiers
     { label: "IMEI", value: imeiValue },
     { label: "IMEI2", value: imei2Value, condition: !!imei2Value },
@@ -1549,20 +1549,20 @@ export const SingleResultView = ({
 
   if (hasError || isEmpty) {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100 p-4 md:p-6">
+      <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100 dark:from-slate-950 dark:to-slate-900 p-4 md:p-6">
         <div className="max-w-4xl mx-auto">
           <button
             onClick={onBack}
-            className="flex items-center gap-2 text-slate-600 hover:text-slate-900 font-medium mb-4 transition"
+            className="flex items-center gap-2 text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white font-medium mb-4 transition"
           >
             <ArrowLeft size={18} /> Back to scan
           </button>
-          <div className="bg-white border border-slate-200 rounded-[32px] p-8 text-center">
+          <div className="bg-white dark:bg-card border border-slate-200 dark:border-border rounded-[32px] p-8 text-center">
             <div className="text-slate-400 text-6xl mb-4">📱</div>
-            <h3 className="text-xl font-bold text-slate-700 mb-2">
+            <h3 className="text-xl font-bold text-slate-700 dark:text-foreground mb-2">
               {hasError ? "Unable to Retrieve Data" : "No Data Available"}
             </h3>
-            <p className="text-slate-500">
+            <p className="text-slate-500 dark:text-muted-foreground">
               {hasError && errorMessage
                 ? errorMessage
                 : "No device information available"}
@@ -1574,11 +1574,11 @@ export const SingleResultView = ({
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100 p-4 md:p-6">
+    <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100 dark:from-slate-950 dark:to-slate-900 p-4 md:p-6">
       <div className="max-w-4xl mx-auto">
         <button
           onClick={onBack}
-          className="flex items-center gap-2 text-slate-600 hover:text-slate-900 font-medium mb-4 transition"
+          className="flex items-center gap-2 text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white font-medium mb-4 transition"
         >
           <ArrowLeft size={18} /> Back to scan
         </button>
@@ -1621,9 +1621,62 @@ export const SingleResultView = ({
         {/* Main Card */}
         <div
           id="saved-report-pdf-single"
-          className="bg-white border border-slate-200 rounded-[32px] p-5 shadow-sm relative"
+          className="bg-white dark:bg-card border border-slate-200 dark:border-border rounded-[32px] p-5 shadow-sm relative"
         >
-          <div className="space-y-3 text-center text-[14px] text-[#5F6368] leading-relaxed">
+          <div className="space-y-3 text-center text-[14px] text-[#5F6368] dark:text-muted-foreground leading-relaxed">
+            {/* Report summary */}
+            <div className="grid gap-3 rounded-2xl border border-slate-200 dark:border-border bg-slate-50 dark:bg-muted p-4 text-left sm:grid-cols-2">
+              <div className="rounded-xl border border-slate-200 dark:border-border bg-white dark:bg-card p-3">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2 text-slate-500 dark:text-muted-foreground">
+                    <Gauge size={16} className="text-[#84CC16]" />
+                    <span className="text-[11px] font-bold uppercase tracking-wide">
+                      Risk meter
+                    </span>
+                  </div>
+                  <span
+                    className={`px-2 py-0.5 rounded-md text-[10px] font-bold ${getRiskBadgeColor(riskScore)}`}
+                  >
+                    {riskLevel.toUpperCase()} RISK
+                  </span>
+                </div>
+                <div className="mt-3 flex items-end justify-between gap-3">
+                  <p className="text-2xl font-bold text-slate-900 dark:text-foreground">
+                    {riskScore}
+                    <span className="text-sm font-medium text-slate-400 dark:text-muted-foreground">
+                      /100
+                    </span>
+                  </p>
+                  <p className="text-xs font-semibold text-slate-500 dark:text-muted-foreground">
+                    Risk score
+                  </p>
+                </div>
+                <div className="mt-2 h-2 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
+                  <div
+                    className={`h-full ${getRiskColor(riskScore)}`}
+                    style={{
+                      width: `${Math.max(0, Math.min(riskScore, 100))}%`,
+                    }}
+                  />
+                </div>
+              </div>
+
+              <div className="rounded-xl border border-slate-200 dark:border-border bg-white dark:bg-card p-3">
+                <div className="flex items-center gap-2 text-slate-500 dark:text-muted-foreground">
+                  <Tag size={16} className="text-[#84CC16]" />
+                  <span className="text-[11px] font-bold uppercase tracking-wide">
+                    Market price
+                  </span>
+                </div>
+                <p className="mt-4 text-2xl font-bold text-slate-900 dark:text-foreground break-words">
+                  {marketValue || "Not available"}
+                </p>
+                <p className="mt-1 text-xs font-medium text-slate-500 dark:text-muted-foreground">
+                  Estimated market value
+                </p>
+              </div>
+            </div>
+
             {image && (
               <div className="flex justify-center mb-2">
                 <Image
@@ -1667,38 +1720,16 @@ export const SingleResultView = ({
               </button>
             )}
 
-            {/* Risk Meter */}
-            <div className="border-t border-slate-100 pt-3 mt-2">
-              <div className="flex justify-between items-center mb-2">
-                <span className="font-semibold">Risk Level:</span>
-                <span
-                  className={`px-2 py-0.5 rounded-md text-[10px] font-bold ${getRiskBadgeColor(riskScore)}`}
-                >
-                  {riskLevel.toUpperCase()} RISK
-                </span>
-              </div>
-              <div>
-                <span className="font-semibold">Risk Score:</span> {riskScore}
-                /100
-              </div>
-              <div className="mt-2 h-2 bg-slate-200 rounded-full overflow-hidden">
-                <div
-                  className={`h-full ${getRiskColor(riskScore)}`}
-                  style={{ width: `${riskScore}%` }}
-                />
-              </div>
-            </div>
-
             {/* AI Insight */}
             {aiInsight?.message && (
-              <div className="border-t border-slate-100 pt-3 mt-2">
+              <div className="border-t border-slate-100 dark:border-border pt-3 mt-2">
                 <div className="flex items-center justify-center gap-2 mb-1">
                   <Shield size={14} className="text-indigo-500" />
                   <p className="font-semibold text-indigo-600">
                     {aiInsight.title || "AI INSIGHT"}
                   </p>
                 </div>
-                <p className="text-sm italic text-slate-600">
+                <p className="text-sm italic text-slate-600 dark:text-slate-300">
                   {aiInsight.message}
                 </p>
               </div>
@@ -1708,7 +1739,7 @@ export const SingleResultView = ({
           {/* Copy Button */}
           <button
             onClick={handleCopyToClipboard}
-            className="absolute bottom-4 right-4 text-slate-300 hover:text-slate-500 transition"
+            className="absolute bottom-4 right-4 text-slate-300 hover:text-slate-500 dark:text-slate-600 dark:hover:text-slate-300 transition"
             title="Copy to clipboard"
           >
             <Copy size={22} />
@@ -1727,7 +1758,7 @@ export const SingleResultView = ({
             <button
               onClick={() => setIsInvoiceModalOpen(true)}
               disabled={isInvoiceGenerating}
-              className="flex-1 py-2.5 px-4 rounded-xl border-2 border-[#84CC16] text-[#84CC16] font-bold text-sm flex items-center justify-center gap-2 hover:bg-lime-50 transition disabled:opacity-50"
+              className="flex-1 py-2.5 px-4 rounded-xl border-2 border-[#84CC16] text-[#84CC16] font-bold text-sm flex items-center justify-center gap-2 hover:bg-lime-50 dark:hover:bg-lime-950/30 transition disabled:opacity-50"
             >
               {isInvoiceGenerating ? (
                 <Loader2 size={14} className="animate-spin" />
