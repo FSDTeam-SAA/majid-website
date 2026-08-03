@@ -78,7 +78,7 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { AddressAutocomplete } from "@/components/ui/address-autocomplete";
+import { StructuredAddressFields } from "@/components/ui/structured-address-fields";
 import { Button } from "@/components/ui/button";
 import { useCurrency } from "@/hooks/useCurrency";
 
@@ -1691,16 +1691,14 @@ export default function Checkout() {
                 <label className="text-[10px] font-black uppercase tracking-wider text-slate-500">
                   From
                 </label>
-                <AddressAutocomplete
+                <StructuredAddressFields
                   value={deliveryDetails.from}
-                  onChange={(event) =>
+                  onChange={(from) =>
                     setDeliveryDetails((prev) => ({
                       ...prev,
-                      from: event.target.value,
+                      from,
                     }))
                   }
-                  placeholder="Store, warehouse, pickup address..."
-                  className="h-10 rounded-xl border-slate-200 bg-white text-xs font-bold focus-visible:ring-[#84CC16]"
                 />
               </div>
 
@@ -1708,16 +1706,14 @@ export default function Checkout() {
                 <label className="text-[10px] font-black uppercase tracking-wider text-slate-500">
                   Delivery To
                 </label>
-                <AddressAutocomplete
+                <StructuredAddressFields
                   value={deliveryDetails.deliveryTo}
-                  onChange={(event) =>
+                  onChange={(deliveryTo) =>
                     setDeliveryDetails((prev) => ({
                       ...prev,
-                      deliveryTo: event.target.value,
+                      deliveryTo,
                     }))
                   }
-                  placeholder="Customer address or delivery destination"
-                  className="h-10 rounded-xl border-slate-200 bg-white text-xs font-bold focus-visible:ring-[#84CC16]"
                 />
               </div>
             </div>
@@ -2574,13 +2570,12 @@ export default function Checkout() {
               <label className="text-[10px] font-black uppercase tracking-wider text-slate-500">
                 Billing Address
               </label>
-              <AddressAutocomplete
-                placeholder="123 Street Name, City"
+              <StructuredAddressFields
+                required
                 value={newCustomer.address}
-                onChange={(e) =>
-                  setNewCustomer({ ...newCustomer, address: e.target.value })
+                onChange={(address) =>
+                  setNewCustomer({ ...newCustomer, address })
                 }
-                className="rounded-xl h-11 border-slate-200 text-xs font-bold focus-visible:ring-[#84CC16]"
               />
             </div>
 

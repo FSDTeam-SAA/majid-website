@@ -25,7 +25,7 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { AddressAutocomplete } from "@/components/ui/address-autocomplete";
+import { StructuredAddressFields } from "@/components/ui/structured-address-fields";
 import { Button } from "@/components/ui/button";
 import {
   Loader2,
@@ -3068,14 +3068,10 @@ export function InventoryFormModal({
                           Customer Address
                         </FormLabel>
                         <FormControl>
-                          <div className="relative group">
-                            <div className="absolute left-2 top-1/2 -translate-y-1/2 w-10 h-10 bg-white dark:bg-slate-800 rounded-[14px] flex items-center justify-center shadow-sm border border-slate-100 dark:border-slate-700 group-focus-within:border-[#84CC16]/30 group-focus-within:bg-[#84CC16]/5 transition-all z-10">
-                              <MapPin className="w-4 h-4 text-slate-400 group-focus-within:text-[#84CC16] transition-colors" />
-                            </div>
-                            <AddressAutocomplete
-                              placeholder="123 Street, City, Country"
-                              className="pl-14 pr-4 bg-slate-50/80 dark:bg-slate-900/50 border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-900 rounded-[20px] h-[56px] font-bold text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 focus-visible:bg-white dark:focus-visible:bg-slate-950 focus-visible:ring-4 focus-visible:ring-[#84CC16]/15 focus-visible:border-[#84CC16] transition-all shadow-sm"
-                              {...field}
+                          <div className="rounded-[20px] border border-slate-200 bg-slate-50/80 p-4 dark:border-slate-800 dark:bg-slate-900/50">
+                            <StructuredAddressFields
+                              value={field.value || ""}
+                              onChange={field.onChange}
                             />
                           </div>
                         </FormControl>

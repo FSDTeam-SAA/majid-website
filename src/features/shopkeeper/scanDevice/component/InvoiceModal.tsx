@@ -9,7 +9,6 @@ import {
   DollarSign,
   Landmark,
   User,
-  MapPin,
   Phone,
   CreditCard,
   Mail,
@@ -21,7 +20,7 @@ import axiosInstance from "@/lib/instance/axios-instance";
 import { useSession } from "next-auth/react";
 import { useCurrency } from "@/hooks/useCurrency";
 import { formatCurrency as baseFormatCurrency } from "@/lib/currency";
-import { AddressAutocomplete } from "@/components/ui/address-autocomplete";
+import { StructuredAddressFields } from "@/components/ui/structured-address-fields";
 
 interface InvoiceModalProps {
   isOpen: boolean;
@@ -537,23 +536,13 @@ export const InvoiceModal = ({
                   </div>
 
                   <div>
-                    <div className="relative">
-                      <MapPin
-                        size={16}
-                        className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
-                      />
-                      <AddressAutocomplete
-                        type="text"
-                        placeholder="Address *"
+                    <div className="rounded-xl border border-gray-200 dark:border-input p-3">
+                      <StructuredAddressFields
+                        required
                         value={formData.customerAddress}
-                        onChange={(e) =>
-                          handleInputChange("customerAddress", e.target.value)
+                        onChange={(customerAddress) =>
+                          handleInputChange("customerAddress", customerAddress)
                         }
-                        className={`w-full pl-10 pr-4 py-2.5 border bg-background text-foreground rounded-xl focus:ring-2 focus:ring-[#84CC16]/20 outline-none transition ${
-                          getFieldError("customerAddress")
-                            ? "border-red-500 focus:border-red-500"
-                            : "border-gray-200 dark:border-input focus:border-[#84CC16]"
-                        }`}
                       />
                     </div>
                     {getFieldError("customerAddress") && (

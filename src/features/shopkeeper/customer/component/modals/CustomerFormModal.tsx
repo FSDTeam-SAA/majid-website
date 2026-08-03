@@ -9,14 +9,13 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { AddressAutocomplete } from "@/components/ui/address-autocomplete";
+import { StructuredAddressFields } from "@/components/ui/structured-address-fields";
 import { Label } from "@/components/ui/label";
 import {
   Loader2,
   User,
   Mail,
   Phone,
-  MapPin,
   CreditCard,
   DollarSign,
 } from "lucide-react";
@@ -261,13 +260,20 @@ export function CustomerFormModal({
             <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">
               Address <span className="text-red-500">*</span>
             </Label>
-            <div className="relative">
-              <MapPin className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-              <AddressAutocomplete
+            <div className="rounded-xl border border-border p-3">
+              <input
+                type="hidden"
                 {...register("address", { required: "Address is required" })}
+              />
+              <StructuredAddressFields
+                required
                 value={address || ""}
-                placeholder="123 Main St, City, Country"
-                className="h-12 rounded-xl border-border pl-11 font-bold focus-visible:ring-[#84CC16]"
+                onChange={(nextAddress) =>
+                  setValue("address", nextAddress, {
+                    shouldDirty: true,
+                    shouldValidate: true,
+                  })
+                }
               />
             </div>
             {errors.address && (

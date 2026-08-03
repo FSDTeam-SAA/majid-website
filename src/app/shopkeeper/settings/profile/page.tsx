@@ -35,7 +35,7 @@ import { detectCurrency } from "@/features/shopkeeper/settings/api/settings.api"
 import { CURRENCY_LIST, getCurrencySymbol } from "@/lib/currency";
 import { shouldAutoDetectCurrency } from "@/features/shopkeeper/settings/utils/currencyDetection";
 import { normalizeGoogleReviewPageUrl } from "@/features/shopkeeper/settings/utils/googleReviewQr";
-import { AddressAutocomplete } from "@/components/ui/address-autocomplete";
+import { StructuredAddressFields } from "@/components/ui/structured-address-fields";
 
 export default function ProfilePage() {
   const { data: profileData, isLoading } = useMyProfile();
@@ -608,12 +608,16 @@ export default function ProfilePage() {
                 <label className="text-[13px] font-black text-foreground ml-1 flex items-center gap-2">
                   <MapPin size={14} /> Shop Address
                 </label>
-                <AddressAutocomplete
-                  type="text"
+                <StructuredAddressFields
                   disabled={!isEditing}
-                  {...profileForm.register("shopAddress")}
+                  required
                   value={shopAddress || ""}
-                  className="w-full px-6 py-4 bg-background border border-border rounded-2xl outline-none focus:border-primary focus:ring-4 focus:ring-primary/5 transition-all text-sm font-semibold text-muted-foreground disabled:opacity-70"
+                  onChange={(nextAddress) =>
+                    profileForm.setValue("shopAddress", nextAddress, {
+                      shouldDirty: true,
+                      shouldValidate: true,
+                    })
+                  }
                 />
                 {profileForm.formState.errors.shopAddress && (
                   <span className="text-xs text-destructive font-bold ml-1">

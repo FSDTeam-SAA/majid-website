@@ -9,14 +9,13 @@ import {
   Store,
   User,
   Smartphone,
-  MapPin,
 } from "lucide-react";
 import { useState } from "react";
 import Link from "next/link";
 import { useSignUp } from "../hooks/useSignUp";
 import { useRouter } from "next/navigation";
 import { RegisterPayload } from "../types/auth.types";
-import { AddressAutocomplete } from "@/components/ui/address-autocomplete";
+import { StructuredAddressFields } from "@/components/ui/structured-address-fields";
 
 export default function SignUp() {
   const [showPassword, setShowPassword] = useState(false);
@@ -209,17 +208,13 @@ export default function SignUp() {
                     />
                   </div>
                 </div>
-                <div className="relative">
-                  <MapPin className="absolute left-6 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                  <AddressAutocomplete
-                    type="text"
+                <div className="rounded-3xl border border-gray-100 bg-gray-50/50 p-4">
+                  <StructuredAddressFields
                     required
-                    placeholder="Shop Address"
                     value={formData.shopAddress}
-                    onChange={(e) =>
-                      setFormData({ ...formData, shopAddress: e.target.value })
+                    onChange={(shopAddress) =>
+                      setFormData({ ...formData, shopAddress })
                     }
-                    className="w-full pl-14 pr-6 py-4 rounded-3xl border border-gray-100 bg-gray-50/50 focus:bg-white focus:border-[#84CC16] focus:ring-4 focus:ring-[#84CC16]/5 outline-none transition-all text-[#1E293B] placeholder:text-gray-400 font-bold text-sm sm:text-base"
                   />
                 </div>
               </motion.div>

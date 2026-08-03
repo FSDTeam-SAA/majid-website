@@ -37,7 +37,7 @@ import { createWorker } from "tesseract.js";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
-import { AddressAutocomplete } from "@/components/ui/address-autocomplete";
+import { StructuredAddressFields } from "@/components/ui/structured-address-fields";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -1107,12 +1107,11 @@ export default function CreatePurchaseReceipt() {
                     }
                   />
                   <div className="md:col-span-2">
-                    <AddressAutocomplete
-                      placeholder="Address"
-                      className="rounded-2xl h-12 border-primary bg-background font-bold"
+                    <StructuredAddressFields
+                      required
                       value={customer.address}
-                      onChange={(e) =>
-                        setCustomer({ ...customer, address: e.target.value })
+                      onChange={(address) =>
+                        setCustomer({ ...customer, address })
                       }
                     />
                   </div>

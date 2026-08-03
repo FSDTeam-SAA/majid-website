@@ -9,17 +9,10 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { AddressAutocomplete } from "@/components/ui/address-autocomplete";
+import { StructuredAddressFields } from "@/components/ui/structured-address-fields";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  Loader2,
-  Mail,
-  MapPin,
-  NotebookText,
-  Phone,
-  Truck,
-} from "lucide-react";
+import { Loader2, Mail, NotebookText, Phone, Truck } from "lucide-react";
 import { toast } from "sonner";
 import { useCreateSupplier, useUpdateSupplier } from "../../hooks/useSuppliers";
 import type { Supplier, SupplierInput } from "../../types";
@@ -47,6 +40,7 @@ export function SupplierFormModal({
     handleSubmit,
     reset,
     control,
+    setValue,
     formState: { errors },
   } = useForm<SupplierInput>({
     defaultValues: {
@@ -197,13 +191,12 @@ export function SupplierFormModal({
             <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">
               Address
             </Label>
-            <div className="relative">
-              <MapPin className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-              <AddressAutocomplete
-                {...register("address")}
+            <div className="rounded-xl border border-border p-3">
+              <StructuredAddressFields
                 value={address || ""}
-                placeholder="123 Gulshan Avenue, Dhaka"
-                className="h-12 rounded-xl border-border pl-11 font-bold focus-visible:ring-[#84CC16]"
+                onChange={(nextAddress) =>
+                  setValue("address", nextAddress, { shouldDirty: true })
+                }
               />
             </div>
           </div>

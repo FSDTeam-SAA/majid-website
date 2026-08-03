@@ -2,7 +2,7 @@
 "use client";
 import React, { useState, useMemo } from "react";
 import { Input } from "@/components/ui/input";
-import { AddressAutocomplete } from "@/components/ui/address-autocomplete";
+import { StructuredAddressFields } from "@/components/ui/structured-address-fields";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { User, Package, Loader2, Search, Calendar, Clock } from "lucide-react";
@@ -788,13 +788,10 @@ export default function DeliveryInvoice() {
                 <label className="text-xs font-black text-muted-foreground uppercase tracking-widest">
                   Delivery Address
                 </label>
-                <AddressAutocomplete
+                <StructuredAddressFields
+                  required
                   value={customer.address}
-                  className="rounded-2xl h-12 border-primary bg-background font-bold"
-                  placeholder="Dhaka, Bangladesh"
-                  onChange={(e) =>
-                    setCustomer({ ...customer, address: e.target.value })
-                  }
+                  onChange={(address) => setCustomer({ ...customer, address })}
                 />
               </div>
 
