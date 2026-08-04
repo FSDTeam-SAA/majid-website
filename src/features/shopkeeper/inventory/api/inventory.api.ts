@@ -304,8 +304,12 @@ export const createInvoice = async (input: {
 
 export const getMyInvoiceHistory = async (
   id: string,
+  params?: {
+    page?: number;
+    limit?: number;
+  },
 ): Promise<InvoiceHistoryResponse> => {
-  const response = await api.get(`/invoices/shopkeeper/${id}`);
+  const response = await api.get(`/invoices/shopkeeper/${id}`, { params });
 
   return response.data;
 };

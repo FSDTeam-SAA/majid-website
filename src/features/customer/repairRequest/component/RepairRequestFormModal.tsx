@@ -13,7 +13,10 @@ import {
   useRepairProblem,
 } from "@/features/shopkeeper/settings/hooks/useSettings";
 import { Check, ChevronDown, Loader2, Search } from "lucide-react";
+import { useSession } from "next-auth/react";
 import { FormEvent, useEffect, useMemo, useState } from "react";
+import { toast } from "sonner";
+import { useCreateCustomer } from "@/features/shopkeeper/inventory/hooks/useInventory";
 import { useCreateRepairRequest } from "../hooks/useRepairRequest";
 import { RepairRequest, Shopkeeper } from "../types/repair-request.types";
 
@@ -30,6 +33,7 @@ interface RepairRequestFormModalProps {
   onClose: () => void;
   mode?: "create" | "reassign";
   repairRequest?: RepairRequest;
+  createCustomerOnSubmit?: boolean;
 }
 
 export function RepairRequestFormModal({
@@ -37,6 +41,7 @@ export function RepairRequestFormModal({
   onClose,
   mode = "create",
   repairRequest,
+  createCustomerOnSubmit = false,
 }: RepairRequestFormModalProps) {
   const [fullName, setFullName] = useState("");
   const [isFullNameEdited, setIsFullNameEdited] = useState(false);
@@ -51,12 +56,15 @@ export function RepairRequestFormModal({
   const [imeiNumber, setImeiNumber] = useState("");
   const [problemDescription, setProblemDescription] = useState("");
   const [staff, setStaff] = useState("");
+  const { data: session } = useSession();
   const { data: profileData } = useMyProfile();
   const user = profileData?.data;
   const isReassignMode = mode === "reassign";
+  const shopkeeperId = (session?.user as { id?: string })?.id || "";
 
   const { data: repairProblemData } = useRepairProblem(user?._id || "");
   const createRepairRequest = useCreateRepairRequest();
+  const createCustomer = useCreateCustomer();
 
   const profileFullName = [user?.firstName, user?.lastName]
     .filter(Boolean)
@@ -119,13 +127,28 @@ export function RepairRequestFormModal({
     setIsProblemSelectOpen(false);
   };
 
-  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+  const resetForm = () => {
+    setDeviceModel("");
+    setImeiNumber("");
+    setPrice("");
+    setProblemDescription("");
+    setProblemSearch("");
+    setStaff("");
+  };
+
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
     const nextDescription = problemDescription || problemSearch;
+    const shouldCreateCustomer = createCustomerOnSubmit && !isReassignMode;
 
-    createRepairRequest.mutate(
-      {
+    if (shouldCreateCustomer && !shopkeeperId) {
+      toast.error("Shopkeeper session not found");
+      return;
+    }
+
+    try {
+      await createRepairRequest.mutateAsync({
         firstName: isReassignMode ? repairRequest?.firstName || "" : fullName,
         email: isReassignMode ? repairRequest?.email || "" : email,
         phoneNumber: isReassignMode ? repairRequest?.phoneNumber || "" : phone,
@@ -139,19 +162,36 @@ export function RepairRequestFormModal({
         description: nextDescription,
         staff,
         status: isReassignMode ? "reassigned" : undefined,
-      },
-      {
-        onSuccess: () => {
-          setDeviceModel("");
-          setImeiNumber("");
-          setPrice("");
-          setProblemDescription("");
-          setProblemSearch("");
-          setStaff("");
-          onClose();
-        },
-      },
-    );
+      });
+    } catch {
+      return;
+    }
+
+    if (shouldCreateCustomer) {
+      const [firstName, ...lastNameParts] = fullName.trim().split(/\s+/);
+
+      try {
+        await createCustomer.mutateAsync({
+          firstName,
+          lastName: lastNameParts.join(" "),
+          email,
+          phone,
+          address: "",
+          shopkeeperId,
+        });
+      } catch (error) {
+        const requestError = error as {
+          response?: { data?: { message?: string } };
+        };
+        toast.error(
+          requestError.response?.data?.message ||
+            "Repair request created, but the customer could not be saved",
+        );
+      }
+    }
+
+    resetForm();
+    onClose();
   };
 
   return (
@@ -368,10 +408,12 @@ export function RepairRequestFormModal({
             </Button>
             <Button
               type="submit"
-              disabled={createRepairRequest.isPending}
+              disabled={
+                createRepairRequest.isPending || createCustomer.isPending
+              }
               className="rounded-full px-10 h-12 font-bold bg-primary text-primary-foreground shadow-lg shadow-primary/25 hover:scale-[1.02] transition-all"
             >
-              {createRepairRequest.isPending ? (
+              {createRepairRequest.isPending || createCustomer.isPending ? (
                 <Loader2 className="h-5 w-5 animate-spin" />
               ) : isReassignMode ? (
                 "Reassigned"

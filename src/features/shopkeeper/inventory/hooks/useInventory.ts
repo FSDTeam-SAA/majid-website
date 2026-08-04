@@ -217,11 +217,16 @@ export function useCreateInvoice() {
   });
 }
 
-export function useMyInvoiceHistory(id: string, enabled = true) {
+export function useMyInvoiceHistory(
+  id: string,
+  enabled = true,
+  page?: number,
+  limit?: number,
+) {
   return useQuery<InvoiceHistoryResponse>({
-    queryKey: [...INVENTORY_KEYS.myInventory(), id],
+    queryKey: [...INVENTORY_KEYS.myInventory(), id, page, limit],
 
-    queryFn: () => getMyInvoiceHistory(id),
+    queryFn: () => getMyInvoiceHistory(id, { page, limit }),
 
     enabled: !!id && enabled,
   });

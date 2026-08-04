@@ -2,7 +2,15 @@
 
 import Link from "next/link";
 import { format } from "date-fns";
-import { Loader2, Package, Clock, Wrench, CheckCircle2 } from "lucide-react";
+import {
+  ChevronLeft,
+  ChevronRight,
+  Loader2,
+  Package,
+  Clock,
+  Wrench,
+  CheckCircle2,
+} from "lucide-react";
 import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -10,10 +18,7 @@ import { RepairRequestFormModal } from "@/features/customer/repairRequest/compon
 
 import { useGetMyRepairRequests } from "@/features/customer/repairRequest/hooks/useRepairRequest";
 
-import {
-  RepairRequest,
-  Shopkeeper,
-} from "@/features/customer/repairRequest/types/repair-request.types";
+import { RepairRequest } from "@/features/customer/repairRequest/types/repair-request.types";
 
 const getStatusStyles = (status: string) => {
   switch (status) {
@@ -79,13 +84,17 @@ const getStatusLabel = (status: string) => {
   }
 };
 
+const PAGE_SIZE = 10;
+
 export default function RepairRequestsTable() {
-  const { data: myRepairRequestsData, isLoading } = useGetMyRepairRequests();
+  const [page, setPage] = useState(1);
+  const { data: myRepairRequestsData, isLoading } = useGetMyRepairRequests(
+    page,
+    PAGE_SIZE,
+  );
 
   const repairRequests = myRepairRequestsData?.data || [];
-
-  const [selectedShopkeeper, setSelectedShopkeeper] =
-    useState<Shopkeeper | null>(null);
+  const totalPages = Math.max(myRepairRequestsData?.meta?.totalPage || 1, 1);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
 
@@ -135,9 +144,10 @@ export default function RepairRequestsTable() {
           </Button>
 
           <RepairRequestFormModal
-            shopkeeper={selectedShopkeeper}
+            shopkeeper={null}
             isOpen={isModalOpen}
             onClose={() => setIsModalOpen(false)}
+            createCustomerOnSubmit
           />
         </div>
 
@@ -248,6 +258,38 @@ export default function RepairRequestsTable() {
               </tbody>
             </table>
           </div>
+
+          {myRepairRequestsData?.meta && (
+            <div className="flex flex-col gap-3 border-t border-border bg-surface/40 px-6 py-4 sm:flex-row sm:items-center sm:justify-between">
+              <p className="text-sm font-medium text-muted-foreground">
+                Page {page} of {totalPages} · {myRepairRequestsData.meta.total}{" "}
+                total requests
+              </p>
+
+              <div className="flex items-center gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setPage((currentPage) => currentPage - 1)}
+                  disabled={page === 1 || isLoading}
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                  Previous
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setPage((currentPage) => currentPage + 1)}
+                  disabled={page === totalPages || isLoading}
+                >
+                  Next
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>

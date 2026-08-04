@@ -305,6 +305,12 @@ export interface InvoiceHistoryResponse {
   message: string;
   statusCode: number;
   data: InvoiceHistoryItem[];
+  meta?: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPage: number;
+  };
 }
 
 export interface CartItem {

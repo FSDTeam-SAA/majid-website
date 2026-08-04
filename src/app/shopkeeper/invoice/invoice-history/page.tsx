@@ -850,7 +850,9 @@ import {
   Eye,
   FileText,
   Calendar,
-  Store,
+  ChevronLeft,
+  ChevronRight,
+  User,
   Phone,
   RotateCcw,
   Loader2,
@@ -1149,16 +1151,18 @@ const InvoiceHistoryPage = () => {
   const session = useSession();
   const id = session.data?.user?.id;
   const { currency, formatCurrency } = useCurrency();
+  const [page, setPage] = useState(1);
 
   const {
     data: response,
     isLoading,
     isError,
-  } = useMyInvoiceHistory(id as string);
+  } = useMyInvoiceHistory(id as string, true, page, 10);
 
   const { mutate: createInvoice, isPending } = useCreateInvoice();
 
   const invoices: InvoiceHistoryItem[] = response?.data || [];
+  const totalPages = Math.max(response?.meta?.totalPage || 1, 1);
 
   const [refundModal, setRefundModal] = useState(false);
   const [selectedInvoice, setSelectedInvoice] = useState<InvoiceItem | null>(
@@ -1338,7 +1342,7 @@ const InvoiceHistoryPage = () => {
               </CardTitle>
             </div>
             <span className="text-xs font-black text-muted-foreground bg-background border border-border px-3 py-1.5 rounded-full uppercase tracking-wider">
-              Total Records: {invoices.length}
+              Total Records: {response?.meta?.total || invoices.length}
             </span>
           </div>
         </CardHeader>
@@ -1378,7 +1382,10 @@ const InvoiceHistoryPage = () => {
                   </TableRow>
                 ) : (
                   invoices.map((item) => {
-                    const shopkeeper = item.shopkeeperId;
+                    const customer =
+                      typeof item.customerInfo === "object"
+                        ? item.customerInfo
+                        : null;
                     const formattedDate = new Date(
                       item.createdAt,
                     ).toLocaleDateString("en-US", {
@@ -1399,13 +1406,13 @@ const InvoiceHistoryPage = () => {
                         <TableCell className="px-6 py-5">
                           <div className="flex flex-col gap-0.5">
                             <span className="font-black text-foreground flex items-center gap-1.5 text-sm">
-                              <Store className="w-3.5 h-3.5 text-sky-500" />
-                              {shopkeeper?.firstName}{" "}
-                              {shopkeeper?.lastName || "Unknown Merchant"}
+                              <User className="w-3.5 h-3.5 text-sky-500" />
+                              {customer?.firstName || "Walk-in Customer"}{" "}
+                              {customer?.lastName || ""}
                             </span>
                             <span className="text-xs text-muted-foreground font-medium flex items-center gap-1.5">
                               <Phone className="w-3.5 h-3.5" />
-                              {shopkeeper?.phone || "N/A"}
+                              {customer?.phone || "N/A"}
                             </span>
                           </div>
                         </TableCell>
@@ -1480,6 +1487,37 @@ const InvoiceHistoryPage = () => {
               </TableBody>
             </Table>
           </div>
+
+          {response?.meta && (
+            <div className="flex flex-col gap-3 border-t border-border bg-surface/40 px-6 py-4 sm:flex-row sm:items-center sm:justify-between">
+              <p className="text-sm font-medium text-muted-foreground">
+                Page {page} of {totalPages} · {response.meta.total} total
+                invoices
+              </p>
+              <div className="flex items-center gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setPage((currentPage) => currentPage - 1)}
+                  disabled={page === 1 || isLoading}
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                  Previous
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setPage((currentPage) => currentPage + 1)}
+                  disabled={page === totalPages || isLoading}
+                >
+                  Next
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
 

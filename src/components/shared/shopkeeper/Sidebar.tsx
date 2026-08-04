@@ -318,29 +318,31 @@ export default function Sidebar({
         {/* User Section */}
         <div className="p-4 pt-0">
           <div className="bg-surface border border-border rounded-[28px] p-4 flex flex-col gap-4 shadow-sm">
-            <Link
-              href="/shopkeeper/settings"
-              className={`flex items-center ${collapsed ? "justify-center" : "gap-3"} px-1 hover:bg-slate-100/50 dark:hover:bg-slate-800/40 p-1.5 rounded-2xl transition-all cursor-pointer min-w-0`}
-            >
-              <div className="relative w-11 h-11 rounded-2xl overflow-hidden border-2 border-white/10 flex-shrink-0">
-                <Image
-                  src={profileImage}
-                  alt={profileName}
-                  fill
-                  className="object-cover"
-                />
-              </div>
-              {!collapsed && (
-                <div className="flex min-w-0 flex-col">
-                  <span className="truncate text-[14px] font-black text-foreground leading-tight">
-                    {profileName}
-                  </span>
-                  <span className="truncate text-[11px] font-bold text-muted-foreground uppercase tracking-widest">
-                    {profileSubtitle}
-                  </span>
+            {user && (
+              <Link
+                href="/shopkeeper/settings"
+                className={`flex items-center ${collapsed ? "justify-center" : "gap-3"} px-1 hover:bg-slate-100/50 dark:hover:bg-slate-800/40 p-1.5 rounded-2xl transition-all cursor-pointer min-w-0`}
+              >
+                <div className="relative w-11 h-11 rounded-2xl overflow-hidden border-2 border-white/10 flex-shrink-0">
+                  <Image
+                    src={profileImage}
+                    alt={profileName}
+                    fill
+                    className="object-cover"
+                  />
                 </div>
-              )}
-            </Link>
+                {!collapsed && (
+                  <div className="flex min-w-0 flex-col">
+                    <span className="truncate text-[14px] font-black text-foreground leading-tight">
+                      {profileName}
+                    </span>
+                    <span className="truncate text-[11px] font-bold text-muted-foreground uppercase tracking-widest">
+                      {profileSubtitle}
+                    </span>
+                  </div>
+                )}
+              </Link>
+            )}
 
             <button
               onClick={() => setShowLogoutModal(true)}

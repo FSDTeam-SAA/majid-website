@@ -9,7 +9,7 @@ in the webiste invoice sections need to fix some issues ,
 
  do those fixups do not change anything else.
 ------------------------------
- p2:
+ p2: 
  1. /invoice/invoice-history in this page on the website Customer section the customer name that are showing is wrong. fix this 
  2. and in the get api add paginaitons on backend api also implement on the page. 
  
@@ -42,6 +42,33 @@ p6:  done
 
 ------------------------------
 
-p7: 
+p7: done
 Customer ID Number / NID Field make this as optional 
- 
+
+------------------------------
+p8: done 
+in the repair request page /shopkeeper/repair-requests add pagination on the backend also in the website as well. Repair Request
+Please provide details about your device and the issue you're facing.
+
+Full Name
+Muhammad Majid
+Email Address
+shopkeeper2@gmail.com
+Phone Number
+07777787771
+Device Model
+e.g. iPhone 15 Pro
+Price
+e.g. 150.00
+IMEI Number (Optional)
+Enter IMEI
+Select Problem
+Search or select a previous problem
+Technician
+Select staff
+Problem Description
+
+from there it will also call the create customer api. so that customer created and i can see in the shopkeeper/customer page.
+------------------------------
+
+in the repire section Technician field add a fild on backend named technician and also the dropdown should show the previous technician and add a option for add new technician. 

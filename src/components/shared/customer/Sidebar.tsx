@@ -688,26 +688,28 @@ export default function Sidebar() {
         {/* User Section */}
         <div className="p-4 pt-0">
           <div className="bg-surface border border-border rounded-[28px] p-4 flex flex-col gap-4 shadow-sm">
-            <div className="flex items-center gap-3 px-1">
-              <div className="relative w-11 h-11 rounded-2xl overflow-hidden border-2 border-white/10">
-                <Image
-                  src={profileImage}
-                  alt={profileName}
-                  fill
-                  className="object-cover"
-                />
-              </div>
+            {user && (
+              <div className="flex items-center gap-3 px-1">
+                <div className="relative w-11 h-11 rounded-2xl overflow-hidden border-2 border-white/10">
+                  <Image
+                    src={profileImage}
+                    alt={profileName}
+                    fill
+                    className="object-cover"
+                  />
+                </div>
 
-              <div className="flex min-w-0 flex-col">
-                <span className="truncate text-[14px] font-black text-foreground leading-tight">
-                  {profileName}
-                </span>
+                <div className="flex min-w-0 flex-col">
+                  <span className="truncate text-[14px] font-black text-foreground leading-tight">
+                    {profileName}
+                  </span>
 
-                <span className="truncate text-[11px] font-bold text-muted-foreground uppercase tracking-widest">
-                  {profileSubtitle}
-                </span>
+                  <span className="truncate text-[11px] font-bold text-muted-foreground uppercase tracking-widest">
+                    {profileSubtitle}
+                  </span>
+                </div>
               </div>
-            </div>
+            )}
 
             <button
               onClick={() => setShowLogoutModal(true)}
