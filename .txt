@@ -70,5 +70,6 @@ Problem Description
 
 from there it will also call the create customer api. so that customer created and i can see in the shopkeeper/customer page.
 ------------------------------
-
+prompt: 9  done 
 in the repire section Technician field add a fild on backend named technician and also the dropdown should show the previous technician and add a option for add new technician. 
+------------------------------

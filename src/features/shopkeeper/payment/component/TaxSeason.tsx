@@ -3,7 +3,6 @@
 import React from "react";
 import {
   Download,
-  Eye,
   ChevronLeft,
   ChevronRight,
   Search,
@@ -35,6 +34,7 @@ export default function TaxSeason() {
         paymentStatus: string;
         createdAt: string;
         subscriptionId: string;
+        paymentMethod?: string;
       }) => ({
         id: `#${p._id.substring(0, 8).toUpperCase()}`,
         amount: formatCurrency(p.amount),
@@ -48,7 +48,7 @@ export default function TaxSeason() {
           year: "numeric",
         }),
         order: p.subscriptionId ? "Subscription Plan" : "Wallet Top-up",
-        method: "Stripe",
+        method: p.paymentMethod || "myPOS",
         description: "Payment for Majid services",
         raw: p,
       }),

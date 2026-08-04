@@ -84,6 +84,15 @@ export default function AddFunds() {
 
   const { data: subscriptionData, isLoading } = useSubscriptions();
   const plans = subscriptionData?.data || [];
+  const paymentCurrency = process.env.NEXT_PUBLIC_PAYMENT_CURRENCY || "EUR";
+  const formatPaymentAmount = React.useCallback(
+    (value: number) =>
+      new Intl.NumberFormat(undefined, {
+        style: "currency",
+        currency: paymentCurrency,
+      }).format(value),
+    [paymentCurrency],
+  );
 
   const { mutate: createPayment, isPending } = useCreatePaymentSession();
 
@@ -123,16 +132,33 @@ export default function AddFunds() {
 
     createPayment(
       {
-        amount: numAmount,
         subscriptionId: selectedPlan?._id || "",
       },
       {
         onSuccess: (res) => {
-          if (res?.data?.url) {
-            window.location.href = res.data.url;
-          } else {
+          const checkout = res?.data;
+
+          if (!checkout?.actionUrl || !checkout?.params) {
             toast.error("Failed to get checkout URL");
+            return;
           }
+
+          const form = document.createElement("form");
+          form.method = "POST";
+          form.action = checkout.actionUrl;
+
+          Object.entries(checkout.params as Record<string, string>).forEach(
+            ([key, value]) => {
+              const input = document.createElement("input");
+              input.type = "hidden";
+              input.name = key;
+              input.value = value;
+              form.appendChild(input);
+            },
+          );
+
+          document.body.appendChild(form);
+          form.submit();
         },
         onError: () => {
           toast.error("An error occurred while initiating payment");
@@ -187,7 +213,7 @@ export default function AddFunds() {
                     </h2>
                     <div className="flex items-baseline gap-1">
                       <span className="text-3xl font-black text-slate-950 dark:text-white">
-                        ${plan.price}
+                        {formatPaymentAmount(plan.price)}
                       </span>
                     </div>
                     <p className="h-8 text-xs font-medium text-slate-600 dark:text-slate-300">
@@ -272,14 +298,16 @@ export default function AddFunds() {
             <DialogTitle>Top Up Wallet</DialogTitle>
             <DialogDescription>
               Enter the amount you would like to top up. Minimum amount for{" "}
-              {selectedPlan?.name || "this plan"} is ${selectedPlan?.price || 2}
-              .
+              {selectedPlan?.name || "this plan"} is{" "}
+              {formatPaymentAmount(selectedPlan?.price || 2)}.
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <label className="text-sm font-medium">Amount (USD)</label>
+              <label className="text-sm font-medium">
+                Amount ({paymentCurrency})
+              </label>
               <Input
                 type="number"
                 placeholder={`e.g. ${(selectedPlan?.price || 15).toFixed(2)}`}
@@ -299,7 +327,7 @@ export default function AddFunds() {
               {isPending ? (
                 <Loader2 className="w-4 h-4 mr-2 animate-spin" />
               ) : null}
-              Proceed to Checkout
+              Proceed to myPOS Checkout
             </Button>
           </div>
         </DialogContent>

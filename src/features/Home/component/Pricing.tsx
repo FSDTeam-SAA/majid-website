@@ -42,6 +42,12 @@ export default function Pricing() {
   const plans = subscriptionData?.data || [];
 
   const { mutate: createPayment, isPending } = useCreatePaymentSession();
+  const paymentCurrency = process.env.NEXT_PUBLIC_PAYMENT_CURRENCY || "EUR";
+  const formatPaymentAmount = (value: number) =>
+    new Intl.NumberFormat(undefined, {
+      style: "currency",
+      currency: paymentCurrency,
+    }).format(value);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<SubscriptionPlan | null>(
     null,
@@ -52,20 +58,44 @@ export default function Pricing() {
     const numAmount = parseFloat(amount);
     const minAmount = selectedPlan?.price || 2;
 
-    if (isNaN(numAmount) || numAmount < minAmount) {
-      toast.error(`Please enter a valid amount (minimum $${minAmount})`);
+    if (
+      isNaN(numAmount) ||
+      numAmount < minAmount ||
+      numAmount !== selectedPlan?.price
+    ) {
+      toast.error(
+        `Please enter the plan price of ${minAmount} ${paymentCurrency}`,
+      );
       return;
     }
 
     createPayment(
-      { amount: numAmount, subscriptionId: selectedPlan?._id || "" },
+      { subscriptionId: selectedPlan?._id || "" },
       {
         onSuccess: (res) => {
-          if (res?.data?.url) {
-            window.location.href = res.data.url;
-          } else {
+          const checkout = res?.data;
+
+          if (!checkout?.actionUrl || !checkout?.params) {
             toast.error("Failed to get checkout URL");
+            return;
           }
+
+          const form = document.createElement("form");
+          form.method = "POST";
+          form.action = checkout.actionUrl;
+
+          Object.entries(checkout.params as Record<string, string>).forEach(
+            ([key, value]) => {
+              const input = document.createElement("input");
+              input.type = "hidden";
+              input.name = key;
+              input.value = value;
+              form.appendChild(input);
+            },
+          );
+
+          document.body.appendChild(form);
+          form.submit();
         },
         onError: (err: unknown) => {
           const error = err as { response?: { status?: number } };
@@ -205,7 +235,9 @@ export default function Pricing() {
                   </h3>
                   <div className="flex items-baseline gap-1">
                     <span className={`text-3xl font-black  text-foreground`}>
-                      {plan.priceLabel}
+                      {plan.price > 0
+                        ? formatPaymentAmount(plan.price)
+                        : plan.priceLabel}
                     </span>
                   </div>
                   <p className={`text-sm text-foreground mt-2`}>
@@ -277,20 +309,23 @@ export default function Pricing() {
               <DialogTitle>Top Up Wallet</DialogTitle>
               <DialogDescription>
                 Enter the amount you would like to top up. Minimum amount for{" "}
-                {selectedPlan?.name || "this plan"} is $
-                {selectedPlan?.price || 2}.
+                {selectedPlan?.name || "this plan"} is{" "}
+                {selectedPlan?.price || 2} {paymentCurrency}.
               </DialogDescription>
             </DialogHeader>
 
             <div className="space-y-4 py-4 text-left">
               <div className="space-y-2">
-                <label className="text-sm font-medium">Amount (USD)</label>
+                <label className="text-sm font-medium">
+                  Amount ({paymentCurrency})
+                </label>
                 <Input
                   type="number"
                   placeholder={`e.g. ${selectedPlan?.price || 15}`}
                   value={amount}
                   onChange={(e) => setAmount(e.target.value)}
                   min={selectedPlan?.price || 2}
+                  max={selectedPlan?.price || 2}
                   step="0.01"
                 />
               </div>
@@ -303,7 +338,7 @@ export default function Pricing() {
                 {isPending ? (
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                 ) : null}
-                Proceed to Checkout
+                Proceed to myPOS Checkout
               </Button>
             </div>
           </DialogContent>

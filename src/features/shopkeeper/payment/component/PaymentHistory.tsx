@@ -35,6 +35,7 @@ export default function PaymentHistory() {
         paymentStatus: string;
         createdAt: string;
         subscriptionId: string;
+        paymentMethod?: string;
       }) => ({
         id: `#${p._id.substring(0, 8).toUpperCase()}`,
         amount: formatCurrency(p.amount),
@@ -48,7 +49,7 @@ export default function PaymentHistory() {
           year: "numeric",
         }),
         order: p.subscriptionId ? "Subscription Plan" : "Wallet Top-up",
-        method: "Stripe",
+        method: p.paymentMethod || "myPOS",
         description: "Payment for Majid services",
         raw: p,
       }),
