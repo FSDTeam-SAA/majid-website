@@ -1,4 +1,4 @@
-prompt 1:
+prompt 1: Done 
 in the webiste invoice sections need to fix some issues , 
 1. **Price Per Unit when i'm putting a value it converts to dollars Item Calculation Subtotal: **
 2. /invoice/create-invoice in the same page product details all the products are sowing add pagination on this part (if there no backend added paginaiton add there) 
@@ -12,11 +12,11 @@ in the webiste invoice sections need to fix some issues ,
  p2:
  1. /invoice/invoice-history in this page on the website Customer section the customer name that are showing is wrong. fix this 
  2. and in the get api add paginaitons on backend api also implement on the page. 
- 3. 
+ 
 
+------------------------------
 
-
-p3: 
+p3: done
 /invoice/purchase-invoice this page 
 1. **Price Per Unit when i'm putting a value it converts to dollars Item Calculation Subtotal: **
 2. in the same page Select Existing Customer add search bar to search and select customers add same like create invoice page
@@ -24,4 +24,24 @@ p3:
 4. Invoice Date & Time Or Select Manually this section add a simple date and time selector. **Or Select Date & Time**
 08/04/2026, 04:16 PM
  this input fuild taking full weight of the screen and i need to cleck the calander icon it should be anyware i cleck it should come the things
-5. 
+
+do not change any existing featuers. other than thats
+
+------------------------------
+
+p4: done 
+/settings/shopkeeper in this page in the qr code when anyone scan the code a vcf file will download. that will probide the basic informaions.
+------------------------------
+
+p5: 
+in the shopkeeper dahsboard or dashboard at when i do refress a default icon and name come eg. shopkeeper store owner. don't need that. fix this. 
+------------------------------
+
+p6: 
+/invoice/purchase-invoice this page  Create Purchase Receipt button stays desible. it should be like this when i try to cleack this. the fields that need to fillup hight light those fiels
+
+------------------------------
+
+p7: 
+Customer ID Number / NID Field make this as optional 
+ 

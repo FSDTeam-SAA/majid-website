@@ -1,7 +1,13 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
-import React, { useMemo, useState, useRef, useEffect } from "react";
+import React, {
+  useMemo,
+  useState,
+  useRef,
+  useEffect,
+  useSyncExternalStore,
+} from "react";
 import {
   User,
   Package,
@@ -12,11 +18,11 @@ import {
   Camera,
   Upload,
   CheckCircle2,
-  DollarSign,
   ShieldAlert,
   X,
   Calendar,
   Clock,
+  Search,
 } from "lucide-react";
 import { useSession } from "next-auth/react";
 import { toast } from "sonner";
@@ -54,6 +60,7 @@ import {
   useCreateInventory,
   useCategories,
 } from "@/features/shopkeeper/inventory/hooks/useInventory";
+import { useMyInvoiceGet } from "@/features/shopkeeper/inventory/hooks/useInvoiceGenaretor";
 
 interface OcrResponse {
   success: boolean;
@@ -66,169 +73,276 @@ interface OcrResponse {
   };
 }
 
-// --- Ultra-Modern PDF Styles ---
+// --- Purchase Receipt PDF Styles ---
+const colors = {
+  teal: "#155E63",
+  tealDark: "#164E55",
+  lime: "#84CC16",
+  mint: "#BFE3DD",
+  mintLight: "#EAF5F3",
+  slate900: "#0F172A",
+  slate700: "#334155",
+  slate500: "#64748B",
+  slate200: "#E2E8F0",
+  slate100: "#F1F5F9",
+  white: "#FFFFFF",
+};
+
 const pdfStyles = StyleSheet.create({
   page: {
-    padding: 40,
-    backgroundColor: "#ffffff",
+    padding: 34,
+    backgroundColor: "#F8FAFC",
     fontSize: 9,
-    color: "#334155",
+    color: colors.slate700,
   },
-  headerBar: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    height: 6,
-    backgroundColor: "#0f172a",
+  paper: {
+    backgroundColor: colors.white,
+    padding: 26,
+    minHeight: "100%",
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.slate200,
   },
   header: {
     flexDirection: "row",
-    justifyContent: "space-between",
     alignItems: "flex-start",
-    marginBottom: 35,
-    marginTop: 10,
+    justifyContent: "space-between",
+    borderBottomWidth: 1.5,
+    borderBottomColor: colors.slate200,
+    paddingBottom: 18,
   },
-  logo: { width: 130, objectFit: "contain" },
-  receiptMeta: { textAlign: "right" },
-  title: {
+  brandWrap: {
+    flexShrink: 1,
+  },
+  brandRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  logoImage: {
+    width: 130,
+    height: 42,
+    objectFit: "contain",
+  },
+  logoFallback: {
     fontSize: 22,
     fontWeight: "bold",
-    color: "#0f172a",
-    letterSpacing: 1,
-    marginBottom: 4,
+    color: colors.lime,
   },
-  dateText: { fontSize: 9, color: "#64748b" },
-  section: { marginBottom: 24 },
-  sectionTitle: {
+  checkDot: {
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: colors.lime,
+    color: colors.white,
+    textAlign: "center",
     fontSize: 10,
     fontWeight: "bold",
-    color: "#0f172a",
-    textTransform: "uppercase",
-    letterSpacing: 0.5,
-    marginBottom: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: "#cbd5e1",
-    paddingBottom: 4,
   },
-  infoRow: { flexDirection: "row", gap: 20 },
-  infoBox: {
+  shopAddress: {
+    marginTop: 4,
+    color: colors.slate500,
+    fontSize: 8,
+  },
+  invoiceTitle: {
+    fontSize: 24,
+    color: colors.teal,
+    fontWeight: "bold",
+    letterSpacing: 2,
+  },
+  metaGrid: {
+    flexDirection: "row",
+    marginTop: 16,
+    marginBottom: 14,
+  },
+  metaBlock: {
     flex: 1,
-    backgroundColor: "#f8fafc",
+    gap: 4,
+  },
+  metaDivider: {
+    width: 1,
+    backgroundColor: colors.slate200,
+    marginHorizontal: 18,
+  },
+  metaLabel: {
+    color: colors.slate500,
+    fontWeight: "bold",
+  },
+  metaText: {
+    color: colors.slate900,
+    fontWeight: "bold",
+  },
+  pillRow: {
+    flexDirection: "row",
+    marginBottom: 14,
     borderRadius: 8,
-    padding: 14,
+    overflow: "hidden",
     borderWidth: 1,
-    borderColor: "#f1f5f9",
+    borderColor: colors.slate200,
   },
-  infoBoxTitle: {
-    fontSize: 9,
+  customerPill: {
+    width: "50%",
+    backgroundColor: colors.slate100,
+    color: colors.slate900,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+  },
+  shopPill: {
+    flex: 1,
+    backgroundColor: colors.white,
+    color: colors.slate700,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderLeftWidth: 1,
+    borderLeftColor: colors.slate200,
+  },
+  customerTitle: {
+    fontSize: 8,
     fontWeight: "bold",
-    color: "#0f172a",
-    marginBottom: 10,
+    color: colors.slate500,
     textTransform: "uppercase",
-    letterSpacing: 0.5,
+    marginBottom: 4,
   },
-  label: {
+  customerName: {
+    fontSize: 11,
+    fontWeight: "bold",
+    color: colors.slate900,
+  },
+  customerDetail: {
+    fontSize: 8,
+    color: colors.slate500,
+    marginTop: 2,
+  },
+  muted: {
     fontSize: 7.5,
-    color: "#64748b",
-    textTransform: "uppercase",
-    marginBottom: 2,
+    color: colors.slate500,
+    marginTop: 2,
+    lineHeight: 1.4,
   },
-  value: {
-    color: "#1e293b",
-    fontSize: 9.5,
+  shopTitle: {
+    fontSize: 8,
     fontWeight: "bold",
-    marginBottom: 8,
+    color: colors.slate500,
+    textTransform: "uppercase",
+    marginBottom: 4,
   },
-  storeValue: {
-    color: "#334155",
-    fontSize: 9.5,
-    lineHeight: 1.5,
-    marginBottom: 2,
+  shopName: {
+    fontSize: 10,
+    fontWeight: "bold",
+    color: colors.lime,
+    textTransform: "uppercase",
+  },
+  shopDetail: {
+    fontSize: 8,
+    color: colors.slate500,
+    marginTop: 3,
   },
   tableHeader: {
     flexDirection: "row",
-    backgroundColor: "#0f172a",
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 6,
-    color: "#ffffff",
+    backgroundColor: colors.teal,
+    color: colors.white,
+    paddingVertical: 7,
+    paddingHorizontal: 8,
     fontWeight: "bold",
-    fontSize: 8,
-    textTransform: "uppercase",
-    letterSpacing: 0.5,
   },
   row: {
     flexDirection: "row",
+    minHeight: 48,
+    paddingVertical: 8,
+    paddingHorizontal: 8,
     borderBottomWidth: 1,
-    borderBottomColor: "#f1f5f9",
-    paddingVertical: 12,
-    paddingHorizontal: 12,
+    borderBottomColor: colors.slate200,
     alignItems: "center",
   },
-  colProduct: { width: "40%" },
-  colQty: {
-    width: "10%",
-    textAlign: "center",
-    color: "#0f172a",
-    fontWeight: "bold",
+  rowAlt: {
+    backgroundColor: "#F8FAFC",
   },
-  colSerials: { width: "30%" },
+  colProduct: {
+    width: "45%",
+    paddingRight: 6,
+  },
+  colQty: {
+    width: "15%",
+    textAlign: "center",
+  },
+  colSerials: {
+    width: "20%",
+    paddingHorizontal: 4,
+  },
   colPrice: {
     width: "20%",
     textAlign: "right",
     fontWeight: "bold",
-    color: "#0f172a",
+    color: colors.slate900,
   },
-  productName: { fontSize: 9.5, fontWeight: "bold", color: "#0f172a" },
-  modelText: { fontSize: 8, color: "#64748b", marginTop: 2 },
+  productName: {
+    fontSize: 9,
+    fontWeight: "bold",
+    color: colors.slate900,
+  },
+  modelText: {
+    fontSize: 8,
+    color: colors.slate500,
+    marginTop: 2,
+  },
   serialText: {
     fontSize: 8,
-    color: "#475569",
-    backgroundColor: "#f1f5f9",
+    color: colors.slate700,
+    backgroundColor: colors.slate100,
     paddingVertical: 2,
     paddingHorizontal: 6,
     borderRadius: 4,
     marginBottom: 2,
     alignSelf: "flex-start",
   },
-  totalSection: {
-    flexDirection: "row",
-    justifyContent: "flex-end",
-    marginBottom: 24,
+  totals: {
+    marginLeft: "50%",
+    marginTop: 15,
   },
-  totalBox: {
-    backgroundColor: "#f8fafc",
-    borderWidth: 1,
-    borderColor: "#e2e8f0",
-    padding: 12,
-    borderRadius: 8,
-    width: 200,
-  },
-  totalRow: {
+  totalLine: {
     flexDirection: "row",
     justifyContent: "space-between",
-    alignItems: "center",
+    paddingVertical: 5,
+    paddingHorizontal: 8,
   },
-  totalLabel: {
-    fontSize: 9,
+  amountDue: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    backgroundColor: colors.lime,
+    color: colors.white,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 6,
+    fontSize: 11,
     fontWeight: "bold",
-    color: "#64748b",
-    textTransform: "uppercase",
+    marginTop: 4,
   },
-  totalValue: { fontSize: 13, fontWeight: "bold", color: "#0f172a" },
   footer: {
-    position: "absolute",
-    bottom: 30,
-    left: 40,
-    right: 40,
-    textAlign: "center",
-    color: "#94a3b8",
-    fontSize: 7.5,
+    flexDirection: "row",
+    marginTop: 24,
+    gap: 18,
     borderTopWidth: 1,
-    borderTopColor: "#f1f5f9",
-    paddingTop: 15,
-    lineHeight: 1.4,
+    borderTopColor: colors.slate200,
+    paddingTop: 14,
+  },
+  terms: {
+    flex: 1,
+  },
+  termsTitle: {
+    color: colors.teal,
+    fontWeight: "bold",
+    marginBottom: 4,
+    fontSize: 9,
+  },
+  contactBar: {
+    marginTop: 16,
+    backgroundColor: colors.slate100,
+    padding: 10,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    color: colors.slate500,
+    fontSize: 8,
+    borderRadius: 6,
   },
 });
 
@@ -253,69 +367,124 @@ const PurchaseReceiptPDF = ({
     }
   };
 
+  const receiptDate = invoiceDate ? new Date(invoiceDate) : new Date();
+  const shopName = shopkeeper?.shopName || "STORE";
+  const contactEmail = shopkeeper?.email || "info@store.com";
+  const contactPhone = shopkeeper?.phone || "N/A";
+  const shopAddress = shopkeeper?.shopAddress || "N/A";
+  const preparedBy =
+    [shopkeeper?.firstName, shopkeeper?.lastName]
+      .filter(Boolean)
+      .join(" ")
+      .trim() || shopName;
+  const customerName =
+    [customer?.firstName, customer?.lastName]
+      .filter(Boolean)
+      .join(" ")
+      .trim() || "Walk-In Customer";
+  const customerPhone = customer?.phone || "N/A";
+  const customerEmail = customer?.email || "N/A";
+  const customerAddress = customer?.address || "";
+  const customerId = customer?.idNumber || "N/A";
+  const itemCount = items?.length || 0;
+  const serialCount =
+    items?.reduce(
+      (count: number, item: any) => count + Number(item?.serials?.length || 0),
+      0,
+    ) || 0;
+
   return (
     <Document>
       <Page size="A4" style={pdfStyles.page}>
-        <View style={pdfStyles.headerBar} />
         <View style={pdfStyles.header}>
-          {shopkeeper?.image?.url ? (
-            <Image src={shopkeeper.image.url} style={pdfStyles.logo} />
-          ) : (
-            <Text style={[pdfStyles.title, { fontSize: 18 }]}>
-              {shopkeeper?.shopName || "STORE"}
+          <View style={pdfStyles.brandWrap}>
+            <View style={pdfStyles.brandRow}>
+              {shopkeeper?.image?.url ? (
+                <Image src={shopkeeper.image.url} style={pdfStyles.logoImage} />
+              ) : (
+                <Text style={pdfStyles.logoFallback}>{shopName}</Text>
+              )}
+              <Text style={pdfStyles.checkDot}>✓</Text>
+            </View>
+            <Text style={pdfStyles.shopAddress}>
+              {shopAddress} • {contactPhone}
             </Text>
-          )}
-          <View style={pdfStyles.receiptMeta}>
-            <Text style={pdfStyles.title}>PURCHASE RECEIPT</Text>
-            <Text style={pdfStyles.dateText}>
-              Date:{" "}
-              {(invoiceDate
-                ? new Date(invoiceDate)
-                : new Date()
-              ).toLocaleDateString("en-US", {
-                year: "numeric",
-                month: "long",
-                day: "numeric",
-              })}
+          </View>
+          <Text style={pdfStyles.invoiceTitle}>PURCHASE RECEIPT</Text>
+        </View>
+
+        <View style={pdfStyles.metaGrid}>
+          <View style={pdfStyles.metaBlock}>
+            <Text>
+              <Text style={pdfStyles.metaLabel}>Date </Text>
+              <Text style={pdfStyles.metaText}>
+                {receiptDate.toLocaleDateString("en-GB", {
+                  year: "numeric",
+                  month: "long",
+                  day: "numeric",
+                })}
+              </Text>
             </Text>
-            <Text style={pdfStyles.dateText}>
-              Time:{" "}
-              {(invoiceDate
-                ? new Date(invoiceDate)
-                : new Date()
-              ).toLocaleTimeString("en-US", {
-                hour: "2-digit",
-                minute: "2-digit",
-                hour12: true,
-              })}
+            <Text>
+              <Text style={pdfStyles.metaLabel}>Time </Text>
+              <Text style={pdfStyles.metaText}>
+                {receiptDate.toLocaleTimeString("en-US", {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                  hour12: true,
+                })}
+              </Text>
+            </Text>
+          </View>
+          <View style={pdfStyles.metaDivider} />
+          <View style={pdfStyles.metaBlock}>
+            <Text>
+              <Text style={pdfStyles.metaLabel}>Prepared By </Text>
+              <Text style={pdfStyles.metaText}>{preparedBy}</Text>
+            </Text>
+            <Text>
+              <Text style={pdfStyles.metaLabel}>Items </Text>
+              <Text style={pdfStyles.metaText}>{itemCount}</Text>
+            </Text>
+          </View>
+          <View style={pdfStyles.metaDivider} />
+          <View style={pdfStyles.metaBlock}>
+            <Text>
+              <Text style={pdfStyles.metaLabel}>Serials </Text>
+              <Text style={pdfStyles.metaText}>{serialCount}</Text>
+            </Text>
+            <Text>
+              <Text style={pdfStyles.metaLabel}>Currency </Text>
+              <Text style={pdfStyles.metaText}>
+                {(currency || "USD").toUpperCase()}
+              </Text>
             </Text>
           </View>
         </View>
 
-        <View style={[pdfStyles.section, pdfStyles.infoRow]}>
-          <View style={pdfStyles.infoBox}>
-            <Text style={pdfStyles.infoBoxTitle}>Customer Details</Text>
-            <Text style={pdfStyles.label}>Name</Text>
-            <Text style={pdfStyles.value}>
-              {customer?.firstName} {customer?.lastName}
-            </Text>
-            <Text style={pdfStyles.label}>Phone</Text>
-            <Text style={pdfStyles.value}>{customer?.phone}</Text>
-            <Text style={pdfStyles.label}>Govt ID / NID</Text>
-            <Text style={pdfStyles.value}>{customer?.idNumber}</Text>
+        <View style={pdfStyles.pillRow}>
+          <View style={pdfStyles.customerPill}>
+            <Text style={pdfStyles.customerTitle}>Customer Details</Text>
+            <Text style={pdfStyles.customerName}>{customerName}</Text>
+            <Text style={pdfStyles.customerDetail}>Phone: {customerPhone}</Text>
+            <Text style={pdfStyles.customerDetail}>Email: {customerEmail}</Text>
+            {customerAddress ? (
+              <Text style={pdfStyles.customerDetail}>
+                Address: {customerAddress}
+              </Text>
+            ) : null}
+            <Text style={pdfStyles.customerDetail}>NID: {customerId}</Text>
           </View>
-          <View style={pdfStyles.infoBox}>
-            <Text style={pdfStyles.infoBoxTitle}>Shop Information</Text>
-            <Text style={[pdfStyles.value, { fontSize: 11 }]}>
-              {shopkeeper?.shopName}
-            </Text>
-            <Text style={pdfStyles.storeValue}>{shopkeeper?.shopAddress}</Text>
-            <Text style={pdfStyles.storeValue}>{shopkeeper?.phone}</Text>
+          <View style={pdfStyles.shopPill}>
+            <Text style={pdfStyles.shopTitle}>Shop Information</Text>
+            <Text style={pdfStyles.shopName}>{shopName}</Text>
+            <Text style={pdfStyles.shopDetail}>{shopAddress}</Text>
+            <Text style={pdfStyles.shopDetail}>{contactPhone}</Text>
+            <Text style={pdfStyles.shopDetail}>{contactEmail}</Text>
           </View>
         </View>
 
-        <View style={pdfStyles.section}>
-          <Text style={pdfStyles.sectionTitle}>Purchased Devices</Text>
+        <View>
           <View style={pdfStyles.tableHeader}>
             <Text style={pdfStyles.colProduct}>Product Specifications</Text>
             <Text style={pdfStyles.colQty}>Qty</Text>
@@ -323,7 +492,14 @@ const PurchaseReceiptPDF = ({
             <Text style={pdfStyles.colPrice}>Price</Text>
           </View>
           {items?.map((item: any, index: number) => (
-            <View key={index} style={pdfStyles.row}>
+            <View
+              key={index}
+              style={
+                index % 2 === 1
+                  ? [pdfStyles.row, pdfStyles.rowAlt]
+                  : pdfStyles.row
+              }
+            >
               <View style={pdfStyles.colProduct}>
                 <Text style={pdfStyles.productName}>{item.name}</Text>
                 <Text style={pdfStyles.modelText}>
@@ -332,11 +508,15 @@ const PurchaseReceiptPDF = ({
               </View>
               <Text style={pdfStyles.colQty}>{item.quantity}</Text>
               <View style={pdfStyles.colSerials}>
-                {item.serials.map((serial: string, idx: number) => (
-                  <Text key={idx} style={pdfStyles.serialText}>
-                    • {serial}
-                  </Text>
-                ))}
+                {item.serials?.length ? (
+                  item.serials.map((serial: string, idx: number) => (
+                    <Text key={idx} style={pdfStyles.serialText}>
+                      • {serial}
+                    </Text>
+                  ))
+                ) : (
+                  <Text style={pdfStyles.modelText}>N/A</Text>
+                )}
               </View>
               <Text style={pdfStyles.colPrice}>
                 {pdfFormatCurrency(
@@ -347,20 +527,31 @@ const PurchaseReceiptPDF = ({
           ))}
         </View>
 
-        <View style={pdfStyles.totalSection}>
-          <View style={pdfStyles.totalBox}>
-            <View style={pdfStyles.totalRow}>
-              <Text style={pdfStyles.totalLabel}>Total Value</Text>
-              <Text style={pdfStyles.totalValue}>
-                {pdfFormatCurrency(total)}
-              </Text>
-            </View>
+        <View style={pdfStyles.totals}>
+          <View style={pdfStyles.amountDue}>
+            <Text>Total Value:</Text>
+            <Text>{pdfFormatCurrency(total)}</Text>
           </View>
         </View>
-        <Text style={pdfStyles.footer}>
-          Verified IMEI and serial numbers are attached with customer
-          identification proof.
-        </Text>
+
+        <View style={pdfStyles.footer}>
+          <View style={pdfStyles.terms}>
+            <Text style={pdfStyles.termsTitle}>
+              Thank you for your purchase!
+            </Text>
+            <Text style={pdfStyles.muted}>
+              Please keep this receipt for warranty and records. All item
+              conditions were verified at the counter by both customer and store
+              technician.
+            </Text>
+          </View>
+        </View>
+
+        <View style={pdfStyles.contactBar}>
+          <Text>{contactPhone}</Text>
+          <Text>{contactEmail}</Text>
+          <Text>Purchase Receipt</Text>
+        </View>
       </Page>
     </Document>
   );
@@ -426,21 +617,37 @@ export default function CreatePurchaseReceipt() {
   const [addToInventory, setAddToInventory] = useState(false);
   const [selectedCategoryId, setSelectedCategoryId] = useState("");
   const [invoiceDate, setInvoiceDate] = useState<Date>(new Date());
+  const [selectedCustomerId, setSelectedCustomerId] = useState("");
+  const [customerSearchQuery, setCustomerSearchQuery] = useState("");
+  const [validationAttempted, setValidationAttempted] = useState(false);
+  const getInvoiceUser = useMyInvoiceGet(shopkeeperId || "223423423");
+  const customers = useMemo(
+    () => getInvoiceUser?.data?.data || [],
+    [getInvoiceUser?.data?.data],
+  );
+  const filteredCustomers = useMemo(() => {
+    const query = customerSearchQuery.trim().toLowerCase();
+    if (!query) return customers;
 
-  const monthNames = [
-    "Jan",
-    "Feb",
-    "Mar",
-    "Apr",
-    "May",
-    "Jun",
-    "Jul",
-    "Aug",
-    "Sep",
-    "Oct",
-    "Nov",
-    "Dec",
-  ];
+    return customers.filter((existingCustomer: any) =>
+      [
+        existingCustomer.firstName,
+        existingCustomer.lastName,
+        existingCustomer.email,
+        existingCustomer.phone,
+        existingCustomer.customerId,
+      ].some((value) =>
+        String(value || "")
+          .toLowerCase()
+          .includes(query),
+      ),
+    );
+  }, [customers, customerSearchQuery]);
+  const isMounted = useSyncExternalStore(
+    () => () => {},
+    () => true,
+    () => false,
+  );
 
   const handleQuickOption = (option: "now" | "today" | "yesterday") => {
     const now = new Date();
@@ -456,21 +663,6 @@ export default function CreatePurchaseReceipt() {
     }
   };
 
-  const updateDatePart = (part: "day" | "month" | "year", value: number) => {
-    const d = new Date(invoiceDate);
-    if (part === "day") d.setDate(value);
-    if (part === "month") d.setMonth(value);
-    if (part === "year") d.setFullYear(value);
-    setInvoiceDate(d);
-  };
-
-  const updateTime = (timeStr: string) => {
-    const [hours, minutes] = timeStr.split(":").map(Number);
-    const d = new Date(invoiceDate);
-    d.setHours(hours, minutes);
-    setInvoiceDate(d);
-  };
-
   useEffect(() => {
     codeReaderRef.current = new BrowserMultiFormatReader();
     return () => {
@@ -484,6 +676,11 @@ export default function CreatePurchaseReceipt() {
     };
   }, [nidStream]);
 
+  const formatDateTimeLocal = (date: Date) =>
+    new Date(date.getTime() - date.getTimezoneOffset() * 60000)
+      .toISOString()
+      .slice(0, 16);
+
   const addItem = () => {
     setItems((prev) => [
       ...prev,
@@ -493,7 +690,7 @@ export default function CreatePurchaseReceipt() {
         color: "",
         condition: "",
         quantity: 1,
-        expectedPrice: 0,
+        expectedPrice: "",
         serials: [],
       },
     ]);
@@ -807,13 +1004,27 @@ export default function CreatePurchaseReceipt() {
 
   const isFormValid = useMemo(() => {
     return (
-      customer.firstName &&
-      customer.phone &&
-      customer.idNumber &&
+      Boolean(customer.firstName.trim()) &&
+      Boolean(customer.phone.trim()) &&
       items.length > 0 &&
-      items.every((item) => item.name && item.serials.length > 0)
+      items.every(
+        (item) =>
+          Boolean(String(item.name || "").trim()) && item.serials.length > 0,
+      )
     );
   }, [customer, items]);
+
+  const hasInventoryCategoryError =
+    validationAttempted && addToInventory && !selectedCategoryId;
+  const hasCustomerFirstNameError =
+    validationAttempted && !customer.firstName.trim();
+  const hasCustomerPhoneError = validationAttempted && !customer.phone.trim();
+
+  const getItemNameError = (item: any) =>
+    validationAttempted && !String(item.name || "").trim();
+
+  const getItemSerialError = (item: any) =>
+    validationAttempted && (!item.serials || item.serials.length === 0);
 
   const total = items.reduce(
     (acc, item) =>
@@ -823,6 +1034,8 @@ export default function CreatePurchaseReceipt() {
   const isSubmitting = isCreatingInvoice || isCreatingInventory;
 
   const handleCreateReceipt = async () => {
+    setValidationAttempted(true);
+
     if (!isFormValid) {
       toast.error(
         "Please complete all required fields and ensure barcodes are populated",
@@ -830,7 +1043,7 @@ export default function CreatePurchaseReceipt() {
       return;
     }
 
-    if (addToInventory && !selectedCategoryId) {
+    if (hasInventoryCategoryError) {
       toast.error("Please select a category name");
       return;
     }
@@ -939,11 +1152,13 @@ export default function CreatePurchaseReceipt() {
               <div className="flex items-center gap-2 rounded-2xl h-12 border border-primary bg-background px-4 font-bold text-sm">
                 <Calendar size={16} className="text-muted-foreground" />
                 <span>
-                  {invoiceDate.toLocaleDateString("en-GB", {
-                    day: "2-digit",
-                    month: "2-digit",
-                    year: "numeric",
-                  })}
+                  {isMounted
+                    ? invoiceDate.toLocaleDateString("en-GB", {
+                        day: "2-digit",
+                        month: "2-digit",
+                        year: "numeric",
+                      })
+                    : "-- / -- / ----"}
                 </span>
               </div>
             </div>
@@ -954,11 +1169,13 @@ export default function CreatePurchaseReceipt() {
               <div className="flex items-center gap-2 rounded-2xl h-12 border border-primary bg-background px-4 font-bold text-sm">
                 <Clock size={16} className="text-muted-foreground" />
                 <span>
-                  {invoiceDate.toLocaleTimeString("en-US", {
-                    hour: "2-digit",
-                    minute: "2-digit",
-                    hour12: true,
-                  })}
+                  {isMounted
+                    ? invoiceDate.toLocaleTimeString("en-US", {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                        hour12: true,
+                      })
+                    : "--:--"}
                 </span>
               </div>
             </div>
@@ -996,56 +1213,22 @@ export default function CreatePurchaseReceipt() {
 
             <div>
               <label className="text-[11px] font-black text-slate-500 uppercase tracking-[0.2em]">
-                Or Select Manually
+                Or Select Date & Time
               </label>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-2">
-                <select
-                  value={invoiceDate.getDate()}
-                  onChange={(e) =>
-                    updateDatePart("day", Number(e.target.value))
-                  }
-                  className="rounded-2xl h-12 border border-primary bg-background px-3 text-sm font-bold focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                >
-                  {Array.from({ length: 31 }, (_, i) => (
-                    <option key={i + 1} value={i + 1}>
-                      {i + 1}
-                    </option>
-                  ))}
-                </select>
-                <select
-                  value={invoiceDate.getMonth()}
-                  onChange={(e) =>
-                    updateDatePart("month", Number(e.target.value))
-                  }
-                  className="rounded-2xl h-12 border border-primary bg-background px-3 text-sm font-bold focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                >
-                  {monthNames.map((m, i) => (
-                    <option key={i} value={i}>
-                      {m}
-                    </option>
-                  ))}
-                </select>
-                <select
-                  value={invoiceDate.getFullYear()}
-                  onChange={(e) =>
-                    updateDatePart("year", Number(e.target.value))
-                  }
-                  className="rounded-2xl h-12 border border-primary bg-background px-3 text-sm font-bold focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                >
-                  {Array.from({ length: 10 }, (_, i) => {
-                    const year = new Date().getFullYear() - 5 + i;
-                    return (
-                      <option key={year} value={year}>
-                        {year}
-                      </option>
-                    );
-                  })}
-                </select>
-                <input
-                  type="time"
-                  value={`${String(invoiceDate.getHours()).padStart(2, "0")}:${String(invoiceDate.getMinutes()).padStart(2, "0")}`}
-                  onChange={(e) => updateTime(e.target.value)}
-                  className="rounded-2xl h-12 border border-primary bg-background px-3 text-sm font-bold focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              <div className="mt-2 w-full max-w-[280px]">
+                <Input
+                  type="datetime-local"
+                  value={isMounted ? formatDateTimeLocal(invoiceDate) : ""}
+                  onMouseDown={(event) => event.currentTarget.showPicker?.()}
+                  onClick={(event) => event.currentTarget.showPicker?.()}
+                  onFocus={(event) => event.currentTarget.showPicker?.()}
+                  onChange={(event) => {
+                    const nextDate = new Date(event.target.value);
+                    if (!Number.isNaN(nextDate.getTime())) {
+                      setInvoiceDate(nextDate);
+                    }
+                  }}
+                  className="h-12 cursor-pointer rounded-2xl border-primary bg-background px-3 text-sm font-bold"
                 />
               </div>
             </div>
@@ -1072,10 +1255,91 @@ export default function CreatePurchaseReceipt() {
                   </div>
                 </div>
 
+                <div className="space-y-3">
+                  <label className="font-bold text-sm text-muted-foreground ml-1">
+                    Select Existing Customer
+                  </label>
+                  <Select
+                    value={selectedCustomerId}
+                    onValueChange={(value) => {
+                      setSelectedCustomerId(value);
+                      setCustomerSearchQuery("");
+
+                      const selectedCustomer = customers.find(
+                        (customer: any) => customer._id === value,
+                      ) as any;
+
+                      if (selectedCustomer) {
+                        setCustomer({
+                          firstName: selectedCustomer.firstName || "",
+                          lastName: selectedCustomer.lastName || "",
+                          email: selectedCustomer.email || "",
+                          phone: selectedCustomer.phone || "",
+                          address: selectedCustomer.address || "",
+                          idNumber:
+                            selectedCustomer.customerId ||
+                            selectedCustomer.idNumber ||
+                            "",
+                        });
+                      }
+                    }}
+                  >
+                    <SelectTrigger className="rounded-2xl h-12 border-primary bg-background font-bold">
+                      <SelectValue placeholder="Choose a customer" />
+                    </SelectTrigger>
+                    <SelectContent className="rounded-2xl border-primary">
+                      <div className="sticky top-0 z-10 bg-background p-2 border-b">
+                        <div className="relative">
+                          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                          <Input
+                            value={customerSearchQuery}
+                            onChange={(event) =>
+                              setCustomerSearchQuery(event.target.value)
+                            }
+                            onKeyDown={(event) => event.stopPropagation()}
+                            onPointerDown={(event) => event.stopPropagation()}
+                            placeholder="Search customers..."
+                            className="h-11 rounded-xl border-primary pl-9 font-medium"
+                          />
+                        </div>
+                      </div>
+                      {filteredCustomers.length > 0 ? (
+                        filteredCustomers.map((customer: any) => (
+                          <SelectItem
+                            key={customer._id}
+                            value={customer._id}
+                            className="py-3"
+                          >
+                            <div className="flex flex-col">
+                              <span className="font-semibold">
+                                {customer.firstName} {customer.lastName}
+                              </span>
+                              <span className="text-xs text-muted-foreground">
+                                {customer.phone}
+                                {customer.customerId
+                                  ? ` · ${customer.customerId}`
+                                  : ""}
+                              </span>
+                            </div>
+                          </SelectItem>
+                        ))
+                      ) : (
+                        <div className="px-3 py-6 text-sm text-muted-foreground">
+                          No customers found.
+                        </div>
+                      )}
+                    </SelectContent>
+                  </Select>
+                </div>
+
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                   <Input
                     placeholder="First Name"
-                    className="rounded-2xl h-12 border-primary bg-background font-bold"
+                    className={`rounded-2xl h-12 border-primary bg-background font-bold ${
+                      hasCustomerFirstNameError
+                        ? "border-red-500 ring-2 ring-red-500/20"
+                        : ""
+                    }`}
                     value={customer.firstName}
                     onChange={(e) =>
                       setCustomer({ ...customer, firstName: e.target.value })
@@ -1100,7 +1364,11 @@ export default function CreatePurchaseReceipt() {
                   />
                   <Input
                     placeholder="Phone"
-                    className="rounded-2xl h-12 border-primary bg-background font-bold"
+                    className={`rounded-2xl h-12 border-primary bg-background font-bold ${
+                      hasCustomerPhoneError
+                        ? "border-red-500 ring-2 ring-red-500/20"
+                        : ""
+                    }`}
                     value={customer.phone}
                     onChange={(e) =>
                       setCustomer({ ...customer, phone: e.target.value })
@@ -1119,7 +1387,7 @@ export default function CreatePurchaseReceipt() {
                   {/* MANUAL OR AUTOMATIC IDENTITY SECTOR BLOCK - UPDATED WITH CAMERA BUTTONS */}
                   <div className="md:col-span-2 space-y-2">
                     <label className="font-bold text-sm text-muted-foreground ml-1">
-                      Customer ID Number / NID Field
+                      Customer ID Number / NID Field (Optional)
                     </label>
                     <div className="relative flex gap-2">
                       <Input
@@ -1278,7 +1546,11 @@ export default function CreatePurchaseReceipt() {
                     >
                       <SelectTrigger
                         id="inventory-category"
-                        className="h-12 w-full rounded-2xl border-primary bg-background font-bold"
+                        className={`h-12 w-full rounded-2xl border-primary bg-background font-bold ${
+                          hasInventoryCategoryError
+                            ? "border-red-500 ring-2 ring-red-500/20"
+                            : ""
+                        }`}
                       >
                         <SelectValue placeholder="Select category" />
                       </SelectTrigger>
@@ -1299,6 +1571,8 @@ export default function CreatePurchaseReceipt() {
                     const currentItemRowTotal =
                       Number(item.expectedPrice || 0) *
                       Number(item.quantity || 1);
+                    const itemNameError = getItemNameError(item);
+                    const itemSerialError = getItemSerialError(item);
 
                     return (
                       <div
@@ -1327,7 +1601,11 @@ export default function CreatePurchaseReceipt() {
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                           <Input
                             placeholder="Item Name (Required)"
-                            className="rounded-2xl h-12 border-primary bg-background font-bold"
+                            className={`rounded-2xl h-12 border-primary bg-background font-bold ${
+                              itemNameError
+                                ? "border-red-500 ring-2 ring-red-500/20"
+                                : ""
+                            }`}
                             value={item.name}
                             onChange={(e) =>
                               updateItem(itemIndex, "name", e.target.value)
@@ -1381,6 +1659,7 @@ export default function CreatePurchaseReceipt() {
                             </label>
                             <Input
                               type="number"
+                              min={0}
                               className="rounded-2xl h-12 border-primary bg-background font-bold"
                               value={item.expectedPrice}
                               onChange={(e) =>
@@ -1395,12 +1674,11 @@ export default function CreatePurchaseReceipt() {
                         </div>
 
                         <div className="bg-primary/5 border border-primary/20 rounded-2xl p-4 flex items-center justify-between">
-                          <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
-                            <DollarSign className="w-3.5 h-3.5 text-primary" />{" "}
+                          <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
                             Item Calculation Subtotal:
                           </span>
                           <span className="text-lg font-black text-primary font-mono">
-                            {formatCurrency(currentItemRowTotal)}
+                            {formatCurrency(currentItemRowTotal, currency)}
                           </span>
                         </div>
 
@@ -1485,7 +1763,11 @@ export default function CreatePurchaseReceipt() {
 
                             <div className="relative">
                               <Input
-                                className="rounded-2xl h-12 pl-11 border-primary bg-background font-bold focus-visible:ring-primary"
+                                className={`rounded-2xl h-12 pl-11 border-primary bg-background font-bold focus-visible:ring-primary ${
+                                  itemSerialError
+                                    ? "border-red-500 ring-2 ring-red-500/20"
+                                    : ""
+                                }`}
                                 placeholder="Scan/Type code here and press Enter to append seamlessly..."
                                 value={scanInputs[itemIndex] || ""}
                                 onChange={(e) =>
@@ -1514,7 +1796,13 @@ export default function CreatePurchaseReceipt() {
                                 </span>
                               </div>
 
-                              <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto p-1.5 border rounded-2xl bg-background/50">
+                              <div
+                                className={`flex flex-wrap gap-2 max-h-32 overflow-y-auto p-1.5 border rounded-2xl bg-background/50 ${
+                                  itemSerialError
+                                    ? "border-red-500 ring-2 ring-red-500/20"
+                                    : ""
+                                }`}
+                              >
                                 {item.serials.length === 0 && (
                                   <p className="text-xs text-muted-foreground/60 italic p-1">
                                     No identifiers cached inside streaming log
@@ -1546,6 +1834,12 @@ export default function CreatePurchaseReceipt() {
                                   ),
                                 )}
                               </div>
+                              {itemSerialError && (
+                                <p className="text-xs font-semibold text-red-600">
+                                  Add at least one barcode or serial number for
+                                  this item.
+                                </p>
+                              )}
                             </div>
                           </div>
                         ) : (
@@ -1624,12 +1918,12 @@ export default function CreatePurchaseReceipt() {
                     Grand Total:
                   </span>
                   <span className="text-2xl font-black text-primary font-mono">
-                    {formatCurrency(total)}
+                    {formatCurrency(total, currency)}
                   </span>
                 </div>
 
                 <Button
-                  disabled={!isFormValid || isSubmitting || ocrLoading}
+                  disabled={isSubmitting || ocrLoading}
                   onClick={handleCreateReceipt}
                   className="w-full h-14 rounded-2xl text-sm font-black uppercase tracking-wider"
                 >
