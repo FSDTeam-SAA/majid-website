@@ -48,15 +48,11 @@ export default function ShopkeeperPage() {
     ? generateShopkeeperId(user._id, fullName || "SK")
     : "SKP-???-????";
 
-  const qrPayload = JSON.stringify({
-    shopkeeperId,
-    name: fullName,
-    email: user?.email ?? "",
-    phone: user?.phone ?? "",
-    shopName: user?.shopName ?? "",
-    shopAddress: user?.shopAddress ?? "",
-    whatsappNumber: user?.whatsappNumber ?? "",
-  });
+  const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, "");
+  const qrPayload =
+    user?._id && apiBaseUrl
+      ? `${apiBaseUrl}/user/contact-card/${encodeURIComponent(user._id)}`
+      : "Contact card unavailable";
 
   const handleCopyId = () => {
     navigator.clipboard.writeText(shopkeeperId).then(() => {
@@ -174,7 +170,7 @@ export default function ShopkeeperPage() {
           >
             <QRCode value={qrPayload} size={170} fgColor="#4d8a06" level="M" />
             <p className="text-center text-[#4d8a06] font-black text-[10px] mt-2 tracking-widest uppercase">
-              {shopkeeperId}
+              Scan to download contact
             </p>
           </div>
         </div>

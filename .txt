@@ -33,11 +33,11 @@ p4: done
 /settings/shopkeeper in this page in the qr code when anyone scan the code a vcf file will download. that will probide the basic informaions.
 ------------------------------
 
-p5: 
+p5: done
 in the shopkeeper dahsboard or dashboard at when i do refress a default icon and name come eg. shopkeeper store owner. don't need that. fix this. 
 ------------------------------
 
-p6: 
+p6:  done 
 /invoice/purchase-invoice this page  Create Purchase Receipt button stays desible. it should be like this when i try to cleack this. the fields that need to fillup hight light those fiels
 
 ------------------------------
