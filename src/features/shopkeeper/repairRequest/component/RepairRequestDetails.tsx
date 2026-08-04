@@ -936,13 +936,11 @@ export default function RepairRequestDetails({ id }: { id: string }) {
                       <AlertDialogContent>
                         <AlertDialogHeader>
                           <AlertDialogTitle className="text-xl font-bold text-amber-600 flex items-center gap-2">
-                            ⚠️ Attention Required!
+                            Attention Required!
                           </AlertDialogTitle>
                           <AlertDialogDescription className="text-base text-gray-700 pt-2 font-medium">
-                            Are you sure you want to mark this repair request as
-                            completed? This action cannot be undone. Please
-                            ensure that all necessary work has been finished and
-                            the device is ready for collection.
+                            Make sure to collect the device IMEI or serial
+                            number
                           </AlertDialogDescription>
                         </AlertDialogHeader>
                         <AlertDialogFooter className="mt-4">

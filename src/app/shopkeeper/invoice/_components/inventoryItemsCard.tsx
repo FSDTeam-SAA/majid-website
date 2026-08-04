@@ -5,7 +5,6 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   Camera,
   CheckCircle2,
-  DollarSign,
   Loader2,
   Package,
   Plus,
@@ -40,7 +39,8 @@ const emptyInventoryItem = {
   color: "",
   condition: "",
   quantity: 1,
-  expectedPrice: 0,
+  // Keep this empty so a user can enter a price without a forced leading zero.
+  expectedPrice: "",
   serials: [] as string[],
 };
 
@@ -49,7 +49,7 @@ export function InventoryItemsCard({
 }: {
   shopkeeperId?: string;
 }) {
-  const { formatCurrency } = useCurrency();
+  const { currency, formatCurrency } = useCurrency();
   const { data: categoriesData } = useCategories();
   const { mutateAsync: createInventory, isPending: isCreatingInventory } =
     useCreateInventory();
@@ -494,18 +494,16 @@ export function InventoryItemsCard({
                   </div>
                   <div>
                     <label className="font-bold text-sm text-muted-foreground ml-1 mb-1 block">
-                      Price Per Unit
+                      Price Per Unit ({currency})
                     </label>
                     <Input
                       type="number"
+                      min="0"
+                      step="0.01"
                       className="rounded-2xl h-12 border-primary bg-background font-bold"
-                      value={item.expectedPrice}
+                      value={item.expectedPrice ?? ""}
                       onChange={(e) =>
-                        updateItem(
-                          itemIndex,
-                          "expectedPrice",
-                          Number(e.target.value),
-                        )
+                        updateItem(itemIndex, "expectedPrice", e.target.value)
                       }
                     />
                   </div>
@@ -513,11 +511,10 @@ export function InventoryItemsCard({
 
                 <div className="bg-primary/5 border border-primary/20 rounded-2xl p-4 flex items-center justify-between">
                   <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
-                    <DollarSign className="w-3.5 h-3.5 text-primary" />
                     Item Calculation Subtotal:
                   </span>
                   <span className="text-lg font-black text-primary font-mono">
-                    {formatCurrency(currentItemRowTotal)}
+                    {formatCurrency(currentItemRowTotal, currency)}
                   </span>
                 </div>
 
@@ -679,7 +676,7 @@ export function InventoryItemsCard({
               Inventory Add Total
             </p>
             <p className="text-2xl font-black text-primary font-mono">
-              {formatCurrency(total)}
+              {formatCurrency(total, currency)}
             </p>
           </div>
           <Button

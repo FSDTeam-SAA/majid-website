@@ -1,11 +1,20 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
-import React, { useState, useMemo } from "react";
+import React, { useMemo, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { StructuredAddressFields } from "@/components/ui/structured-address-fields";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
-import { User, Package, Loader2, Search, Calendar, Clock } from "lucide-react";
+import {
+  User,
+  Package,
+  Loader2,
+  Search,
+  Calendar,
+  Clock,
+  ChevronLeft,
+  ChevronRight,
+} from "lucide-react";
 import { pdf } from "@react-pdf/renderer";
 import {
   Document,
@@ -36,13 +45,220 @@ import {
 } from "@/components/ui/select";
 import { InventoryItemsCard } from "../../_components/inventoryItemsCard";
 
-// --- Ultra-Modern PDF Styles (Premium Layout) ---
+const INVENTORY_PAGE_SIZE = 10;
+
+const createInvoicePdfStyles = StyleSheet.create({
+  page: {
+    padding: 34,
+    backgroundColor: "#F8FAFC",
+    fontSize: 9,
+    color: "#334155",
+  },
+  paper: {
+    backgroundColor: "#FFFFFF",
+    padding: 26,
+    minHeight: "100%",
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+  },
+  header: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    borderBottomWidth: 1.5,
+    borderBottomColor: "#E2E8F0",
+    paddingBottom: 18,
+  },
+  brandRow: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  logo: {
+    width: 32,
+    height: 32,
+    borderRadius: 6,
+    objectFit: "contain",
+    marginRight: 8,
+  },
+  logoFallback: {
+    fontSize: 20,
+    fontWeight: "bold",
+    color: "#84CC16",
+  },
+  invoiceTitle: {
+    fontSize: 24,
+    fontWeight: "bold",
+    color: "#155E63",
+    letterSpacing: 2,
+  },
+  shopAddress: {
+    marginTop: 4,
+    color: "#64748b",
+    fontSize: 8,
+  },
+  metaGrid: {
+    flexDirection: "row",
+    marginTop: 16,
+    marginBottom: 14,
+  },
+  metaBlock: {
+    flex: 1,
+  },
+  metaDivider: {
+    width: 1,
+    backgroundColor: "#E2E8F0",
+    marginHorizontal: 18,
+  },
+  metaLabel: {
+    color: "#64748B",
+    fontSize: 8,
+    fontWeight: "bold",
+    textTransform: "uppercase",
+  },
+  metaText: {
+    color: "#0F172A",
+    fontWeight: "bold",
+  },
+  pillRow: {
+    flexDirection: "row",
+    marginBottom: 14,
+    borderRadius: 8,
+    overflow: "hidden",
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+  },
+  customerPill: {
+    width: "50%",
+    backgroundColor: "#F1F5F9",
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+  },
+  paymentPill: {
+    flex: 1,
+    backgroundColor: "#FFFFFF",
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderLeftWidth: 1,
+    borderLeftColor: "#E2E8F0",
+  },
+  pillTitle: {
+    fontSize: 8,
+    fontWeight: "bold",
+    color: "#64748B",
+    textTransform: "uppercase",
+    marginBottom: 4,
+  },
+  customerName: {
+    fontSize: 11,
+    fontWeight: "bold",
+    color: "#0F172A",
+  },
+  detailText: {
+    fontSize: 8,
+    color: "#64748B",
+    marginTop: 2,
+  },
+  paymentText: {
+    fontSize: 10,
+    fontWeight: "bold",
+    color: "#84CC16",
+    textTransform: "uppercase",
+  },
+  tableHeader: {
+    flexDirection: "row",
+    backgroundColor: "#155E63",
+    color: "#FFFFFF",
+    fontWeight: "bold",
+    paddingVertical: 7,
+    paddingHorizontal: 8,
+  },
+  tableRow: {
+    flexDirection: "row",
+    borderBottomWidth: 1,
+    borderBottomColor: "#E2E8F0",
+    paddingVertical: 8,
+    paddingHorizontal: 8,
+    alignItems: "center",
+  },
+  tableRowAlt: {
+    backgroundColor: "#F8FAFC",
+  },
+  colProduct: {
+    width: "45%",
+    paddingRight: 6,
+  },
+  colId: {
+    width: "20%",
+  },
+  colQuantity: {
+    width: "15%",
+    textAlign: "center",
+  },
+  colPrice: {
+    width: "20%",
+    textAlign: "right",
+  },
+  productText: {
+    fontSize: 9,
+    fontWeight: "bold",
+    color: "#0F172A",
+  },
+  productSub: {
+    fontSize: 7.5,
+    color: "#64748B",
+    marginTop: 2,
+  },
+  totalSection: {
+    marginLeft: "50%",
+    marginTop: 15,
+  },
+  summaryRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    paddingVertical: 5,
+    paddingHorizontal: 8,
+  },
+  summaryLabel: {
+    color: "#334155",
+  },
+  amountDue: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    backgroundColor: "#84CC16",
+    color: "#FFFFFF",
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 6,
+    fontSize: 11,
+    fontWeight: "bold",
+  },
+  paymentStatus: {
+    marginTop: 6,
+    fontSize: 8,
+    fontWeight: "bold",
+    color: "#155E63",
+    textAlign: "right",
+  },
+  footer: {
+    marginTop: 24,
+    color: "#64748B",
+    fontSize: 8,
+    borderTopWidth: 1,
+    borderTopColor: "#E2E8F0",
+    paddingTop: 14,
+    lineHeight: 1.4,
+  },
+});
+
+// Kept exported because invoice history and return receipts use this legacy
+// style set. The custom invoice above intentionally has its own layout.
 export const pdfStyles = StyleSheet.create({
   page: {
     padding: 45,
     backgroundColor: "#ffffff",
     fontSize: 9,
-    color: "#334155", // Slate 700
+    color: "#334155",
   },
   headerBar: {
     position: "absolute",
@@ -50,7 +266,7 @@ export const pdfStyles = StyleSheet.create({
     left: 0,
     right: 0,
     height: 6,
-    backgroundColor: "#0d9488", // Premium Teal
+    backgroundColor: "#0d9488",
   },
   topSection: {
     flexDirection: "row",
@@ -59,24 +275,16 @@ export const pdfStyles = StyleSheet.create({
     marginBottom: 40,
     marginTop: 10,
   },
-  logo: {
-    width: 130,
-    objectFit: "contain",
-  },
-  invoiceMeta: {
-    textAlign: "right",
-  },
+  logo: { width: 130, objectFit: "contain" },
+  invoiceMeta: { textAlign: "right" },
   invoiceTitle: {
     fontSize: 26,
     fontWeight: "bold",
-    color: "#0f172a", // Dark Slate
+    color: "#0f172a",
     letterSpacing: 1,
     marginBottom: 4,
   },
-  dateText: {
-    fontSize: 9,
-    color: "#64748b",
-  },
+  dateText: { fontSize: 9, color: "#64748b" },
   infoContainer: {
     flexDirection: "row",
     gap: 24,
@@ -84,7 +292,7 @@ export const pdfStyles = StyleSheet.create({
   },
   infoBox: {
     flex: 1,
-    backgroundColor: "#f8fafc", // Very soft gray/blue
+    backgroundColor: "#f8fafc",
     borderRadius: 8,
     padding: 14,
     borderWidth: 1,
@@ -112,11 +320,7 @@ export const pdfStyles = StyleSheet.create({
     color: "#0f172a",
     marginBottom: 6,
   },
-  infoText: {
-    color: "#475569",
-    lineHeight: 1.5,
-    marginBottom: 2,
-  },
+  infoText: { color: "#475569", lineHeight: 1.5, marginBottom: 2 },
   paymentMethod: {
     marginTop: 8,
     fontSize: 8,
@@ -128,7 +332,6 @@ export const pdfStyles = StyleSheet.create({
     borderRadius: 4,
     alignSelf: "flex-start",
   },
-  // Modern Table Styling
   tableHeader: {
     flexDirection: "row",
     borderBottomWidth: 1.5,
@@ -155,11 +358,7 @@ export const pdfStyles = StyleSheet.create({
     alignItems: "center",
     gap: 12,
   },
-  colId: {
-    width: "20%",
-    textAlign: "center",
-    color: "#64748b",
-  },
+  colId: { width: "20%", textAlign: "center", color: "#64748b" },
   colPrice: {
     width: "25%",
     textAlign: "right",
@@ -178,18 +377,14 @@ export const pdfStyles = StyleSheet.create({
     color: "#0f172a",
     marginBottom: 2,
   },
-  productSub: {
-    fontSize: 7.5,
-    color: "#94a3b8",
-  },
-  // Summary Section
+  productSub: { fontSize: 7.5, color: "#94a3b8" },
   totalSection: {
     marginTop: 30,
     flexDirection: "row",
     justifyContent: "flex-end",
   },
   totalBox: {
-    backgroundColor: "#0f172a", // Premium Dark Background
+    backgroundColor: "#0f172a",
     color: "#ffffff",
     padding: 16,
     borderRadius: 8,
@@ -206,16 +401,8 @@ export const pdfStyles = StyleSheet.create({
     color: "#94a3b8",
     letterSpacing: 0.5,
   },
-  summaryValue: {
-    fontSize: 10,
-    fontWeight: "bold",
-    color: "#ffffff",
-  },
-  divider: {
-    height: 1,
-    backgroundColor: "#334155",
-    marginVertical: 8,
-  },
+  summaryValue: { fontSize: 10, fontWeight: "bold", color: "#ffffff" },
+  divider: { height: 1, backgroundColor: "#334155", marginVertical: 8 },
   balanceRow: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -229,13 +416,9 @@ export const pdfStyles = StyleSheet.create({
     color: "#ffffff",
     textTransform: "uppercase",
   },
-  balanceValue: {
-    fontSize: 14,
-    fontWeight: "bold",
-    color: "#22c55e", // Light Green text for amount
-  },
+  balanceValue: { fontSize: 14, fontWeight: "bold", color: "#22c55e" },
   statusBadgePaid: {
-    backgroundColor: "#16a34a", // Emerald Green
+    backgroundColor: "#16a34a",
     color: "white",
     paddingVertical: 5,
     borderRadius: 5,
@@ -245,7 +428,7 @@ export const pdfStyles = StyleSheet.create({
     letterSpacing: 1,
   },
   statusBadgeDue: {
-    backgroundColor: "#dc2626", // Crisp Red
+    backgroundColor: "#dc2626",
     color: "white",
     paddingVertical: 5,
     borderRadius: 5,
@@ -296,185 +479,142 @@ export const InvoicePDF = ({
       return `$${value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
     }
   };
+  const date = invoiceDate ? new Date(invoiceDate) : new Date();
+  const balance = Number(dueAmount || 0);
+  const pdfStyles = createInvoicePdfStyles;
+
   return (
     <Document>
       <Page size="A4" style={pdfStyles.page}>
-        {/* Decorative Top Bar */}
-        <View style={pdfStyles.headerBar} />
-
-        {/* Brand Header */}
-        <View style={pdfStyles.topSection}>
-          {shopkeeper?.image?.url ? (
-            // eslint-disable-next-line jsx-a11y/alt-text
-            <Image src={shopkeeper.image.url} style={pdfStyles.logo} />
-          ) : (
-            <Text
-              style={[
-                pdfStyles.invoiceTitle,
-                { textAlign: "left", fontSize: 20 },
-              ]}
-            >
-              {shopkeeper?.shopName || "STORE"}
-            </Text>
-          )}
-          <View style={pdfStyles.invoiceMeta}>
-            <Text style={pdfStyles.invoiceTitle}>
-              {InvoiceName ? InvoiceName : "INVOICE"}
-            </Text>
-            <Text style={pdfStyles.dateText}>
-              Date:{" "}
-              {(invoiceDate
-                ? new Date(invoiceDate)
-                : new Date()
-              ).toLocaleDateString("en-US", {
-                year: "numeric",
-                month: "long",
-                day: "numeric",
-              })}
-            </Text>
-            <Text style={pdfStyles.dateText}>
-              Time:{" "}
-              {(invoiceDate
-                ? new Date(invoiceDate)
-                : new Date()
-              ).toLocaleTimeString("en-US", {
-                hour: "2-digit",
-                minute: "2-digit",
-                hour12: true,
-              })}
-            </Text>
-          </View>
-        </View>
-
-        {/* Information Cards */}
-        <View style={pdfStyles.infoContainer}>
-          {/* Customer Card */}
-          <View style={pdfStyles.infoBox}>
-            <Text style={pdfStyles.infoLabel}>
-              {customerInfoLabel || "Client Details"}
-            </Text>
-            <Text style={pdfStyles.customerName}>
-              {`${customer?.firstName || "Valued"} ${customer?.lastName || "Customer"}`}
-            </Text>
-            <Text style={pdfStyles.infoText}>
-              Email: {customer?.email || "N/A"}
-            </Text>
-            <Text style={pdfStyles.infoText}>
-              Phone: {customer?.phone || "N/A"}
-            </Text>
-            <Text style={pdfStyles.infoText}>
-              Address: {customer?.address || "N/A"}
-            </Text>
-            <Text
-              style={[
-                pdfStyles.infoText,
-                { fontSize: 7.5, color: "#94a3b8", marginTop: 4 },
-              ]}
-            >
-              ID: {customer?.customerId || "N/A"}
-            </Text>
-
-            <Text style={pdfStyles.paymentMethod}>
-              PAYMENT METHOD: {paymentType ? paymentType.toUpperCase() : "N/A"}
-              {paymentType === "card" && card ? ` •••• ${card}` : ""}
-            </Text>
-          </View>
-
-          {/* Store Card */}
-          <View style={pdfStyles.infoBox}>
-            <Text style={pdfStyles.infoLabelBlue}>
-              {shopkeeperInfoLabel || "Store Information"}
-            </Text>
-            <Text style={pdfStyles.customerName}>
-              {shopkeeper?.shopName || "Gadget Galaxy"}
-            </Text>
-            <Text style={pdfStyles.infoText}>
-              {shopkeeper?.shopAddress || "N/A"}
-            </Text>
-            <Text style={pdfStyles.infoText}>
-              Email: {shopkeeper?.email || "N/A"}
-            </Text>
-            <Text style={pdfStyles.infoText}>
-              Phone: {shopkeeper?.phone || "N/A"}
-            </Text>
-          </View>
-        </View>
-
-        {/* Modern Product Table */}
-        <View style={pdfStyles.tableHeader}>
-          <Text style={pdfStyles.colProduct}>Item Description</Text>
-          <Text style={pdfStyles.colId}>IMEI / Model ID</Text>
-          <Text style={pdfStyles.colPrice}>Amount</Text>
-        </View>
-
-        {items?.map((item: any) => (
-          <View key={item.id} style={pdfStyles.tableRow}>
-            <View style={pdfStyles.colProduct}>
-              {item.image && (
-                // eslint-disable-next-line jsx-a11y/alt-text
-                <Image src={item.image} style={pdfStyles.productImg} />
-              )}
-              <View>
-                <Text style={pdfStyles.productText}>{item.name}</Text>
-                <Text style={pdfStyles.productSub}>
-                  Brand New • Official Local Warranty
+        <View style={pdfStyles.paper}>
+          <View style={pdfStyles.header}>
+            <View>
+              <View style={pdfStyles.brandRow}>
+                {shopkeeper?.image?.url && (
+                  // eslint-disable-next-line jsx-a11y/alt-text
+                  <Image src={shopkeeper.image.url} style={pdfStyles.logo} />
+                )}
+                <Text style={pdfStyles.logoFallback}>
+                  {shopkeeper?.shopName || "STORE"}
                 </Text>
               </View>
+              <Text style={pdfStyles.shopAddress}>
+                {shopkeeper?.shopAddress || "N/A"} •{" "}
+                {shopkeeper?.phone || "N/A"}
+              </Text>
             </View>
-            <Text style={pdfStyles.colId}>{item.imeiNumber || "N/A"}</Text>
-            <Text style={pdfStyles.colPrice}>
-              {pdfFormatCurrency(item.price || 0)}
+            <Text style={pdfStyles.invoiceTitle}>
+              {InvoiceName || "INVOICE"}
             </Text>
           </View>
-        ))}
 
-        {/* Calculations & Status section */}
-        <View style={pdfStyles.totalSection}>
-          <View style={pdfStyles.totalBox}>
-            <View style={pdfStyles.summaryRow}>
-              <Text style={pdfStyles.summaryLabel}>Subtotal</Text>
-              <Text style={pdfStyles.summaryValue}>
-                {pdfFormatCurrency(total || 0)}
+          <View style={pdfStyles.metaGrid}>
+            <View style={pdfStyles.metaBlock}>
+              <Text style={pdfStyles.metaLabel}>Invoice Date</Text>
+              <Text style={pdfStyles.metaText}>
+                {date.toLocaleDateString("en-GB")} •{" "}
+                {date.toLocaleTimeString("en-US", {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                  hour12: true,
+                })}
               </Text>
             </View>
-            <View style={pdfStyles.summaryRow}>
-              <Text style={pdfStyles.summaryLabel}>Amount Paid</Text>
-              <Text style={pdfStyles.summaryValue}>
-                {pdfFormatCurrency(alreadyPaid || 0)}
+            <View style={pdfStyles.metaDivider} />
+            <View style={pdfStyles.metaBlock}>
+              <Text style={pdfStyles.metaLabel}>
+                {shopkeeperInfoLabel || "Store Information"}
+              </Text>
+              <Text style={pdfStyles.metaText}>
+                {shopkeeper?.email || "N/A"}
               </Text>
             </View>
-
-            <View style={pdfStyles.divider} />
-
-            <View style={pdfStyles.balanceRow}>
-              <Text style={pdfStyles.balanceLabel}>Balance Due</Text>
-              <Text
-                style={[
-                  pdfStyles.balanceValue,
-                  { color: dueAmount <= 0 ? "#22c55e" : "#ef4444" },
-                ]}
-              >
-                {pdfFormatCurrency(dueAmount || 0)}
-              </Text>
-            </View>
-
-            {dueAmount <= 0 ? (
-              <Text style={pdfStyles.statusBadgePaid}>FULLY PAID</Text>
-            ) : (
-              <Text style={pdfStyles.statusBadgeDue}>
-                DUE: {pdfFormatCurrency(dueAmount || 0)}
-              </Text>
-            )}
           </View>
-        </View>
 
-        {/* Minimalist Footer */}
-        <Text style={pdfStyles.footer}>
-          Thank you for choosing Gadget Galaxy! We appreciate your business.{" "}
-          {"\n"}
-          This is an electronically generated invoice, official signature is not
-          required.
-        </Text>
+          <View style={pdfStyles.pillRow}>
+            <View style={pdfStyles.customerPill}>
+              <Text style={pdfStyles.pillTitle}>
+                {customerInfoLabel || "Customer Details"}
+              </Text>
+              <Text style={pdfStyles.customerName}>
+                {`${customer?.firstName || "Valued"} ${customer?.lastName || "Customer"}`}
+              </Text>
+              <Text style={pdfStyles.detailText}>
+                Phone: {customer?.phone || "N/A"}
+              </Text>
+              <Text style={pdfStyles.detailText}>
+                Email: {customer?.email || "N/A"}
+              </Text>
+              <Text style={pdfStyles.detailText}>
+                Address: {customer?.address || "N/A"}
+              </Text>
+            </View>
+            <View style={pdfStyles.paymentPill}>
+              <Text style={pdfStyles.pillTitle}>Payment Details</Text>
+              <Text style={pdfStyles.paymentText}>
+                Method: {paymentType ? paymentType.toUpperCase() : "N/A"}
+              </Text>
+              <Text style={pdfStyles.detailText}>
+                {balance > 0 ? "Status: Payment due" : "Status: Fully paid"}
+              </Text>
+              {paymentType === "card" && card ? (
+                <Text style={pdfStyles.detailText}>Card: •••• {card}</Text>
+              ) : null}
+            </View>
+          </View>
+
+          <View style={pdfStyles.tableHeader}>
+            <Text style={pdfStyles.colProduct}>Item Description</Text>
+            <Text style={pdfStyles.colId}>IMEI / Model</Text>
+            <Text style={pdfStyles.colQuantity}>Qty</Text>
+            <Text style={pdfStyles.colPrice}>Price</Text>
+          </View>
+          {items?.map((item: any, index: number) => (
+            <View
+              key={item.id}
+              style={
+                index % 2 === 1
+                  ? [pdfStyles.tableRow, pdfStyles.tableRowAlt]
+                  : pdfStyles.tableRow
+              }
+            >
+              <View style={pdfStyles.colProduct}>
+                <Text style={pdfStyles.productText}>{item.name}</Text>
+                <Text style={pdfStyles.productSub}>Inventory item</Text>
+              </View>
+              <Text style={pdfStyles.colId}>{item.imeiNumber || "N/A"}</Text>
+              <Text style={pdfStyles.colQuantity}>1</Text>
+              <Text style={pdfStyles.colPrice}>
+                {pdfFormatCurrency(Number(item.price || 0))}
+              </Text>
+            </View>
+          ))}
+
+          <View style={pdfStyles.totalSection}>
+            <View style={pdfStyles.summaryRow}>
+              <Text>Subtotal</Text>
+              <Text>{pdfFormatCurrency(Number(total || 0))}</Text>
+            </View>
+            <View style={pdfStyles.summaryRow}>
+              <Text>Amount Paid</Text>
+              <Text>{pdfFormatCurrency(Number(alreadyPaid || 0))}</Text>
+            </View>
+            <View style={pdfStyles.amountDue}>
+              <Text>Balance Due</Text>
+              <Text>{pdfFormatCurrency(balance)}</Text>
+            </View>
+            <Text style={pdfStyles.paymentStatus}>
+              {balance > 0 ? "PAYMENT DUE" : "FULLY PAID"}
+            </Text>
+          </View>
+
+          <Text style={pdfStyles.footer}>
+            Thank you for choosing {shopkeeper?.shopName || "our store"}. Please
+            keep this invoice for your records. {"\n"}
+            This is an electronically generated invoice; no signature is
+            required.
+          </Text>
+        </View>
       </Page>
     </Document>
   );
@@ -486,6 +626,8 @@ export default function CreateInvoice() {
   const { currency, formatCurrency } = useCurrency();
   const { mutate: createInvoice, isPending } = useCreateInvoice();
   const [searchQuery, setSearchQuery] = useState("");
+  const [currentInventoryPage, setCurrentInventoryPage] = useState(1);
+  const [customerSearchQuery, setCustomerSearchQuery] = useState("");
   const seesion = useSession();
   const shopkeeper = seesion.data?.user.id;
   const [selectedDeviceIds, setSelectedDeviceIds] = useState<string[]>([]);
@@ -493,21 +635,6 @@ export default function CreateInvoice() {
   const getInvoiceUser = useMyInvoiceGet(shopkeeper || "223423423");
   const [selectedCustomerId, setSelectedCustomerId] = useState("");
   const [invoiceDate, setInvoiceDate] = useState<Date>(new Date());
-
-  const months = [
-    "Jan",
-    "Feb",
-    "Mar",
-    "Apr",
-    "May",
-    "Jun",
-    "Jul",
-    "Aug",
-    "Sep",
-    "Oct",
-    "Nov",
-    "Dec",
-  ];
 
   const handleQuickOption = (option: "now" | "today" | "yesterday") => {
     const now = new Date();
@@ -523,21 +650,6 @@ export default function CreateInvoice() {
     }
   };
 
-  const updateDatePart = (part: "day" | "month" | "year", value: number) => {
-    const d = new Date(invoiceDate);
-    if (part === "day") d.setDate(value);
-    if (part === "month") d.setMonth(value);
-    if (part === "year") d.setFullYear(value);
-    setInvoiceDate(d);
-  };
-
-  const updateTime = (timeStr: string) => {
-    const [hours, minutes] = timeStr.split(":").map(Number);
-    const d = new Date(invoiceDate);
-    d.setHours(hours, minutes);
-    setInvoiceDate(d);
-  };
-
   const [customer, setCustomer] = useState({
     firstName: "",
     lastName: "",
@@ -546,10 +658,12 @@ export default function CreateInvoice() {
     address: "",
     paymentType: "",
     alreadyPaid: 0,
-    customerId: "",
   });
 
-  const customers = getInvoiceUser?.data?.data || [];
+  const customers = useMemo(
+    () => getInvoiceUser?.data?.data || [],
+    [getInvoiceUser?.data?.data],
+  );
 
   // Custom Dynamic Input Payment states
   const [paymentType, setPaymentType] = useState("cash");
@@ -575,6 +689,18 @@ export default function CreateInvoice() {
     );
   }, [items, searchQuery]);
 
+  const allDevices = useMemo(() => {
+    return (
+      items.map((item: any) => ({
+        id: item._id,
+        name: item.itemName,
+        price: item.expectedPrice,
+        image: item.image?.url || "/placeholder.png",
+        imeiNumber: item.imeiNumber,
+      })) || []
+    );
+  }, [items]);
+
   const devices = useMemo(() => {
     return (
       filteredDevices.map((item: any) => ({
@@ -587,12 +713,45 @@ export default function CreateInvoice() {
     );
   }, [filteredDevices]);
 
+  const inventoryPageCount = Math.max(
+    1,
+    Math.ceil(devices.length / INVENTORY_PAGE_SIZE),
+  );
+  const inventoryPage = Math.min(currentInventoryPage, inventoryPageCount);
+
+  const paginatedDevices = useMemo(() => {
+    const start = (inventoryPage - 1) * INVENTORY_PAGE_SIZE;
+    return devices.slice(start, start + INVENTORY_PAGE_SIZE);
+  }, [devices, inventoryPage]);
+
+  const filteredCustomers = useMemo(() => {
+    const query = customerSearchQuery.trim().toLowerCase();
+    if (!query) return customers;
+
+    return customers.filter((existingCustomer: any) =>
+      [
+        existingCustomer.firstName,
+        existingCustomer.lastName,
+        existingCustomer.email,
+        existingCustomer.phone,
+        existingCustomer.customerId,
+      ].some((value) =>
+        String(value || "")
+          .toLowerCase()
+          .includes(query),
+      ),
+    );
+  }, [customers, customerSearchQuery]);
+
   const selectedDevicesData = useMemo(
-    () => devices.filter((device) => selectedDeviceIds.includes(device.id)),
-    [devices, selectedDeviceIds],
+    () => allDevices.filter((device) => selectedDeviceIds.includes(device.id)),
+    [allDevices, selectedDeviceIds],
   );
 
-  const totalPrice = selectedDevicesData.reduce((sum, d) => sum + d.price, 0);
+  const totalPrice = selectedDevicesData.reduce(
+    (sum, device) => sum + Number(device.price || 0),
+    0,
+  );
 
   // Balanced calculation state handler logic
   const dueAmount = useMemo(() => {
@@ -616,7 +775,6 @@ export default function CreateInvoice() {
           shopkeeperId: shopkeeper || "223423423",
           paymentType: paymentType,
           alreadyPaid: alreadyPaid,
-          customerId: customer.customerId,
         });
 
         finalCustomerId = customerResponse?.data?._id;
@@ -767,56 +925,25 @@ export default function CreateInvoice() {
 
             <div>
               <label className="text-[11px] font-black text-slate-500 uppercase tracking-[0.2em]">
-                Or Select Manually
+                Or Select Date & Time
               </label>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-2">
-                <select
-                  value={invoiceDate.getDate()}
-                  onChange={(e) =>
-                    updateDatePart("day", Number(e.target.value))
-                  }
-                  className="rounded-2xl h-12 border border-primary bg-background px-3 text-sm font-bold focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                >
-                  {Array.from({ length: 31 }, (_, i) => (
-                    <option key={i + 1} value={i + 1}>
-                      {i + 1}
-                    </option>
-                  ))}
-                </select>
-                <select
-                  value={invoiceDate.getMonth()}
-                  onChange={(e) =>
-                    updateDatePart("month", Number(e.target.value))
-                  }
-                  className="rounded-2xl h-12 border border-primary bg-background px-3 text-sm font-bold focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                >
-                  {months.map((m, i) => (
-                    <option key={i} value={i}>
-                      {m}
-                    </option>
-                  ))}
-                </select>
-                <select
-                  value={invoiceDate.getFullYear()}
-                  onChange={(e) =>
-                    updateDatePart("year", Number(e.target.value))
-                  }
-                  className="rounded-2xl h-12 border border-primary bg-background px-3 text-sm font-bold focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                >
-                  {Array.from({ length: 10 }, (_, i) => {
-                    const year = new Date().getFullYear() - 5 + i;
-                    return (
-                      <option key={year} value={year}>
-                        {year}
-                      </option>
-                    );
-                  })}
-                </select>
-                <input
-                  type="time"
-                  value={`${String(invoiceDate.getHours()).padStart(2, "0")}:${String(invoiceDate.getMinutes()).padStart(2, "0")}`}
-                  onChange={(e) => updateTime(e.target.value)}
-                  className="rounded-2xl h-12 border border-primary bg-background px-3 text-sm font-bold focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              <div className="mt-2 w-full max-w-md">
+                <Input
+                  type="datetime-local"
+                  value={new Date(
+                    invoiceDate.getTime() -
+                      invoiceDate.getTimezoneOffset() * 60000,
+                  )
+                    .toISOString()
+                    .slice(0, 16)}
+                  onClick={(event) => event.currentTarget.showPicker?.()}
+                  onChange={(event) => {
+                    const nextDate = new Date(event.target.value);
+                    if (!Number.isNaN(nextDate.getTime())) {
+                      setInvoiceDate(nextDate);
+                    }
+                  }}
+                  className="h-12 cursor-pointer rounded-2xl border-primary bg-background px-3 text-sm font-bold"
                 />
               </div>
             </div>
@@ -845,6 +972,7 @@ export default function CreateInvoice() {
                   value={selectedCustomerId}
                   onValueChange={(value) => {
                     setSelectedCustomerId(value);
+                    setCustomerSearchQuery("");
 
                     const selectedCustomer = customers.find(
                       (customer: any) => customer._id === value,
@@ -859,7 +987,6 @@ export default function CreateInvoice() {
                         address: selectedCustomer.address || "",
                         paymentType: selectedCustomer.paymentType || "cash",
                         alreadyPaid: selectedCustomer.alreadyPaid || 0,
-                        customerId: selectedCustomer.customerId || "",
                       });
 
                       setPaymentType(selectedCustomer.paymentType || "cash");
@@ -905,11 +1032,27 @@ export default function CreateInvoice() {
         dark:border-slate-700
       "
                   >
-                    {customers.map((customer: any) => (
-                      <SelectItem
-                        key={customer._id}
-                        value={customer._id}
-                        className="
+                    <div className="sticky top-0 z-10 border-b border-slate-100 bg-white p-2 dark:border-slate-800 dark:bg-slate-900">
+                      <div className="relative">
+                        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                        <Input
+                          value={customerSearchQuery}
+                          onChange={(event) =>
+                            setCustomerSearchQuery(event.target.value)
+                          }
+                          onKeyDown={(event) => event.stopPropagation()}
+                          onPointerDown={(event) => event.stopPropagation()}
+                          placeholder="Search customers..."
+                          className="h-10 w-full rounded-xl border-slate-200 bg-slate-50 pl-9 text-sm font-medium dark:border-slate-700 dark:bg-slate-800"
+                        />
+                      </div>
+                    </div>
+                    {filteredCustomers.length > 0 ? (
+                      filteredCustomers.map((customer: any) => (
+                        <SelectItem
+                          key={customer._id}
+                          value={customer._id}
+                          className="
             cursor-pointer
             rounded-xl
             py-3
@@ -922,18 +1065,23 @@ export default function CreateInvoice() {
             dark:text-slate-200
             dark:focus:bg-slate-800
           "
-                      >
-                        <div className="flex flex-col">
-                          <span className="font-semibold">
-                            {customer.firstName} {customer.lastName}
-                          </span>
+                        >
+                          <div className="flex flex-col">
+                            <span className="font-semibold">
+                              {customer.firstName} {customer.lastName}
+                            </span>
 
-                          <span className="text-xs text-slate-400">
-                            {customer.email}
-                          </span>
-                        </div>
-                      </SelectItem>
-                    ))}
+                            <span className="text-xs text-slate-400">
+                              {customer.email}
+                            </span>
+                          </div>
+                        </SelectItem>
+                      ))
+                    ) : (
+                      <p className="px-3 py-4 text-center text-sm font-medium text-slate-500">
+                        No customers found.
+                      </p>
+                    )}
                   </SelectContent>
                 </Select>
               </div>
@@ -1033,20 +1181,6 @@ export default function CreateInvoice() {
                   onChange={(e) => setAlreadyPaid(Number(e.target.value))}
                 />
               </div>
-              <div className="space-y-2">
-                <label className="text-xs font-black text-muted-foreground uppercase tracking-widest">
-                  Customer ID
-                </label>
-                <Input
-                  type="number"
-                  className="rounded-2xl h-12 border-primary bg-background font-bold"
-                  placeholder="0.00"
-                  value={customer.customerId || ""}
-                  onChange={(e) =>
-                    setCustomer({ ...customer, customerId: e.target.value })
-                  }
-                />
-              </div>
               {/* Conditional Card field wrapper layer */}
               {/* {paymentType === "card" && (
                 <div className="space-y-2 sm:col-span-2">
@@ -1073,7 +1207,7 @@ export default function CreateInvoice() {
                   Sub-Total Amount
                 </span>
                 <span className="text-lg font-black text-slate-800 dark:text-slate-200">
-                  {formatCurrency(totalPrice)}
+                  {formatCurrency(totalPrice, currency)}
                 </span>
               </div>
               <div className="bg-slate-50 dark:bg-slate-900 p-4 rounded-xl">
@@ -1083,7 +1217,7 @@ export default function CreateInvoice() {
                 <span
                   className={`text-lg font-black ${dueAmount === 0 ? "text-green-600" : "text-red-500"}`}
                 >
-                  {formatCurrency(dueAmount)}
+                  {formatCurrency(dueAmount, currency)}
                 </span>
               </div>
             </div>
@@ -1135,7 +1269,10 @@ export default function CreateInvoice() {
               type="text"
               placeholder="Search devices..."
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={(e) => {
+                setSearchQuery(e.target.value);
+                setCurrentInventoryPage(1);
+              }}
               className="pl-12 pr-4 h-12 w-full bg-white border border-slate-100 dark:bg-slate-800 dark:border-slate-600 dark:text-white rounded-xl font-bold text-sm focus:ring-[#84CC16] focus:border-[#84CC16] outline-none transition"
             />
           </div>
@@ -1180,7 +1317,7 @@ export default function CreateInvoice() {
                   </td>
                 </tr>
               ) : (
-                devices.map((device) => {
+                paginatedDevices.map((device) => {
                   const isSelected = selectedDeviceIds.includes(device.id);
                   return (
                     <tr
@@ -1219,7 +1356,7 @@ export default function CreateInvoice() {
                       </td>
 
                       <td className="px-8 py-6 text-right font-black text-lg">
-                        {formatCurrency(device.price || 0)}
+                        {formatCurrency(Number(device.price || 0), currency)}
                       </td>
                     </tr>
                   );
@@ -1227,6 +1364,48 @@ export default function CreateInvoice() {
               )}
             </tbody>
           </table>
+          {devices.length > INVENTORY_PAGE_SIZE && (
+            <div className="flex flex-col gap-3 border-t border-border px-6 py-4 sm:flex-row sm:items-center sm:justify-between">
+              <p className="text-sm font-semibold text-muted-foreground">
+                Showing {(inventoryPage - 1) * INVENTORY_PAGE_SIZE + 1}–
+                {Math.min(inventoryPage * INVENTORY_PAGE_SIZE, devices.length)}{" "}
+                of {devices.length} products
+              </p>
+              <div className="flex items-center gap-2 self-end sm:self-auto">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="gap-1 rounded-xl"
+                  disabled={inventoryPage === 1}
+                  onClick={() =>
+                    setCurrentInventoryPage(Math.max(1, inventoryPage - 1))
+                  }
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                  Previous
+                </Button>
+                <span className="px-2 text-sm font-bold text-muted-foreground">
+                  Page {inventoryPage} of {inventoryPageCount}
+                </span>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="gap-1 rounded-xl"
+                  disabled={inventoryPage === inventoryPageCount}
+                  onClick={() =>
+                    setCurrentInventoryPage(
+                      Math.min(inventoryPageCount, inventoryPage + 1),
+                    )
+                  }
+                >
+                  Next
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Action Bar */}
@@ -1240,7 +1419,7 @@ export default function CreateInvoice() {
                 Total Amount Due
               </p>
               <p className="text-3xl font-black text-foreground tracking-tighter">
-                {formatCurrency(totalPrice)}
+                {formatCurrency(totalPrice, currency)}
               </p>
             </div>
           </div>
