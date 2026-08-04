@@ -7,6 +7,7 @@ import {
   getRepairRequestDetails,
   updateRepairQuoteStatus,
   getShopkeeperRepairRequests,
+  getTechnicians,
   updateRepairRequestStatusByShopkeeper,
   addRepairRequestNote,
   updateRepairReSentQuoteStatus,
@@ -23,6 +24,14 @@ export function useGetMyRepairRequests(page = 1, limit = 10) {
   return useQuery({
     queryKey: ["repair-requests", "my", page, limit],
     queryFn: () => getMyRepairRequests({ page, limit }),
+  });
+}
+
+export function useRepairTechnicians(enabled = true) {
+  return useQuery({
+    queryKey: ["repair-request-technicians"],
+    queryFn: getTechnicians,
+    enabled,
   });
 }
 
@@ -83,6 +92,9 @@ export function useCreateRepairRequest() {
     mutationFn: createRepairRequest,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["repair-requests"] });
+      queryClient.invalidateQueries({
+        queryKey: ["repair-request-technicians"],
+      });
       toast.success("Repair request created successfully");
     },
     onError: (error: { response?: { data?: { message?: string } } }) => {

@@ -29,8 +29,8 @@ export const createRepairRequest = async (
   formData.append("deviceModel", payload.deviceModel);
   formData.append("description", payload.description);
 
-  if (payload.staff) {
-    formData.append("staff", payload.staff);
+  if (payload.technician) {
+    formData.append("technician", payload.technician);
   }
 
   if (payload.status) {
@@ -46,6 +46,11 @@ export const createRepairRequest = async (
   });
 
   const response = await api.post("/repair-requests/add", formData);
+  return response.data;
+};
+
+export const getTechnicians = async (): Promise<ApiResponse<string[]>> => {
+  const response = await api.get("/repair-requests/technicians");
   return response.data;
 };
 

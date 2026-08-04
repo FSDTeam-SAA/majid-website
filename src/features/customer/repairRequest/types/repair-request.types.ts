@@ -29,7 +29,7 @@ export interface RepairRequestPayload {
   deviceModel: string;
   IMEINumber?: string;
   description: string;
-  staff?: string;
+  technician?: string;
   status?: string;
   images?: File[];
 }
@@ -101,6 +101,7 @@ export interface RepairRequest {
   deviceModel: string;
   IMEINumber?: string;
   description: string;
+  technician?: string;
   status: RepairRequestStatus;
   images?: { public_id: string; url: string }[];
   timeline?: unknown[];

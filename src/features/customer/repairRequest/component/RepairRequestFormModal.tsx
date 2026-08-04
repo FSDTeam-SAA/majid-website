@@ -17,15 +17,13 @@ import { useSession } from "next-auth/react";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { useCreateCustomer } from "@/features/shopkeeper/inventory/hooks/useInventory";
-import { useCreateRepairRequest } from "../hooks/useRepairRequest";
+import {
+  useCreateRepairRequest,
+  useRepairTechnicians,
+} from "../hooks/useRepairRequest";
 import { RepairRequest, Shopkeeper } from "../types/repair-request.types";
 
-const dummyStaffOptions = [
-  "Alex Morgan",
-  "Jamie Carter",
-  "Taylor Smith",
-  "Riley Johnson",
-];
+const ADD_NEW_TECHNICIAN = "__add_new_technician__";
 
 interface RepairRequestFormModalProps {
   shopkeeper: Shopkeeper | null;
@@ -55,7 +53,8 @@ export function RepairRequestFormModal({
   const [isProblemSelectOpen, setIsProblemSelectOpen] = useState(false);
   const [imeiNumber, setImeiNumber] = useState("");
   const [problemDescription, setProblemDescription] = useState("");
-  const [staff, setStaff] = useState("");
+  const [technicianSelection, setTechnicianSelection] = useState("");
+  const [newTechnician, setNewTechnician] = useState("");
   const { data: session } = useSession();
   const { data: profileData } = useMyProfile();
   const user = profileData?.data;
@@ -65,6 +64,9 @@ export function RepairRequestFormModal({
   const { data: repairProblemData } = useRepairProblem(user?._id || "");
   const createRepairRequest = useCreateRepairRequest();
   const createCustomer = useCreateCustomer();
+  const { data: techniciansData, isLoading: isTechniciansLoading } =
+    useRepairTechnicians(isOpen);
+  const technicians = techniciansData?.data || [];
 
   const profileFullName = [user?.firstName, user?.lastName]
     .filter(Boolean)
@@ -133,7 +135,8 @@ export function RepairRequestFormModal({
     setPrice("");
     setProblemDescription("");
     setProblemSearch("");
-    setStaff("");
+    setTechnicianSelection("");
+    setNewTechnician("");
   };
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
@@ -141,6 +144,10 @@ export function RepairRequestFormModal({
 
     const nextDescription = problemDescription || problemSearch;
     const shouldCreateCustomer = createCustomerOnSubmit && !isReassignMode;
+    const technician =
+      technicianSelection === ADD_NEW_TECHNICIAN
+        ? newTechnician.trim()
+        : technicianSelection;
 
     if (shouldCreateCustomer && !shopkeeperId) {
       toast.error("Shopkeeper session not found");
@@ -160,7 +167,7 @@ export function RepairRequestFormModal({
           : deviceModel,
         IMEINumber: isReassignMode ? repairRequest?.IMEINumber : imeiNumber,
         description: nextDescription,
-        staff,
+        technician,
         status: isReassignMode ? "reassigned" : undefined,
       });
     } catch {
@@ -204,7 +211,7 @@ export function RepairRequestFormModal({
             </DialogTitle>
             <DialogDescription className="text-muted-foreground font-medium">
               {isReassignMode
-                ? "Please provide the new repair issue and staff assignment."
+                ? "Please provide the new repair issue and technician assignment."
                 : "Please provide details about your device and the issue you're facing."}
             </DialogDescription>
           </DialogHeader>
@@ -369,18 +376,38 @@ export function RepairRequestFormModal({
               Technician
             </label>
             <select
-              value={staff}
-              onChange={(e) => setStaff(e.target.value)}
+              value={technicianSelection}
+              onChange={(e) => {
+                setTechnicianSelection(e.target.value);
+                if (e.target.value !== ADD_NEW_TECHNICIAN) {
+                  setNewTechnician("");
+                }
+              }}
               required
               className="w-full h-12 px-4 rounded-xl border border-border bg-background text-foreground font-medium outline-none transition-all focus:border-primary focus:ring-4 focus:ring-primary/10"
             >
-              <option value="">Select staff</option>
-              {dummyStaffOptions.map((staffName) => (
-                <option key={staffName} value={staffName}>
-                  {staffName}
+              <option value="">
+                {isTechniciansLoading
+                  ? "Loading technicians..."
+                  : "Select technician"}
+              </option>
+              {technicians.map((technicianName) => (
+                <option key={technicianName} value={technicianName}>
+                  {technicianName}
                 </option>
               ))}
+              <option value={ADD_NEW_TECHNICIAN}>+ Add new technician</option>
             </select>
+
+            {technicianSelection === ADD_NEW_TECHNICIAN && (
+              <input
+                value={newTechnician}
+                onChange={(e) => setNewTechnician(e.target.value)}
+                required
+                className="w-full h-12 px-4 rounded-xl border border-border bg-background text-foreground font-medium outline-none transition-all focus:border-primary focus:ring-4 focus:ring-primary/10"
+                placeholder="Enter technician name"
+              />
+            )}
           </div>
 
           <div className="space-y-2">
