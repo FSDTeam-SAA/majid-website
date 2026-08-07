@@ -75,7 +75,7 @@ in the repire section Technician field add a fild on backend named technician an
 ------------------------------
 
 
-prompt 1: 
+prompt 1: done 
 - /shopkeeper/inventory in this page Add New Device there will be a another button in that button add variant by clicking this another model will show or many input fields will sow like cost price, selling price, quantity, color, storage, imei number, condition and that varient image, supplier. 
 
 - also you need to update that spacific api add those varient fiels properly 
@@ -89,10 +89,37 @@ prompt 1:
 do this feature properly. maintain the flow if you find anyting working suggest the right way. 
 >>>>>>>>>and do not change any existing feature or anyting else other than that. <<<<<<<<<<<<
 
+fix prompt: 
+Browse Inventory section on /shopkeeper/checkout page the items that has multiple variant for example i have added a item also a variant both i should able to add to cart. 
+
+and in the inventory page whan i want to update a item that a variants i can able to see on the edit page or not able to addit the varient 
+
+
 ------------------------------
-prompt 2:  
+prompt 2:  done 
 in this /shopkeeper/checkout page Browse Inventory section add paginaiton if backend need do it. also make the page faster. from Browse Inventory when i cleack (+) button it show a looding animaiton no need that 
 -  Orders Ready for Collection 8 in this sections when i adding a order in the cart the number should dicress form here and the order should be not show from the section. when charge now and Collect Payment complete those number will dicress and revome from the Orders Ready for Collection
  parmanently. you may need to update or change some things on the api 
 
  - Developer Notes, Recommendation Setup Examples remove those notes from the page 
+
+ do this feature properly. maintain the flow if you find anyting working suggest the right way. 
+>>>>>>>>>and do not change any existing feature or anyting else other than that. <<<<<<<<<<<<
+
+------------------------------
+prompt 3: 
+
+in the webiste and backend i need to add a featuer malti shoop feature. currently a shopkeeper they able to manage on by defalt work on a shop. so in the pricing plan there will be added another plan if they get and pay that multi accout plan the shopkeeper will able to add another shoop (if they pay for onother shop they will able to add another same way it will go on.)and those need to setup fill the shop details. 
+ in the shoop keeper dashboard in the left side bar bottom if they have multiple shop they can sweet between them if they sweet every data will show based on that shop the search history, dashboard overview, payment history, ivoice section datas, inventory sections datas, customer section datas, repair section datas ,  
+
+ - in the shopkeeper/settings/staff section when they are adding that stuff if the shopkeeper has multiple account then they will able to cleck which accout they are assigned i mean which shop they are assigned with then when the stuff login they will able to see all things for that shop (many things currently have but for only default shop). 
+
+ -  in the settings page the shop keeper add another left sub tab. there they will able to change one shop  inventory item  to another shoop if only  they have multiple shops the quantity will dicress or incress accordaingly. 
+
+ - in the setting page there will be a another dashboard from there they will able to see how there shops saleing items daily sate report, monthly sale report yearly report with comparijon with the shops. 
+
+ - and there will be a feature for only shopkeepers they will get a daily report how much they done salling you will get those datas from the checkout pages, and there will be a option in the settings to turn off or on or set time when they want to get the report on there mail. also they can add there mail there which accout they wana get amin . make it funtional if you need to change on backend do it. 
+
+
+ do those features make those funtional every with proper data. if you have any confution ask me. and 
+ ********** Importent point: do not change any existing features or do not roined my code. **************  

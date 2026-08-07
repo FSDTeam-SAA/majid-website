@@ -5,6 +5,7 @@ import React, { useState, useMemo, useRef } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   Wrench,
   Search,
@@ -15,12 +16,12 @@ import {
   Minus,
   Trash2,
   ChevronRight,
+  ChevronLeft,
   Check,
   X,
   Loader2,
   UserPlus,
   AlertCircle,
-  FileText,
   PencilLine,
   Tag,
   Sparkles,
@@ -51,6 +52,7 @@ import {
   useCreateCustomer,
 } from "../../inventory/hooks/useInventory";
 import { useGetMyRepairRequests } from "@/features/customer/repairRequest/hooks/useRepairRequest";
+import { updateRepairRequestStatusByShopkeeper } from "@/features/customer/repairRequest/api/repair-request.api";
 import { useMyProfile } from "@/features/shopkeeper/settings/hooks/useSettings";
 import { generateGoogleReviewQrCodeDataUrl } from "@/features/shopkeeper/settings/utils/googleReviewQr";
 
@@ -103,9 +105,12 @@ const getCartPrice = (cartItem: any) =>
       0,
   );
 
+const BROWSE_PAGE_SIZE = 24;
+
 export default function Checkout() {
   const router = useRouter();
   const { data: session } = useSession();
+  const queryClient = useQueryClient();
   const { currency, currencySymbol, formatCurrency, convertAmount } =
     useCurrency();
   const shopkeeperId = (session?.user as { id?: string })?.id;
@@ -117,7 +122,7 @@ export default function Checkout() {
     useMyInventory();
   const { data: cartData, isLoading: isCartLoading } =
     useShopkeeperCart(shopkeeperId);
-  const { data: repairRequestsData } = useGetMyRepairRequests();
+  const { data: repairRequestsData } = useGetMyRepairRequests(1, 100, true);
   const { data: customersResponse } = useCustomersByShopkeeper(
     shopkeeperId || "",
   );
@@ -163,6 +168,12 @@ export default function Checkout() {
   >({});
   const [addingItemId, setAddingItemId] = useState<string | null>(null);
 
+  // Browse Inventory pagination
+  const [inventoryPage, setInventoryPage] = useState(1);
+
+  // Repair orders that have been collected (payment completed)
+  const [collectedRepairIds, setCollectedRepairIds] = useState<string[]>([]);
+
   // New Customer Form State
   const [newCustomer, setNewCustomer] = useState({
     firstName: "",
@@ -202,9 +213,12 @@ export default function Checkout() {
 
   const repairRequests = useMemo(() => {
     return (repairRequestsData?.data || []).filter(
-      (req: any) => req.status === "completed" || req.status === "approved",
+      (req: any) =>
+        (req.status === "completed" || req.status === "approved") &&
+        req._id !== pulledRepairItem?.repairRequestId &&
+        !collectedRepairIds.includes(req._id),
     );
-  }, [repairRequestsData]);
+  }, [repairRequestsData, pulledRepairItem, collectedRepairIds]);
 
   const customers = useMemo(
     () => customersResponse?.data || [],
@@ -246,6 +260,34 @@ export default function Checkout() {
 
     return items;
   }, [inventoryItems, selectedCategory, searchQuery]);
+
+  // Browse Inventory pagination
+  const totalInventoryPages = useMemo(
+    () => Math.max(1, Math.ceil(filteredInventory.length / BROWSE_PAGE_SIZE)),
+    [filteredInventory.length],
+  );
+
+  const effectiveInventoryPage = Math.min(inventoryPage, totalInventoryPages);
+
+  const pagedInventory = useMemo(
+    () =>
+      filteredInventory.slice(
+        (effectiveInventoryPage - 1) * BROWSE_PAGE_SIZE,
+        effectiveInventoryPage * BROWSE_PAGE_SIZE,
+      ),
+    [filteredInventory, effectiveInventoryPage],
+  );
+
+  // Reset to the first page whenever the filters change
+  const handleBrowseCategoryChange = (categoryId: string | null) => {
+    setSelectedCategory(categoryId);
+    setInventoryPage(1);
+  };
+
+  const handleBrowseSearchChange = (value: string) => {
+    setSearchQuery(value);
+    setInventoryPage(1);
+  };
 
   // Filtered customer list for combobox
   const filteredCustomers = useMemo(() => {
@@ -898,6 +940,35 @@ export default function Checkout() {
         console.error("Invoice saved, but cart cleanup failed", cartError);
       }
 
+      // Permanently remove the pulled repair order from "Ready for Collection"
+      // once payment has been collected. Only do this when the repair order was
+      // actually part of the charged order (it is excluded in delivery mode).
+      const collectedRepairRequestId = orderCartItems.some(
+        (cartItem: any) => cartItem._id === pulledRepairItem?._id,
+      )
+        ? pulledRepairItem?.repairRequestId
+        : undefined;
+      if (collectedRepairRequestId) {
+        try {
+          await updateRepairRequestStatusByShopkeeper({
+            id: collectedRepairRequestId,
+            status: "collected",
+          });
+        } catch (collectedError) {
+          console.error(
+            "Failed to mark repair order as collected",
+            collectedError,
+          );
+        }
+        setCollectedRepairIds((prev) => {
+          if (prev.includes(collectedRepairRequestId)) return prev;
+          return [...prev, collectedRepairRequestId];
+        });
+        queryClient.invalidateQueries({
+          queryKey: ["repair-requests", "my"],
+        });
+      }
+
       setSelectedCustomer(null);
       setOnlineOrderDetails({
         marketplace: "",
@@ -944,7 +1015,7 @@ export default function Checkout() {
 
   // Helper buttons for Services/Products
   const handleAddProductClick = () => {
-    setSelectedCategory(null);
+    handleBrowseCategoryChange(null);
     if (searchInputRef.current) {
       searchInputRef.current.focus();
       searchInputRef.current.scrollIntoView({
@@ -961,9 +1032,9 @@ export default function Checkout() {
       cat.name?.toLowerCase().includes("repair"),
     );
     if (repairingCat) {
-      setSelectedCategory(repairingCat._id);
+      handleBrowseCategoryChange(repairingCat._id);
     } else {
-      setSelectedCategory("repairing");
+      handleBrowseCategoryChange("repairing");
     }
     toast.info("Showing repair services from inventory!");
   };
@@ -1121,7 +1192,7 @@ export default function Checkout() {
                 ref={searchInputRef}
                 type="text"
                 value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
+                onChange={(e) => handleBrowseSearchChange(e.target.value)}
                 placeholder="Search products, services..."
                 className="w-full h-10 pl-11 pr-4 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 placeholder-slate-400 focus:outline-none focus:bg-white focus:border-[#84CC16] focus:ring-1 focus:ring-[#84CC16] transition-all"
               />
@@ -1131,7 +1202,7 @@ export default function Checkout() {
           {/* Categories Pills */}
           <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none">
             <button
-              onClick={() => setSelectedCategory(null)}
+              onClick={() => handleBrowseCategoryChange(null)}
               className={`px-4 py-2 text-xs font-black rounded-full transition-all shrink-0 ${
                 selectedCategory === null
                   ? "bg-[#84CC16] text-white shadow shadow-lime-500/20"
@@ -1143,7 +1214,7 @@ export default function Checkout() {
             {categories.map((cat: any) => (
               <button
                 key={cat._id}
-                onClick={() => setSelectedCategory(cat._id)}
+                onClick={() => handleBrowseCategoryChange(cat._id)}
                 className={`px-4 py-2 text-xs font-black rounded-full transition-all shrink-0 ${
                   selectedCategory === cat._id
                     ? "bg-[#84CC16] text-white shadow shadow-lime-500/20"
@@ -1154,7 +1225,7 @@ export default function Checkout() {
               </button>
             ))}
             <button
-              onClick={() => setSelectedCategory("repairing")}
+              onClick={() => handleBrowseCategoryChange("repairing")}
               className={`px-4 py-2 text-xs font-black rounded-full transition-all shrink-0 ${
                 selectedCategory === "repairing"
                   ? "bg-[#84CC16] text-white shadow shadow-lime-500/20"
@@ -1175,9 +1246,9 @@ export default function Checkout() {
                 />
               ))}
             </div>
-          ) : filteredInventory.length > 0 ? (
+          ) : pagedInventory.length > 0 ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 pt-2">
-              {filteredInventory.map((item: any) => {
+              {pagedInventory.map((item: any) => {
                 const qty = localQuantities[item._id] || 1;
                 const itemImageUrl = getInventoryImageUrl(item);
 
@@ -1285,11 +1356,7 @@ export default function Checkout() {
                             disabled={addingItemId === item._id}
                             className="w-8 h-8 rounded-full bg-[#84CC16] text-white flex items-center justify-center hover:bg-[#74b313] active:scale-95 shadow shadow-lime-500/25 transition-all"
                           >
-                            {addingItemId === item._id ? (
-                              <Loader2 size={14} className="animate-spin" />
-                            ) : (
-                              <Plus size={16} strokeWidth={3} />
-                            )}
+                            <Plus size={16} strokeWidth={3} />
                           </button>
                         </div>
                       </div>
@@ -1309,57 +1376,77 @@ export default function Checkout() {
               </p>
             </div>
           )}
-        </div>
 
-        <div className="rounded-[28px] border border-red-200 bg-white p-6 shadow-sm">
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-red-50 text-red-500">
-              <FileText size={18} />
-            </div>
-            <div>
-              <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-500">
-                Developer Notes
+          {/* Browse Inventory Pagination */}
+          {totalInventoryPages > 1 && (
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-5 border-t border-slate-100 mt-6">
+              <p className="text-xs font-bold text-slate-500">
+                Page {effectiveInventoryPage} of {totalInventoryPages} ·{" "}
+                {filteredInventory.length} items
               </p>
-              <h3 className="text-lg font-black text-slate-950">
-                Manual discount flow
-              </h3>
+              <div className="flex items-center gap-1.5">
+                <button
+                  onClick={() =>
+                    setInventoryPage((prev) => Math.max(1, prev - 1))
+                  }
+                  disabled={effectiveInventoryPage <= 1}
+                  className="flex items-center justify-center h-8 px-2.5 rounded-lg bg-slate-100 text-slate-600 text-xs font-black hover:bg-slate-200 disabled:opacity-40 disabled:pointer-events-none transition-colors"
+                >
+                  <ChevronLeft size={14} />
+                </button>
+                {Array.from({ length: totalInventoryPages }, (_, i) => i + 1)
+                  .filter(
+                    (page) =>
+                      page === 1 ||
+                      page === totalInventoryPages ||
+                      Math.abs(page - effectiveInventoryPage) <= 1,
+                  )
+                  .reduce<(number | "ellipsis")[]>(
+                    (pages, page, index, all) => {
+                      if (index > 0 && page - all[index - 1] > 1) {
+                        pages.push("ellipsis");
+                      }
+                      pages.push(page);
+                      return pages;
+                    },
+                    [],
+                  )
+                  .map((page, index) =>
+                    page === "ellipsis" ? (
+                      <span
+                        key={`ellipsis-${index}`}
+                        className="px-1 text-xs font-black text-slate-400"
+                      >
+                        …
+                      </span>
+                    ) : (
+                      <button
+                        key={page}
+                        onClick={() => setInventoryPage(page)}
+                        className={`h-8 min-w-8 px-2 rounded-lg text-xs font-black transition-colors ${
+                          page === effectiveInventoryPage
+                            ? "bg-[#84CC16] text-white shadow shadow-lime-500/20"
+                            : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                        }`}
+                      >
+                        {page}
+                      </button>
+                    ),
+                  )}
+                <button
+                  onClick={() =>
+                    setInventoryPage((prev) =>
+                      Math.min(totalInventoryPages, prev + 1),
+                    )
+                  }
+                  disabled={effectiveInventoryPage >= totalInventoryPages}
+                  className="flex items-center justify-center h-8 px-2.5 rounded-lg bg-slate-100 text-slate-600 text-xs font-black hover:bg-slate-200 disabled:opacity-40 disabled:pointer-events-none transition-colors"
+                >
+                  <ChevronRight size={14} />
+                </button>
+              </div>
             </div>
-          </div>
-
-          <div className="mt-5 grid gap-3 text-sm font-medium text-slate-600 md:grid-cols-2">
-            <p>Manual discount works by editing the item price directly.</p>
-            <p>Discount percentage updates automatically when price changes.</p>
-            <p>Each item shows both discount percent and amount saved.</p>
-            <p>Total discount is shown separately before final payment.</p>
-          </div>
-        </div>
-
-        <div className="rounded-[28px] border border-red-200/70 bg-white p-6 shadow-sm">
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-red-50 text-red-500">
-              <Sparkles size={18} />
-            </div>
-            <div>
-              <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-500">
-                Recommendation Setup Examples
-              </p>
-              <h3 className="text-lg font-black text-slate-950">
-                Category-based add-on reminder
-              </h3>
-            </div>
-          </div>
-
-          <div className="mt-5 grid gap-3 text-sm font-medium text-slate-600 lg:grid-cols-[1.1fr_0.9fr]">
-            <div className="space-y-2">
-              <p>Phones -&gt; screen protectors, phone cases, chargers</p>
-              <p>Laptops -&gt; laptop bags, chargers, mouse</p>
-              <p>Repaired devices -&gt; screen protectors, phone cases</p>
-            </div>
-            <div className="rounded-2xl border border-red-100 bg-red-50/40 p-4 text-sm">
-              The system matches the checkout item category and shows relevant
-              add-ons automatically before charging.
-            </div>
-          </div>
+          )}
         </div>
       </div>
 

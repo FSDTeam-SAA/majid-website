@@ -20,10 +20,14 @@ export function useShopkeeperRepairRequests(page = 1, limit = 10) {
   });
 }
 
-export function useGetMyRepairRequests(page = 1, limit = 10) {
+export function useGetMyRepairRequests(
+  page = 1,
+  limit = 10,
+  readyForCollection = false,
+) {
   return useQuery({
-    queryKey: ["repair-requests", "my", page, limit],
-    queryFn: () => getMyRepairRequests({ page, limit }),
+    queryKey: ["repair-requests", "my", page, limit, readyForCollection],
+    queryFn: () => getMyRepairRequests({ page, limit, readyForCollection }),
   });
 }
 

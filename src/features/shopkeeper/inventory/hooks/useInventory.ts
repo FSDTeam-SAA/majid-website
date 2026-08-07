@@ -59,6 +59,7 @@ export function useMyInventory() {
   return useQuery({
     queryKey: INVENTORY_KEYS.myInventory(),
     queryFn: getMyInventory,
+    staleTime: 1000 * 60,
   });
 }
 
@@ -91,6 +92,7 @@ export function useCategories() {
   return useQuery<CategoryListResponse>({
     queryKey: CATEGORY_KEYS.all,
     queryFn: getCategories,
+    staleTime: 1000 * 60,
   });
 }
 
@@ -296,6 +298,7 @@ export function useCustomersByShopkeeper(shopkeeperId: string) {
     queryKey: ["customers", shopkeeperId],
     queryFn: () => getCustomersByShopkeeper(shopkeeperId),
     enabled: !!shopkeeperId,
+    staleTime: 1000 * 60,
   });
 }
 
@@ -304,6 +307,7 @@ export function useShopkeeperCart(shopkeeperId?: string) {
     queryKey: INVENTORY_KEYS.shopkeeperCart(shopkeeperId || ""),
     queryFn: () => getShopkeeperCart(shopkeeperId || ""),
     enabled: !!shopkeeperId,
+    staleTime: 1000 * 30,
   });
 }
 

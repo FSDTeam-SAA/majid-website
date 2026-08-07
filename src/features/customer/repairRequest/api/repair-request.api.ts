@@ -57,6 +57,7 @@ export const getTechnicians = async (): Promise<ApiResponse<string[]>> => {
 export const getMyRepairRequests = async (params?: {
   page?: number;
   limit?: number;
+  readyForCollection?: boolean;
 }): Promise<ApiResponse<RepairRequest[]>> => {
   const response = await api.get("/repair-requests/my-history", { params });
   return response.data;
