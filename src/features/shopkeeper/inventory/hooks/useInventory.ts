@@ -210,6 +210,11 @@ export function useCreateInvoice() {
       discountName?: string;
       discountPercentage?: number;
       discountAmount?: number;
+      lineItems?: Array<{
+        itemId: string;
+        quantity: number;
+        variantId?: string;
+      }>;
     }) => createInvoice(input),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: INVENTORY_KEYS.all });
@@ -310,16 +315,19 @@ export function useAddToShopkeeperCart(shopkeeperId?: string) {
     mutationFn: ({
       item,
       quantity,
+      variantId,
     }: {
       item: InventoryItem;
       quantity: number;
+      variantId?: string;
     }) =>
       addToShopkeeperCart({
         shopkeeperId: shopkeeperId || "",
         itemId: item._id,
         quantity,
+        variantId,
       }),
-    onMutate: ({ item, quantity }) => {
+    onMutate: ({ item, quantity, variantId }) => {
       // Prevent an in-flight cart fetch from replacing this immediate update.
       void queryClient.cancelQueries({ queryKey });
       const previousCart = queryClient.getQueryData<CartListResponse>(queryKey);
@@ -327,12 +335,15 @@ export function useAddToShopkeeperCart(shopkeeperId?: string) {
       queryClient.setQueryData<CartListResponse>(queryKey, (currentCart) => {
         const currentItems = currentCart?.data || [];
         const existingItem = currentItems.find(
-          (cartItem) => cartItem.itemId?._id === item._id,
+          (cartItem) =>
+            cartItem.itemId?._id === item._id &&
+            cartItem.variantId === variantId,
         );
 
         const data = existingItem
           ? currentItems.map((cartItem) =>
-              cartItem.itemId?._id === item._id
+              cartItem.itemId?._id === item._id &&
+              cartItem.variantId === variantId
                 ? { ...cartItem, quantity: cartItem.quantity + quantity }
                 : cartItem,
             )
@@ -342,6 +353,7 @@ export function useAddToShopkeeperCart(shopkeeperId?: string) {
                 shopkeeperId: { _id: shopkeeperId } as CartItem["shopkeeperId"],
                 itemId: item,
                 quantity,
+                variantId,
                 createdAt: new Date().toISOString(),
                 updatedAt: new Date().toISOString(),
               },

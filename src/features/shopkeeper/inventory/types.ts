@@ -1,5 +1,21 @@
 import { z } from "zod";
 
+export const InventoryVariantSchema = z.object({
+  _id: z.string().optional(),
+  purchasePrice: z.coerce.number().optional(),
+  expectedPrice: z.coerce.number().min(0),
+  quantity: z.coerce.number().int().min(0),
+  color: z.string().optional(),
+  storage: z.string().optional(),
+  imeiNumber: z.string().optional(),
+  currentState: z.enum(["new", "good condition"]),
+  supplierId: z.string().optional(),
+  image: z
+    .object({ public_id: z.string().optional(), url: z.string().optional() })
+    .optional(),
+  imageFile: z.any().optional(),
+});
+
 // ─── Zod Schemas ──────────────────────────────────────────────────────────────
 
 export const InventoryItemSchema = z.object({
@@ -54,6 +70,7 @@ export const InventoryItemSchema = z.object({
       processor: z.string().optional(),
     })
     .optional(),
+  variants: z.array(InventoryVariantSchema).optional(),
 });
 
 export const InventoryListResponseSchema = z.object({
@@ -114,6 +131,7 @@ export const CreateInventorySchema = z.object({
   saleQuantity: z.coerce.number().optional(),
   saleMethod: z.string().optional(),
   image: z.any().optional(), // File or string for update
+  variants: z.array(InventoryVariantSchema).optional(),
 });
 
 export const UpdateInventorySchema = z.object({
@@ -147,6 +165,7 @@ export const UpdateInventorySchema = z.object({
   saleQuantity: z.coerce.number().optional(),
   saleMethod: z.string().optional(),
   image: z.any().optional(),
+  variants: z.array(InventoryVariantSchema).optional(),
 });
 
 // ─── Sold Product Schemas ──────────────────────────────────────────────────
@@ -318,6 +337,7 @@ export interface CartItem {
   shopkeeperId: Shopkeeper;
   itemId: InventoryItem;
   quantity: number;
+  variantId?: string;
   createdAt: string;
   updatedAt: string;
 }

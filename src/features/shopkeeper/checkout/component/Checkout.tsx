@@ -89,6 +89,20 @@ const getInventoryImageUrl = (item: any) =>
   item?.sourceImageUrls?.[0] ||
   "";
 
+const getCartVariant = (cartItem: any) =>
+  cartItem?.variantId
+    ? cartItem.itemId?.variants?.find(
+        (variant: any) => variant._id === cartItem.variantId,
+      )
+    : undefined;
+
+const getCartPrice = (cartItem: any) =>
+  Number(
+    getCartVariant(cartItem)?.expectedPrice ??
+      cartItem.itemId?.expectedPrice ??
+      0,
+  );
+
 export default function Checkout() {
   const router = useRouter();
   const { data: session } = useSession();
@@ -269,9 +283,7 @@ export default function Checkout() {
 
   const subtotal = useMemo(() => {
     return orderCartItems.reduce((sum, item) => {
-      const originalPrice = convertAmount(
-        Number(item.itemId?.expectedPrice || 0),
-      );
+      const originalPrice = convertAmount(getCartPrice(item));
       const manualValue = manualPrices[item._id];
       const parsedManual = Number(manualValue);
       let effectivePrice =
@@ -294,7 +306,7 @@ export default function Checkout() {
 
   const subtotalBeforeDiscount = useMemo(() => {
     return orderCartItems.reduce((sum, item) => {
-      const price = convertAmount(Number(item.itemId?.expectedPrice || 0));
+      const price = convertAmount(getCartPrice(item));
       return sum + price * item.quantity;
     }, 0);
   }, [convertAmount, orderCartItems]);
@@ -431,7 +443,11 @@ export default function Checkout() {
   );
 
   // ─── Cart Action Handlers ──────────────────────────────────────────────────
-  const handleAddToCart = async (itemId: string, qtyToAdd: number) => {
+  const handleAddToCart = async (
+    itemId: string,
+    qtyToAdd: number,
+    variantId?: string,
+  ) => {
     if (!shopkeeperId) {
       toast.error("Session expired. Please log in again.");
       return;
@@ -449,7 +465,7 @@ export default function Checkout() {
 
       // The mutation updates the cart cache before the request completes, so
       // the Walk-In order details panel receives the item immediately.
-      await addToShopkeeperCart({ item, quantity: qtyToAdd });
+      await addToShopkeeperCart({ item, quantity: qtyToAdd, variantId });
 
       toast.success("Added to cart");
       // Reset local quantity count
@@ -490,7 +506,13 @@ export default function Checkout() {
         return;
       }
 
-      await addToShopkeeperCart({ item, quantity: delta });
+      await addToShopkeeperCart({
+        item,
+        quantity: delta,
+        variantId: cartItems.find(
+          (cartItem: any) => cartItem._id === cartItemId,
+        )?.variantId,
+      });
     } catch {
       toast.error("Failed to adjust quantity");
     }
@@ -696,9 +718,7 @@ export default function Checkout() {
       setIsPlacingOrder(true);
       const transactionDate = new Date();
       const pricedOrderCartItems = orderCartItems.map((cartItem: any) => {
-        const originalPrice = convertAmount(
-          Number(cartItem.itemId?.expectedPrice || 0),
-        );
+        const originalPrice = convertAmount(getCartPrice(cartItem));
         const manualValue = manualPrices[cartItem._id];
         const parsedManual = Number(manualValue);
         const sellingPrice =
@@ -799,6 +819,17 @@ export default function Checkout() {
         invoice: invoiceFile,
         customerInfo: selectedCustomer?._id,
         itemsIds,
+        lineItems: orderCartItems
+          .filter(
+            (cartItem: any) =>
+              cartItem.itemId?._id &&
+              !String(cartItem.itemId._id).startsWith("repair:"),
+          )
+          .map((cartItem: any) => ({
+            itemId: cartItem.itemId._id,
+            quantity: Number(cartItem.quantity),
+            variantId: cartItem.variantId,
+          })),
         totalAmount: totalPayment,
         amountPaid: payment.amountPaid,
         dueAmount: payment.dueAmount,
@@ -1184,47 +1215,85 @@ export default function Checkout() {
                       </p>
                     </div>
 
-                    {/* Price and Add Row */}
-                    <div className="flex items-center justify-between mt-4">
-                      <p className="text-[15px] font-black text-slate-900">
-                        {formatCurrency(convertAmount(item.expectedPrice))}
-                      </p>
-
-                      {/* Quantity select & Add */}
-                      <div className="flex items-center gap-2">
-                        {/* Qty count adjuster */}
-                        <div className="flex items-center bg-slate-100 rounded-lg p-0.5 border border-slate-200">
+                    {(item.variants || []).length > 0 && (
+                      <div className="mt-3 space-y-2 rounded-xl bg-slate-50 p-2">
+                        <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">
+                          Choose a variant
+                        </p>
+                        {item.variants.map((variant: any) => (
                           <button
-                            onClick={() => handleLocalQtyChange(item._id, -1)}
-                            className="w-6 h-6 flex items-center justify-center text-slate-500 hover:text-slate-800"
+                            key={variant._id}
+                            onClick={() =>
+                              handleAddToCart(item._id, 1, variant._id)
+                            }
+                            disabled={
+                              addingItemId === item._id || variant.quantity < 1
+                            }
+                            className="flex w-full items-center justify-between rounded-lg bg-white px-2 py-1.5 text-left text-[10px] font-bold text-slate-700 shadow-sm disabled:opacity-50"
                           >
-                            <Minus size={12} />
+                            <span>
+                              {variant.color || "Variant"}
+                              {variant.storage
+                                ? ` · ${variant.storage}`
+                                : ""}{" "}
+                              <span className="text-slate-400">
+                                ({variant.quantity} left)
+                              </span>
+                            </span>
+                            <span className="text-[#65a30d]">
+                              {formatCurrency(
+                                convertAmount(variant.expectedPrice || 0),
+                              )}{" "}
+                              +
+                            </span>
                           </button>
-                          <span className="w-6 text-center text-xs font-black">
-                            {qty}
-                          </span>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Price and Add Row */}
+                    {(item.variants || []).length === 0 && (
+                      <div className="flex items-center justify-between mt-4">
+                        <p className="text-[15px] font-black text-slate-900">
+                          {formatCurrency(convertAmount(item.expectedPrice))}
+                        </p>
+
+                        {/* Quantity select & Add */}
+                        <div className="flex items-center gap-2">
+                          {/* Qty count adjuster */}
+                          <div className="flex items-center bg-slate-100 rounded-lg p-0.5 border border-slate-200">
+                            <button
+                              onClick={() => handleLocalQtyChange(item._id, -1)}
+                              className="w-6 h-6 flex items-center justify-center text-slate-500 hover:text-slate-800"
+                            >
+                              <Minus size={12} />
+                            </button>
+                            <span className="w-6 text-center text-xs font-black">
+                              {qty}
+                            </span>
+                            <button
+                              onClick={() => handleLocalQtyChange(item._id, 1)}
+                              className="w-6 h-6 flex items-center justify-center text-slate-500 hover:text-slate-800"
+                            >
+                              <Plus size={12} />
+                            </button>
+                          </div>
+
+                          {/* Add Circle button */}
                           <button
-                            onClick={() => handleLocalQtyChange(item._id, 1)}
-                            className="w-6 h-6 flex items-center justify-center text-slate-500 hover:text-slate-800"
+                            onClick={() => handleAddToCart(item._id, qty)}
+                            disabled={addingItemId === item._id}
+                            className="w-8 h-8 rounded-full bg-[#84CC16] text-white flex items-center justify-center hover:bg-[#74b313] active:scale-95 shadow shadow-lime-500/25 transition-all"
                           >
-                            <Plus size={12} />
+                            {addingItemId === item._id ? (
+                              <Loader2 size={14} className="animate-spin" />
+                            ) : (
+                              <Plus size={16} strokeWidth={3} />
+                            )}
                           </button>
                         </div>
-
-                        {/* Add Circle button */}
-                        <button
-                          onClick={() => handleAddToCart(item._id, qty)}
-                          disabled={addingItemId === item._id}
-                          className="w-8 h-8 rounded-full bg-[#84CC16] text-white flex items-center justify-center hover:bg-[#74b313] active:scale-95 shadow shadow-lime-500/25 transition-all"
-                        >
-                          {addingItemId === item._id ? (
-                            <Loader2 size={14} className="animate-spin" />
-                          ) : (
-                            <Plus size={16} strokeWidth={3} />
-                          )}
-                        </button>
                       </div>
-                    </div>
+                    )}
                   </motion.div>
                 );
               })}
@@ -1407,9 +1476,8 @@ export default function Checkout() {
           ) : orderCartItems.length > 0 ? (
             orderCartItems.map((cartItem: any) => {
               const item = cartItem.itemId;
-              const originalPrice = convertAmount(
-                Number(item?.expectedPrice || 0),
-              );
+              const variant = getCartVariant(cartItem);
+              const originalPrice = convertAmount(getCartPrice(cartItem));
               const manualValue = manualPrices[cartItem._id];
               const parsedManual = Number(manualValue);
               const isExceeded =
@@ -1445,9 +1513,9 @@ export default function Checkout() {
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex items-center gap-3 min-w-0 flex-1">
                       <div className="relative w-11 h-11 bg-slate-50 border border-slate-200 rounded-xl overflow-hidden shrink-0 flex items-center justify-center">
-                        {item?.image?.url ? (
+                        {variant?.image?.url || item?.image?.url ? (
                           <Image
-                            src={item.image.url}
+                            src={variant?.image?.url || item.image.url}
                             alt={item.itemName}
                             fill
                             className="object-cover"
@@ -1463,7 +1531,9 @@ export default function Checkout() {
                         <p className="text-[10px] font-bold text-slate-400 truncate">
                           {cartItem.type === "repair"
                             ? "Repair Service"
-                            : item?.brand || "Brand"}{" "}
+                            : variant
+                              ? `${variant.color || "Variant"}${variant.storage ? ` · ${variant.storage}` : ""}`
+                              : item?.brand || "Brand"}{" "}
                           - {item?.currentState || "New"}
                         </p>
                       </div>
@@ -1732,6 +1802,7 @@ export default function Checkout() {
                 {cartItems.length > 0 ? (
                   cartItems.map((cartItem: any) => {
                     const item = cartItem.itemId;
+                    const variant = getCartVariant(cartItem);
                     const checked = selectedDeliveryItemIds.includes(
                       cartItem._id,
                     );
@@ -1767,8 +1838,11 @@ export default function Checkout() {
                           <p className="text-[10px] font-bold text-slate-500">
                             Qty {cartItem.quantity} •{" "}
                             {formatCurrency(
-                              convertAmount(Number(item?.expectedPrice || 0)),
+                              convertAmount(getCartPrice(cartItem)),
                             )}
+                            {variant
+                              ? ` • ${variant.color || "Variant"}${variant.storage ? ` · ${variant.storage}` : ""}`
+                              : ""}
                           </p>
                         </div>
                       </label>

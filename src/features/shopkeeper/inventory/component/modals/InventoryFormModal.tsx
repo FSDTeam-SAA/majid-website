@@ -703,6 +703,27 @@ export function InventoryFormModal({
     useState(false);
   const [colorValues, setColorValues] = useState<string[]>([""]);
   const [storageValues, setStorageValues] = useState<string[]>([""]);
+  const [isVariantModalOpen, setIsVariantModalOpen] = useState(false);
+  const [editingVariantIndex, setEditingVariantIndex] = useState<number | null>(
+    null,
+  );
+  const emptyVariant = (): NonNullable<
+    CreateInventoryInput["variants"]
+  >[number] => ({
+    purchasePrice: undefined,
+    expectedPrice: 0,
+    quantity: 1,
+    color: "",
+    storage: "",
+    imeiNumber: "",
+    currentState: "good condition" as const,
+    supplierId: "",
+    imageFile: undefined as File | undefined,
+  });
+  const [variantDraft, setVariantDraft] =
+    useState<NonNullable<CreateInventoryInput["variants"]>[number]>(
+      emptyVariant,
+    );
 
   // Supplier search state
   const [supplierSearch, setSupplierSearch] = useState("");
@@ -883,6 +904,27 @@ export function InventoryFormModal({
   const [scanResultModalData, setScanResultModalData] =
     useState<ScanResultData | null>(null);
   const isPending = isCreating || isUpdating || isCreatingFromBarcode;
+
+  const openVariantModal = (index?: number) => {
+    const variants = form.getValues("variants") || [];
+    setEditingVariantIndex(index ?? null);
+    setVariantDraft(
+      index === undefined ? emptyVariant() : { ...variants[index] },
+    );
+    setIsVariantModalOpen(true);
+  };
+
+  const saveVariant = () => {
+    if (!variantDraft.expectedPrice || variantDraft.quantity < 0) {
+      toast.error("Variant selling price and quantity are required");
+      return;
+    }
+    const variants = [...(form.getValues("variants") || [])];
+    if (editingVariantIndex === null) variants.push(variantDraft);
+    else variants[editingVariantIndex] = variantDraft;
+    form.setValue("variants", variants, { shouldDirty: true });
+    setIsVariantModalOpen(false);
+  };
 
   const syncMultiValueField = (
     field: "color" | "storage",
@@ -2624,6 +2666,64 @@ export function InventoryFormModal({
               </div>
             </div>
 
+            <div className="space-y-3 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <h4 className="text-xs font-black uppercase tracking-widest text-slate-900 dark:text-white">
+                    Device Variants
+                  </h4>
+                  <p className="mt-1 text-[10px] font-bold text-slate-400">
+                    Stock, price, IMEI, supplier and image are tracked per
+                    variant.
+                  </p>
+                </div>
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={() => openVariantModal()}
+                  className="bg-[#84CC16] text-white hover:bg-[#74b313]"
+                >
+                  <Plus className="mr-1 h-4 w-4" /> Add Variant
+                </Button>
+              </div>
+              {(form.watch("variants") || []).map((variant, index) => (
+                <div
+                  key={variant._id || index}
+                  className="flex items-center justify-between rounded-xl bg-white px-3 py-2 text-xs shadow-sm"
+                >
+                  <span className="font-bold text-slate-700">
+                    {variant.color || "No color"}
+                    {variant.storage ? ` · ${variant.storage}` : ""} ·{" "}
+                    {variant.quantity} in stock
+                  </span>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => openVariantModal(index)}
+                      className="font-bold text-[#65a30d]"
+                    >
+                      Edit
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        form.setValue(
+                          "variants",
+                          (form.getValues("variants") || []).filter(
+                            (_, i) => i !== index,
+                          ),
+                          { shouldDirty: true },
+                        )
+                      }
+                      className="font-bold text-red-500"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+
             {/* Section: Management Metadata */}
             <div className="space-y-6">
               <div className="border-b border-slate-100 pb-3">
@@ -3866,6 +3966,127 @@ export function InventoryFormModal({
           setIsSupplierFormOpen(false);
         }}
       />
+
+      <Dialog open={isVariantModalOpen} onOpenChange={setIsVariantModalOpen}>
+        <DialogContent className="max-w-xl">
+          <DialogHeader>
+            <DialogTitle>
+              {editingVariantIndex === null ? "Add Variant" : "Edit Variant"}
+            </DialogTitle>
+            <DialogDescription>
+              Each variant can have its own stock, price, IMEI, condition,
+              supplier and image.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid grid-cols-2 gap-4 py-3">
+            {(
+              [
+                ["purchasePrice", "Cost price", "number"],
+                ["expectedPrice", "Selling price", "number"],
+                ["quantity", "Quantity", "number"],
+                ["color", "Color", "text"],
+                ["storage", "Storage", "text"],
+                ["imeiNumber", "IMEI number", "text"],
+              ] as const
+            ).map(([key, label, type]) => (
+              <div key={key}>
+                <label className="mb-1 block text-xs font-bold text-slate-600">
+                  {label}
+                </label>
+                <Input
+                  type={type}
+                  value={variantDraft[key] ?? ""}
+                  onChange={(event) =>
+                    setVariantDraft((previous) => ({
+                      ...previous,
+                      [key]:
+                        type === "number"
+                          ? Number(event.target.value)
+                          : event.target.value,
+                    }))
+                  }
+                />
+              </div>
+            ))}
+            <div>
+              <label className="mb-1 block text-xs font-bold text-slate-600">
+                Condition
+              </label>
+              <Select
+                value={variantDraft.currentState}
+                onValueChange={(currentState: "new" | "good condition") =>
+                  setVariantDraft((previous) => ({ ...previous, currentState }))
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="new">New</SelectItem>
+                  <SelectItem value="good condition">Good condition</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-bold text-slate-600">
+                Supplier
+              </label>
+              <Select
+                value={variantDraft.supplierId || "none"}
+                onValueChange={(supplierId) =>
+                  setVariantDraft((previous) => ({
+                    ...previous,
+                    supplierId: supplierId === "none" ? "" : supplierId,
+                  }))
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select supplier" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">No supplier</SelectItem>
+                  {suppliers.map((supplier) => (
+                    <SelectItem key={supplier._id} value={supplier._id}>
+                      {supplier.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="col-span-2">
+              <label className="mb-1 block text-xs font-bold text-slate-600">
+                Variant image
+              </label>
+              <Input
+                type="file"
+                accept="image/*"
+                onChange={(event) =>
+                  setVariantDraft((previous) => ({
+                    ...previous,
+                    imageFile: event.target.files?.[0],
+                  }))
+                }
+              />
+            </div>
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setIsVariantModalOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              onClick={saveVariant}
+              className="bg-[#84CC16] hover:bg-[#74b313]"
+            >
+              Save Variant
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

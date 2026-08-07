@@ -73,3 +73,26 @@ from there it will also call the create customer api. so that customer created a
 prompt: 9  done 
 in the repire section Technician field add a fild on backend named technician and also the dropdown should show the previous technician and add a option for add new technician. 
 ------------------------------
+
+
+prompt 1: 
+- /shopkeeper/inventory in this page Add New Device there will be a another button in that button add variant by clicking this another model will show or many input fields will sow like cost price, selling price, quantity, color, storage, imei number, condition and that varient image, supplier. 
+
+- also you need to update that spacific api add those varient fiels properly 
+
+- and in the product view that will verials will be visible also with detals, 
+
+- also in the /shopkeeper/checkout page Browse Inventory section if the item had variants they can able to see in that cart item the variend and add to cart that 
+
+- and if a change now button and Collect Payment done that quantity will be reduce from the inventory quantity. 
+
+do this feature properly. maintain the flow if you find anyting working suggest the right way. 
+>>>>>>>>>and do not change any existing feature or anyting else other than that. <<<<<<<<<<<<
+
+------------------------------
+prompt 2:  
+in this /shopkeeper/checkout page Browse Inventory section add paginaiton if backend need do it. also make the page faster. from Browse Inventory when i cleack (+) button it show a looding animaiton no need that 
+-  Orders Ready for Collection 8 in this sections when i adding a order in the cart the number should dicress form here and the order should be not show from the section. when charge now and Collect Payment complete those number will dicress and revome from the Orders Ready for Collection
+ parmanently. you may need to update or change some things on the api 
+
+ - Developer Notes, Recommendation Setup Examples remove those notes from the page 

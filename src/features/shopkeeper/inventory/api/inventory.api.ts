@@ -92,6 +92,28 @@ export const createInventory = async (input: CreateInventoryInput) => {
       continue;
     }
 
+    if (key === "variants" && Array.isArray(value)) {
+      let imageUploadIndex = 0;
+      formData.append(
+        "variants",
+        JSON.stringify(
+          value.map(({ imageFile, ...variant }) => {
+            const serialized =
+              imageFile instanceof File
+                ? { ...variant, imageUploadIndex: imageUploadIndex++ }
+                : variant;
+            return serialized;
+          }),
+        ),
+      );
+      value.forEach((variant) => {
+        if (variant.imageFile instanceof File) {
+          formData.append("variantImages", variant.imageFile);
+        }
+      });
+      continue;
+    }
+
     if (Array.isArray(value)) {
       formData.append(key, JSON.stringify(value));
       continue;
@@ -129,6 +151,25 @@ export const updateInventory = async ({
 
     if (key === "image" && value instanceof File) {
       formData.append(key, value);
+      continue;
+    }
+
+    if (key === "variants" && Array.isArray(value)) {
+      let imageUploadIndex = 0;
+      formData.append(
+        "variants",
+        JSON.stringify(
+          value.map(({ imageFile, ...variant }) =>
+            imageFile instanceof File
+              ? { ...variant, imageUploadIndex: imageUploadIndex++ }
+              : variant,
+          ),
+        ),
+      );
+      value.forEach((variant) => {
+        if (variant.imageFile instanceof File)
+          formData.append("variantImages", variant.imageFile);
+      });
       continue;
     }
 
@@ -246,6 +287,7 @@ export const createInvoice = async (input: {
   discountName?: string;
   discountPercentage?: number;
   discountAmount?: number;
+  lineItems?: Array<{ itemId: string; quantity: number; variantId?: string }>;
 }) => {
   const formData = new FormData();
 
@@ -292,6 +334,8 @@ export const createInvoice = async (input: {
       formData.append("itemsIds", id);
     });
   }
+  if (input.lineItems?.length)
+    formData.append("lineItems", JSON.stringify(input.lineItems));
 
   const response = await api.post(`/invoices/create`, formData, {
     headers: {
@@ -363,6 +407,7 @@ export const addToShopkeeperCart = async (input: {
   shopkeeperId: string;
   itemId: string;
   quantity: number;
+  variantId?: string;
 }): Promise<CartItem> => {
   const response = await api.post(`/add-to-cart/create`, input);
   return response.data.data;

@@ -183,6 +183,60 @@ export function InventoryDetailsModal({
             </div>
 
             {/* Technical Details */}
+            {(item.variants || []).length > 0 && (
+              <div className="space-y-4">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-lg bg-[#84CC16] flex items-center justify-center text-white">
+                    <Layers size={16} />
+                  </div>
+                  <h3 className="text-sm font-black uppercase tracking-widest text-[#0F172A] dark:text-white">
+                    Available Variants
+                  </h3>
+                </div>
+                <div className="space-y-3">
+                  {item.variants?.map((variant, index) => (
+                    <div
+                      key={variant._id || index}
+                      className="flex items-center justify-between gap-4 rounded-2xl border border-slate-100 bg-slate-50 p-4"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="relative h-12 w-12 overflow-hidden rounded-xl bg-white">
+                          {variant.image?.url && (
+                            <Image
+                              src={variant.image.url}
+                              alt={`${item.itemName} variant`}
+                              fill
+                              className="object-cover"
+                              unoptimized
+                            />
+                          )}
+                        </div>
+                        <div>
+                          <p className="text-sm font-black text-slate-900">
+                            {variant.color || "Variant"}
+                            {variant.storage ? ` · ${variant.storage}` : ""}
+                          </p>
+                          <p className="text-[11px] font-bold text-slate-500">
+                            IMEI: {variant.imeiNumber || "Not provided"} ·{" "}
+                            {variant.currentState}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-sm font-black text-[#65a30d]">
+                          {formatCurrency(variant.expectedPrice || 0, currency)}
+                        </p>
+                        <p className="text-[11px] font-bold text-slate-500">
+                          {variant.quantity} in stock
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Technical Details */}
             {item.productDetails && (
               <div className="space-y-4">
                 <div className="flex items-center gap-2">
