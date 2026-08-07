@@ -1,5 +1,6 @@
 import axios from "axios";
 import { getSession, signOut } from "next-auth/react";
+import { getActiveShopId } from "@/features/shopkeeper/shop/store/shopStorage";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -15,6 +16,27 @@ api.interceptors.request.use(
     if (session?.accessToken) {
       config.headers.Authorization = `Bearer ${session.accessToken}`;
     }
+
+    const activeShopId = getActiveShopId();
+    if (activeShopId) {
+      const method = (config.method || "get").toLowerCase();
+      if (method === "get" || method === "delete") {
+        config.params = {
+          ...(config.params as Record<string, unknown> | undefined),
+          shopId: activeShopId,
+        };
+      } else if (
+        typeof FormData !== "undefined" &&
+        config.data instanceof FormData
+      ) {
+        config.data.append("shopId", activeShopId);
+      } else if (config.data && typeof config.data === "object") {
+        config.data = { ...config.data, shopId: activeShopId };
+      } else {
+        config.data = { shopId: activeShopId };
+      }
+    }
+
     return config;
   },
   (error) => {

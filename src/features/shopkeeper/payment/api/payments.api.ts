@@ -7,6 +7,8 @@ export const getMyPayments = async () => {
 
 export const createPaymentSession = async (data: {
   subscriptionId: string;
+  amount: number;
+  currency?: string;
 }) => {
   const response = await api.post("/payment/create-payment", data);
   return response.data;

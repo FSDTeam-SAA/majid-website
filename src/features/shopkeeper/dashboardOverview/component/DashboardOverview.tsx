@@ -28,6 +28,7 @@ import {
   YAxis,
 } from "recharts";
 import { useDashboardOverview } from "../hooks/useDashboardOverview";
+import { useShop } from "@/features/shopkeeper/shop/store/shop.store";
 import { useCurrency } from "@/hooks/useCurrency";
 import type {
   CashManagementResponse,
@@ -120,6 +121,7 @@ export default function DashboardOverview() {
   const { formatCurrency } = useCurrency();
   const { data: session, status } = useSession();
   const shopkeeperId = (session?.user as { id?: string })?.id;
+  const { activeShopId } = useShop();
 
   const {
     stats,
@@ -129,7 +131,7 @@ export default function DashboardOverview() {
     error,
     saveCashManagement,
     isSavingCashManagement,
-  } = useDashboardOverview(shopkeeperId, period);
+  } = useDashboardOverview(shopkeeperId, period, activeShopId);
 
   const statCards = useMemo(
     () => [

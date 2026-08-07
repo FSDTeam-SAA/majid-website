@@ -1,6 +1,7 @@
 "use client";
 
 import NotificationDropdown from "@/features/notifications/component/NotificationDropdown";
+import ShopSwitcher from "@/features/shopkeeper/shop/component/ShopSwitcher";
 import { ModeToggle } from "../website/ModeToggle";
 import { Menu } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -30,6 +31,8 @@ export default function Header({ setOpenSidebar }: Props) {
             <Menu size={20} />
           </Button>
         )}
+
+        {isAuthenticated && <ShopSwitcher />}
 
         <div className="flex-1 max-w-xl"></div>
       </div>

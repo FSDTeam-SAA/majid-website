@@ -12,8 +12,18 @@ import type {
 } from "../types/dashboard.types";
 
 export const DASHBOARD_OVERVIEW_KEYS = {
-  stats: (shopkeeperId: string, filter: DashboardFilter) =>
-    ["dashboard-overview", "stats", shopkeeperId, filter] as const,
+  stats: (
+    shopkeeperId: string,
+    filter: DashboardFilter,
+    shopId?: string | null,
+  ) =>
+    [
+      "dashboard-overview",
+      "stats",
+      shopkeeperId,
+      shopId || "all",
+      filter,
+    ] as const,
   cashManagement: (shopkeeperId: string) =>
     ["dashboard-overview", "cash-management", shopkeeperId] as const,
 };
@@ -21,12 +31,14 @@ export const DASHBOARD_OVERVIEW_KEYS = {
 export function useDashboardOverview(
   shopkeeperId: string | undefined,
   filter: DashboardFilter,
+  shopId?: string | null,
 ) {
   const queryClient = useQueryClient();
 
   const statsQuery = useQuery({
-    queryKey: DASHBOARD_OVERVIEW_KEYS.stats(shopkeeperId || "", filter),
-    queryFn: () => getShopkeeperDashboardStats(shopkeeperId || "", filter),
+    queryKey: DASHBOARD_OVERVIEW_KEYS.stats(shopkeeperId || "", filter, shopId),
+    queryFn: () =>
+      getShopkeeperDashboardStats(shopkeeperId || "", filter, shopId),
     enabled: Boolean(shopkeeperId),
   });
 

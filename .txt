@@ -110,7 +110,7 @@ in this /shopkeeper/checkout page Browse Inventory section add paginaiton if bac
 prompt 3: 
 
 in the webiste and backend i need to add a featuer malti shoop feature. currently a shopkeeper they able to manage on by defalt work on a shop. so in the pricing plan there will be added another plan if they get and pay that multi accout plan the shopkeeper will able to add another shoop (if they pay for onother shop they will able to add another same way it will go on.)and those need to setup fill the shop details. 
- in the shoop keeper dashboard in the left side bar bottom if they have multiple shop they can sweet between them if they sweet every data will show based on that shop the search history, dashboard overview, payment history, ivoice section datas, inventory sections datas, customer section datas, repair section datas ,  
+ in the shoop keeper dashboard in the left side bar bottom if they have multiple shop they can sweet between them if they sweet every data will show based on that shop the search history, dashboard overview, payment history, ivoice section datas, inventory sections datas, customer section datas, repair section datas. multi shope will seems like i a shop keeper again create and account with another details they will see everythhing saparate. this featuer will allow able to do and manage from one account. 
 
  - in the shopkeeper/settings/staff section when they are adding that stuff if the shopkeeper has multiple account then they will able to cleck which accout they are assigned i mean which shop they are assigned with then when the stuff login they will able to see all things for that shop (many things currently have but for only default shop). 
 

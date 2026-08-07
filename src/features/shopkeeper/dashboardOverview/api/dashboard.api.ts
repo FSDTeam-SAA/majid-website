@@ -9,9 +9,14 @@ import type {
 export const getShopkeeperDashboardStats = async (
   shopkeeperId: string,
   filter: DashboardFilter,
+  shopId?: string | null,
 ): Promise<DashboardStatsResponse> => {
   const response = await api.get("/dashboard/stats", {
-    params: { filter, shopkeeperId },
+    params: {
+      filter,
+      shopkeeperId,
+      ...(shopId ? { shopId } : {}),
+    },
   });
 
   return response.data.data;
