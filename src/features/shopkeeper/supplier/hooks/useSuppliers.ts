@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { getActiveShopId } from "@/features/shopkeeper/shop/store/shopStorage";
 import {
   createSupplier,
   deleteSupplier,
@@ -10,21 +11,24 @@ import type { SupplierInput, SupplierListParams } from "../types";
 
 export const SUPPLIER_KEYS = {
   all: ["suppliers"] as const,
-  list: (params: SupplierListParams) =>
-    [...SUPPLIER_KEYS.all, "list", params] as const,
-  detail: (id: string) => [...SUPPLIER_KEYS.all, "detail", id] as const,
+  list: (params: SupplierListParams, shopId?: string | null) =>
+    [...SUPPLIER_KEYS.all, "list", params, shopId ?? ""] as const,
+  detail: (id: string, shopId?: string | null) =>
+    [...SUPPLIER_KEYS.all, "detail", id, shopId ?? ""] as const,
 };
 
 export function useSuppliers(params: SupplierListParams = {}) {
+  const activeShopId = getActiveShopId();
   return useQuery({
-    queryKey: SUPPLIER_KEYS.list(params),
+    queryKey: SUPPLIER_KEYS.list(params, activeShopId),
     queryFn: () => getSuppliers(params),
   });
 }
 
 export function useSupplier(id?: string) {
+  const activeShopId = getActiveShopId();
   return useQuery({
-    queryKey: SUPPLIER_KEYS.detail(id || ""),
+    queryKey: SUPPLIER_KEYS.detail(id || "", activeShopId),
     queryFn: () => getSupplier(id || ""),
     enabled: Boolean(id),
   });

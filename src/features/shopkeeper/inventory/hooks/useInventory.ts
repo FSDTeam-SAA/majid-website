@@ -1,4 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { getActiveShopId } from "@/features/shopkeeper/shop/store/shopStorage";
 import {
   getMyInventory,
   getInventoryByCategory,
@@ -54,6 +55,8 @@ export const INVENTORY_KEYS = {
 
 export const CATEGORY_KEYS = {
   all: ["categories"] as const,
+  list: (shopId?: string | null) =>
+    [...CATEGORY_KEYS.all, "list", shopId ?? ""] as const,
 };
 
 export function useMyInventory(
@@ -94,8 +97,9 @@ export function useBarcodeProductSearch(query?: string) {
 }
 
 export function useCategories() {
+  const activeShopId = getActiveShopId();
   return useQuery<CategoryListResponse>({
-    queryKey: CATEGORY_KEYS.all,
+    queryKey: CATEGORY_KEYS.list(activeShopId),
     queryFn: getCategories,
     staleTime: 1000 * 60,
   });

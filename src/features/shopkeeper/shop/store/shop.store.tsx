@@ -8,7 +8,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSession } from "next-auth/react";
 import {
   getShopEntitlement,
@@ -78,10 +78,16 @@ export function ShopProvider({ children }: { children: ReactNode }) {
     [shops, activeShopId],
   );
 
-  const setActiveShop = useCallback((shopId: string | null) => {
-    setSelectedShopId(shopId);
-    setActiveShopId(shopId);
-  }, []);
+  const queryClient = useQueryClient();
+
+  const setActiveShop = useCallback(
+    (shopId: string | null) => {
+      setSelectedShopId(shopId);
+      setActiveShopId(shopId);
+      queryClient.invalidateQueries();
+    },
+    [queryClient],
+  );
 
   const value = useMemo<ShopContextValue>(
     () => ({

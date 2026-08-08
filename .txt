@@ -126,9 +126,13 @@ in the webiste and backend i need to add a featuer malti shoop feature. currentl
 
  ------------------------------
 8 aug 
-Prompt: 1
-I'm seeing some issues if the shopkeeper has multi account and if i swich to my second accout currently i can see /shopkeeper/inventorys datas from my first accout which is not correct. every shoop data should be indivisual and separate.same showing on /inventory/suppliers datas. 
+Prompt: 1 done
+I'm seeing some issues if the shopkeeper has multi account and if i swich to my second accout currently i can see /shopkeeper/inventorys datas Inventory Categories from my first accout which is not correct. every shoop data should be indivisual and separate.same showing on /inventory/suppliers datas. 
 
 fix this. do not change any existing features or do not roined my code.  
 ------------------------------
+Prompt: 2 
+in the website /shopkeeper/invoice/purchase-invoice page when cleck purchase receipt button then it will ask how they gono pay a popup will rise same like checkout page when i cleck change now a popup came same like it will show on the purchase invoice.
+
+do this feature also store the info in the backend if there is not storing now. check follow 
 
