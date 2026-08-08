@@ -144,4 +144,87 @@ shopkeeper/scan-device there is button on
 --------------
 Prompt: 4 fix 
 I have multiple shop and i just scan a device from scan device page. with my new seconde shop. but when i gone to search history there was no data. fix this it suppose to show that i was searched. 
-do this feature also store the info in the backend if there is not storing now. check follow 
+do this feature also store the info in the backend if there is not storing now. check follow.
+
+
+--------------
+Prompt: 4 fix 
+/shopkeeper/scan-device this page in the website when i scane a device 
+http://localhost:5000/api/v1/imei/check-v2 this is the api 
+{
+    "success": true,
+    "message": "IMEI check (v2) completed",
+    "data": [
+        {
+            "imei": "356311584713490",
+            "ok": true,
+            "message": "IMEI check regenerated (sickw)",
+            "data": {
+                "provider": "sickw",
+                "parsedProviderData": {
+                    "image": {
+                        "src": "https://appleid.cdn-apple.com/static/deviceImages-15.0/iPhone/iPhone18,2-3b3b3c-dcdede/online-sourcelist__3x.png",
+                        "height": 80,
+                        "html": "<img src=\"https://appleid.cdn-apple.com/static/deviceImages-15.0/iPhone/iPhone18,2-3b3b3c-dcdede/online-sourcelist__3x.png\" height=\"80\">"
+                    },
+                    "device": "iPhone 17 Pro Max",
+                    "imei_number": "356311584713490",
+                    "serial_number": "M9KP276D0X",
+                    "serial_key": "6a75f99b27ae32223c7d2ca1",
+                    "coverage_benefits": "Hardware Service, Chat & Phone Support",
+                    "warranty_type": "Limited Warranty",
+                    "warranty_expires": "August 6, 2027",
+                    "estimated_purchase_date": "August 7, 2026",
+                    "activation_status": "Activated",
+                    "registration_status": "Yes",
+                    "replaced_device": "No",
+                    "temp_coverage": "No",
+                    "open_repair": "No",
+                    "notice": "There are 60 days left to add coverage."
+                },
+                "riskMeter": 1,
+                "aiInsight": {
+                    "title": "Clean iPhone 17 Pro Max",
+                    "message": "The device is activated, registered, under limited warranty, and shows no signs of blacklist, lock, or finance issues."
+                },
+                "marketValue": {
+                    "amount": 920,
+                    "currency": "USD"
+                },
+                "_id": "6a772473a803a725fbcdbabf",
+                "oldGenerated": false
+            }
+        }
+    ]
+}
+api responce. 
+but in the history Request URL
+http://localhost:5000/api/v1/imei/history?page=1&limit=10&shopId=6a75eb63f2a0b99ce5db5376
+Request Method
+GET
+api responce i'm seeting: 
+{
+    "success": true,
+    "message": "Recent checks fetched successfully",
+    "data": [
+        {
+            "_id": "6a772473a803a725fbcdbabf",
+            "userId": "69efe37f774a05ee91ff7244",
+            "imei": "356311584713490",
+            "serviceId": 101,
+            "createdAt": "2026-08-08T12:43:31.616Z",
+            "deviceName": "Unknown Device",
+            "deviceStatus": "unknown",
+            "marketValue": {
+                "amount": 300,
+                "currency": "USD"
+            },
+            "riskMeter": {
+                "riskLevel": "low",
+                "score": 12,
+                "label": "Low Risk"
+            },
+            "updatedAt": "2026-08-08T12:54:08.978Z"
+        },
+
+as you can see i'm seeing unknown device in the history this is wrong. but i'm getting device name and everythng on the request. when i'm checking fix this issue fix this 
