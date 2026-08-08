@@ -50,7 +50,7 @@ const navItems = [
   {
     icon: <Store size={20} />,
     label: "My Shops",
-    href: "/shopkeeper/shops",
+    href: "/shopkeeper/settings/my-shop",
   },
   {
     icon: <CreditCard size={20} />,
@@ -177,7 +177,11 @@ export default function Sidebar({
         {/* Navigation */}
         <nav className="flex-1 px-3 space-y-2 overflow-y-auto custom-scrollbar">
           {navItems.map((item) => {
-            const isActive = pathname.startsWith(item.href);
+            const isActive =
+              item.href === "/shopkeeper/settings"
+                ? pathname.startsWith("/shopkeeper/settings") &&
+                  !pathname.startsWith("/shopkeeper/settings/my-shop")
+                : pathname.startsWith(item.href);
             const isSubmenuOpen = !collapsed && openSubmenu === item.label;
 
             if (item.isSpecial) {

@@ -136,3 +136,12 @@ in the website /shopkeeper/invoice/purchase-invoice page when cleck purchase rec
 
 do this feature also store the info in the backend if there is not storing now. check follow 
 
+------------------------------
+Prompt: 3
+shopkeeper/scan-device there is button on 
+
+
+--------------
+Prompt: 4 fix 
+I have multiple shop and i just scan a device from scan device page. with my new seconde shop. but when i gone to search history there was no data. fix this it suppose to show that i was searched. 
+do this feature also store the info in the backend if there is not storing now. check follow 

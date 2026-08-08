@@ -1,4 +1,4 @@
-import AddShop from "@/features/shopkeeper/shop/component/AddShop";
+import { redirect } from "next/navigation";
 
 export const metadata = {
   title: "My Shops | Shopkeeper Dashboard",
@@ -6,5 +6,5 @@ export const metadata = {
 };
 
 export default function ShopsPage() {
-  return <AddShop />;
+  redirect("/shopkeeper/settings/my-shop");
 }

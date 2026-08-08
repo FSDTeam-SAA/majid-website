@@ -49,7 +49,7 @@ export default function AddShop() {
       }
 
       toast.success("Shop created successfully");
-      router.push("/shopkeeper/shops");
+      router.push("/shopkeeper/settings/my-shop");
       router.refresh();
     } catch (error: unknown) {
       const err = error as {

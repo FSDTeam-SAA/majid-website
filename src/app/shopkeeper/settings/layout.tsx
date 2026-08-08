@@ -12,6 +12,7 @@ import {
   UsersRound,
   PanelLeftClose,
   PanelLeftOpen,
+  Store,
 } from "lucide-react";
 
 const tabs = [
@@ -21,6 +22,7 @@ const tabs = [
     icon: QrCode,
   },
   { label: "Profile", href: "/shopkeeper/settings/profile", icon: User },
+  { label: "My Shop", href: "/shopkeeper/settings/my-shop", icon: Store },
   { label: "Staff", href: "/shopkeeper/settings/staff", icon: UsersRound },
   { label: "Password", href: "/shopkeeper/settings/password", icon: KeyRound },
   { label: "Support", href: "/shopkeeper/settings/support", icon: Headphones },

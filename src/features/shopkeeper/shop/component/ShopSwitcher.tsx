@@ -104,7 +104,7 @@ export default function ShopSwitcher() {
         {multiShopEnabled ? (
           <DropdownMenuItem asChild>
             <Link
-              href="/shopkeeper/shops"
+              href="/shopkeeper/settings/my-shop"
               className="flex items-center gap-2 text-[#84CC16]"
             >
               <Plus size={14} />
