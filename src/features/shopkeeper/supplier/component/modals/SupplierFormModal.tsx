@@ -21,6 +21,7 @@ type SupplierFormModalProps = {
   isOpen: boolean;
   onClose: () => void;
   supplier?: Supplier | null;
+  shopId?: string | null;
   onCreated?: (supplier: Supplier) => void;
 };
 
@@ -28,6 +29,7 @@ export function SupplierFormModal({
   isOpen,
   onClose,
   supplier,
+  shopId,
   onCreated,
 }: SupplierFormModalProps) {
   const createSupplierMutation = useCreateSupplier();
@@ -81,6 +83,7 @@ export function SupplierFormModal({
       email: data.email?.trim() || undefined,
       address: data.address?.trim() || undefined,
       notes: data.notes?.trim() || undefined,
+      shopId: shopId || undefined,
     };
 
     if (supplier) {

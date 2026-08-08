@@ -16,8 +16,10 @@ import type {
 const BASE = "/inventory";
 const CATEGORY_BASE = "/category";
 
-export const getMyInventory = async (): Promise<InventoryListResponse> => {
-  const response = await api.get(`${BASE}/my-inventory`);
+export const getMyInventory = async (
+  params?: Record<string, unknown>,
+): Promise<InventoryListResponse> => {
+  const response = await api.get(`${BASE}/my-inventory`, { params });
   return response.data;
 };
 

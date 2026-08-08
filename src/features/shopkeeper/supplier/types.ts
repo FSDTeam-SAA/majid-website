@@ -16,6 +16,7 @@ export type SupplierInput = {
   email?: string;
   address?: string;
   notes?: string;
+  shopId?: string | null;
 };
 
 export type SupplierListParams = {
@@ -23,6 +24,7 @@ export type SupplierListParams = {
   limit?: number;
   isActive?: boolean;
   search?: string;
+  shopId?: string | null;
 };
 
 export type SupplierListResponse = {

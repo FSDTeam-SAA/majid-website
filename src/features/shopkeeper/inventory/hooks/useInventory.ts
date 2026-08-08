@@ -40,7 +40,8 @@ import type {
 
 export const INVENTORY_KEYS = {
   all: ["inventory"] as const,
-  myInventory: () => [...INVENTORY_KEYS.all, "my-inventory"] as const,
+  myInventory: (params?: Record<string, unknown>) =>
+    [...INVENTORY_KEYS.all, "my-inventory", params] as const,
   barcodeSearch: (query: string) =>
     [...INVENTORY_KEYS.all, "barcode-search", query] as const,
   byCategory: (categoryId: string) =>
@@ -55,11 +56,15 @@ export const CATEGORY_KEYS = {
   all: ["categories"] as const,
 };
 
-export function useMyInventory() {
+export function useMyInventory(
+  params?: Record<string, unknown>,
+  options?: { enabled?: boolean },
+) {
   return useQuery({
-    queryKey: INVENTORY_KEYS.myInventory(),
-    queryFn: getMyInventory,
+    queryKey: INVENTORY_KEYS.myInventory(params),
+    queryFn: () => getMyInventory(params),
     staleTime: 1000 * 60,
+    enabled: options?.enabled !== undefined ? options.enabled : true,
   });
 }
 

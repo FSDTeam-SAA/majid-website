@@ -26,6 +26,7 @@ import { SupplierFormModal } from "./modals/SupplierFormModal";
 import { useDeleteSupplier, useSuppliers } from "../hooks/useSuppliers";
 import SupplierItemsModal from "./modals/SupplierItemsModal";
 import type { Supplier } from "../types";
+import { useShop } from "../../shop/store/shop.store";
 
 type ActiveFilter = "active" | "inactive" | "all";
 
@@ -39,6 +40,7 @@ export default function Suppliers() {
     null,
   );
   const deleteSupplierMutation = useDeleteSupplier();
+  const { activeShopId } = useShop();
 
   const supplierParams = useMemo(
     () => ({
@@ -46,8 +48,9 @@ export default function Suppliers() {
       limit: 10,
       search: searchQuery.trim() || undefined,
       isActive: activeFilter === "all" ? undefined : activeFilter === "active",
+      shopId: activeShopId,
     }),
-    [activeFilter, page, searchQuery],
+    [activeFilter, page, searchQuery, activeShopId],
   );
 
   const {
@@ -323,6 +326,7 @@ export default function Suppliers() {
           setEditingSupplier(null);
         }}
         supplier={editingSupplier}
+        shopId={activeShopId}
       />
 
       <SupplierItemsModal

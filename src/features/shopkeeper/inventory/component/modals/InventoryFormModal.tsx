@@ -30,11 +30,9 @@ import { Button } from "@/components/ui/button";
 import {
   Loader2,
   Upload,
-  MoreVertical,
   X,
   Smartphone,
   Hash,
-  DollarSign,
   Activity,
   Barcode,
   Camera,
@@ -46,8 +44,6 @@ import {
   Palette,
   HardDrive,
   Maximize2,
-  Users,
-  Store,
   Layers,
   AlertTriangle,
   FileText,
@@ -57,7 +53,6 @@ import {
   FolderOpen,
   User,
   Mail,
-  MapPin,
   CreditCard,
   ShoppingCart,
   Phone,
@@ -76,7 +71,6 @@ import {
 import { pdf } from "@react-pdf/renderer";
 import SalesInvoicePDF, { SalesInvoicePDFProps } from "./SalesInvoicePDF";
 import NextImage from "next/image";
-import { motion, AnimatePresence } from "framer-motion";
 import { Html5Qrcode } from "html5-qrcode";
 
 import {
@@ -108,6 +102,7 @@ import { ScanResultModal } from "./ScanResultModal";
 import { useCurrency } from "@/hooks/useCurrency";
 import { useMyProfile } from "@/features/shopkeeper/settings/hooks/useSettings";
 import { generateGoogleReviewQrCodeDataUrl } from "@/features/shopkeeper/settings/utils/googleReviewQr";
+import { useShop } from "../../../shop/store/shop.store";
 
 type BarcodeSearchItem = {
   name?: string;
@@ -133,11 +128,6 @@ function ImportCsvModalContent({
   const { data: session } = useSession();
   const userId = (session?.user as { id?: string })?.id ?? "";
   const { mutateAsync: importCsv, isPending } = useImportCsvInventory();
-  const { data: categoriesData } = useCategories();
-  const categories = categoriesData?.data || [];
-  const [selectedCategoryId, setSelectedCategoryId] = useState<string>(
-    categoryId || "",
-  );
 
   const [file, setFile] = useState<File | null>(null);
   const [dragOver, setDragOver] = useState(false);
@@ -187,7 +177,7 @@ function ImportCsvModalContent({
       await importCsv({
         file,
         userId,
-        categoryId: selectedCategoryId || categoryId || undefined,
+        categoryId: categoryId || undefined,
       });
       setUploadStatus("success");
       setFile(null);
@@ -665,11 +655,15 @@ export function InventoryFormModal({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [imageGallery, setImageGallery] = useState<string[]>([]);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [isCameraActive, setIsCameraActive] = useState(false);
   const html5QrCodeRef = useRef<Html5Qrcode | null>(null);
   const barcodeImageInputRef = useRef<HTMLInputElement>(null);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const fileUploadInputRef = useRef<HTMLInputElement>(null);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const barcodeDeviceImageInputRef = useRef<HTMLInputElement>(null);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [barcodeImagePreview, setBarcodeImagePreview] = useState<string | null>(
     null,
   );
@@ -681,6 +675,7 @@ export function InventoryFormModal({
   const [barcodeDeviceImage, setBarcodeDeviceImage] = useState<File | null>(
     null,
   );
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [barcodeDeviceImagePreview, setBarcodeDeviceImagePreview] = useState<
     string | null
   >(null);
@@ -730,13 +725,16 @@ export function InventoryFormModal({
   const [showSupplierDropdown, setShowSupplierDropdown] = useState(false);
   const [isSupplierFormOpen, setIsSupplierFormOpen] = useState(false);
   const supplierDropdownRef = React.useRef<HTMLDivElement>(null);
+  const { activeShopId } = useShop();
 
   const { data: suppliersResponse } = useSuppliers({
     search: supplierSearch.trim() || undefined,
     isActive: true,
     limit: 50,
+    shopId: activeShopId,
   });
   const suppliers = suppliersResponse?.data || [];
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const createSupplierMutation = useCreateSupplier();
   const { data: categoriesData } = useCategories();
   const { data: barcodeSearchResponse, isFetching: isSearchingProducts } =
@@ -1212,6 +1210,7 @@ export function InventoryFormModal({
         setIsCustomSaleMethod(false);
       }, 0);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [item, form, isOpen, forceType, categoryId]);
 
   useEffect(() => {
@@ -1439,6 +1438,7 @@ export function InventoryFormModal({
     }
   };
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const startScanning = async () => {
     try {
       const html5QrCode = new Html5Qrcode("barcode-reader");
@@ -1458,7 +1458,7 @@ export function InventoryFormModal({
           toast.success("Barcode scanned successfully");
           stopScanning();
         },
-        (errorMessage) => {
+        () => {
           // ignore scan errors
         },
       );
@@ -3960,6 +3960,7 @@ export function InventoryFormModal({
       <SupplierFormModal
         isOpen={isSupplierFormOpen}
         onClose={() => setIsSupplierFormOpen(false)}
+        shopId={activeShopId}
         onCreated={(newSupplier) => {
           form.setValue("supplierId", newSupplier._id);
           setSupplierSearch("");

@@ -17,7 +17,7 @@ import {
 import { motion, AnimatePresence } from "framer-motion";
 import Image from "next/image";
 import {
-  useInventoryByCategory,
+  useMyInventory,
   useDeleteInventory,
   useAddToShopkeeperCart,
   useCategories,
@@ -28,6 +28,7 @@ import {
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { useCurrency } from "@/hooks/useCurrency";
+import { useShop } from "../../shop/store/shop.store";
 
 import { InventorySkeleton } from "./skeletons/InventorySkeleton";
 import { InventoryFormModal } from "./modals/InventoryFormModal";
@@ -95,11 +96,16 @@ export default function Inventory() {
     isLoading: isCategoriesLoading,
     isError: isCategoriesError,
   } = useCategories();
+  const { activeShopId } = useShop();
+
   const {
     data: inventoryData,
     isLoading: isInventoryLoading,
     isError: isInventoryError,
-  } = useInventoryByCategory(selectedCategory?._id);
+  } = useMyInventory(
+    { categoryId: selectedCategory?._id, shopId: activeShopId || undefined },
+    { enabled: !!selectedCategory },
+  );
   const { mutate: deleteItem } = useDeleteInventory();
   const { mutate: createCategory, isPending: isCreatingCategory } =
     useCreateCategory();
