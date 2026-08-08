@@ -148,7 +148,7 @@ do this feature also store the info in the backend if there is not storing now. 
 
 
 --------------
-Prompt: 4 fix 
+Prompt: 4 fix done 
 /shopkeeper/scan-device this page in the website when i scane a device 
 http://localhost:5000/api/v1/imei/check-v2 this is the api 
 {
@@ -228,3 +228,13 @@ api responce i'm seeting:
         },
 
 as you can see i'm seeing unknown device in the history this is wrong. but i'm getting device name and everythng on the request. when i'm checking fix this issue fix this 
+
+
+prompt: 5 done
+when i'm clecking on /shopkeeper/search-history a device it redirect to me blob:http://localhost:3000/df6d2c87-3c87-4273-a364-0dfad298ba75 and show me a pdf. but the page design is not good it should be same like after scan device when the responce came and that page design it will show. 
+
+do this do this feature also store the info in the backend if there is not storing now. check follow.
+
+
+prompt: 6. done 
+"My shop" tab is showing both in the setting page and also in the dashboard left side tab. remove it from the main left side tab only it will show on the settings page in the wabsite. fix this don't change anything else 

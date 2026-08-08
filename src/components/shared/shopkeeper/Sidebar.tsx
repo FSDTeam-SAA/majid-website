@@ -16,7 +16,6 @@ import {
   SearchCheckIcon,
   User,
   ShoppingCart,
-  Store,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -47,11 +46,7 @@ const navItems = [
     label: "Dashboard Overview",
     href: "/shopkeeper/dashboard",
   },
-  {
-    icon: <Store size={20} />,
-    label: "My Shops",
-    href: "/shopkeeper/settings/my-shop",
-  },
+
   {
     icon: <CreditCard size={20} />,
     label: "Payment",

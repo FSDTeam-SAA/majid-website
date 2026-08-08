@@ -2,7 +2,7 @@
 
 import { motion } from "framer-motion";
 import { useSearchParams, useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { ScannerModal } from "@/components/shared/website/ScannerModal";
 import { GuestLoginModal } from "@/components/shared/website/GuestLoginModal";
 import { toast } from "sonner";
@@ -28,7 +28,6 @@ export default function ScanDevice() {
   const reportId = searchParams.get("reportId");
   const queryServiceId = searchParams.get("serviceId");
   const queryDeviceName = searchParams.get("deviceName");
-  const hasLoadedSavedReport = useRef(false);
 
   const {
     serviceCategories,
@@ -80,12 +79,14 @@ export default function ScanDevice() {
   });
 
   useEffect(() => {
-    if (!reportId || hasLoadedSavedReport.current) return;
+    if (!reportId) return;
 
-    hasLoadedSavedReport.current = true;
     let isCurrent = true;
 
     const loadSavedReport = async () => {
+      // If we already have the scan result for this report, don't fetch again
+      if (scanResult?._id === reportId) return;
+
       try {
         setIsSavedReportLoading(true);
         setSavedReportError(null);
@@ -115,19 +116,19 @@ export default function ScanDevice() {
     return () => {
       isCurrent = false;
     };
-  }, [reportId, restoreSavedReport]);
+  }, [reportId, restoreSavedReport, scanResult?._id]);
 
   if (reportId && !scanResult) {
     return (
       <div className="flex min-h-[60vh] items-center justify-center p-6 font-poppins">
         <div className="w-full max-w-md rounded-[32px] border border-border bg-card p-8 text-center shadow-sm">
           {isSavedReportLoading ? (
-            <>
-              <ScanProgress isScanning currentStep={1} />
+            <div className="flex flex-col items-center justify-center py-8">
+              <div className="h-10 w-10 animate-spin rounded-full border-4 border-primary border-t-transparent" />
               <p className="mt-5 text-sm font-bold text-muted-foreground">
                 Opening your saved IMEI report…
               </p>
-            </>
+            </div>
           ) : (
             <>
               <p className="text-lg font-black text-foreground">
@@ -236,7 +237,13 @@ export default function ScanDevice() {
         scanResult={scanResult}
         singleReportMeta={singleReportMeta}
         selectedService={selectedService}
-        onBack={clearResults}
+        onBack={() => {
+          if (reportId) {
+            router.push("/shopkeeper/search-history");
+            return;
+          }
+          clearResults();
+        }}
         onDownload={() =>
           downloadCertificatePdf(
             ["certificate-pdf-single"],
