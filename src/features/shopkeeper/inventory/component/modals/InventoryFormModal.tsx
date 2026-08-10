@@ -649,7 +649,8 @@ export function InventoryFormModal({
   forceType,
   categoryId,
 }: InventoryFormModalProps) {
-  const { currency, currencySymbol, formatCurrency } = useCurrency();
+  const { currency, currencySymbol, formatCurrency, convertAmount } =
+    useCurrency();
   const { data: profileData } = useMyProfile();
   const isEditMode = !!item;
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -1080,8 +1081,14 @@ export function InventoryFormModal({
         imeiNumber: item.imeiNumber ?? "",
         modelNumber: item.modelNumber ?? "",
         quantity: item.quantity ?? 1,
-        purchasePrice: item.purchasePrice,
-        expectedPrice: item.expectedPrice,
+        purchasePrice:
+          typeof item.purchasePrice === "number"
+            ? convertAmount(item.purchasePrice, "USD", currency)
+            : item.purchasePrice,
+        expectedPrice:
+          typeof item.expectedPrice === "number"
+            ? convertAmount(item.expectedPrice, "USD", currency)
+            : item.expectedPrice,
         productDetails: item.productDetails ?? "",
         aiDescription: item.aiDescription ?? "",
         supplierId:
@@ -1105,7 +1112,10 @@ export function InventoryFormModal({
         customerEmail: item.customerEmail ?? "",
         customerPhone: item.customerPhone ?? "",
         customerAddress: item.customerAddress ?? "",
-        salePrice: item.salePrice,
+        salePrice:
+          typeof item.salePrice === "number"
+            ? convertAmount(item.salePrice, "USD", currency)
+            : item.salePrice,
         saleQuantity: item.saleQuantity ?? 1,
         saleMethod: item.saleMethod ?? "In-store",
         image: undefined, // Reset image on edit
@@ -1357,7 +1367,31 @@ export function InventoryFormModal({
   const onSubmit = (values: CreateInventoryInput) => {
     const inventoryPayload = {
       ...values,
-      salePrice: values.salePrice ?? values.expectedPrice,
+      purchasePrice:
+        typeof values.purchasePrice === "number"
+          ? convertAmount(values.purchasePrice, currency, "USD")
+          : undefined,
+      expectedPrice:
+        typeof values.expectedPrice === "number"
+          ? convertAmount(values.expectedPrice, currency, "USD")
+          : 0,
+      salePrice:
+        typeof values.salePrice === "number"
+          ? convertAmount(values.salePrice, currency, "USD")
+          : typeof values.expectedPrice === "number"
+            ? convertAmount(values.expectedPrice, currency, "USD")
+            : undefined,
+      variants: values.variants?.map((v) => ({
+        ...v,
+        purchasePrice:
+          typeof v.purchasePrice === "number"
+            ? convertAmount(v.purchasePrice, currency, "USD")
+            : undefined,
+        expectedPrice:
+          typeof v.expectedPrice === "number"
+            ? convertAmount(v.expectedPrice, currency, "USD")
+            : 0,
+      })),
       images:
         values.images && values.images.length ? values.images : imageGallery,
       sourceImageUrl:

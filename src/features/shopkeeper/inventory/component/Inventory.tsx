@@ -674,10 +674,7 @@ export default function Inventory() {
                                 Selling Price
                               </span>
                               <span className="text-xl font-black text-foreground">
-                                {formatCurrency(
-                                  getInventoryDisplayPrice(item),
-                                  currency,
-                                )}
+                                {formatCurrency(getInventoryDisplayPrice(item))}
                               </span>
                             </div>
                             <span className="text-[10px] font-bold text-muted-foreground">
