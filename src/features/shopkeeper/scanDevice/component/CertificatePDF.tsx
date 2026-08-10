@@ -223,7 +223,7 @@ export const CertificatePDF = React.forwardRef<
     year: "numeric",
   });
 
-  const summaryItems = [
+  const baseSummaryItems: [string, string][] = [
     ["Activation Status", activationStatus],
     [
       "Warranty Status",
@@ -237,7 +237,80 @@ export const CertificatePDF = React.forwardRef<
     ["Replaced Device", replacedDevice],
     ["Open Repair", openRepair],
     ["Coverage Benefits", coverageBenefits],
-  ].filter(([, value]) => value && value !== "N/A");
+  ].filter(([, value]) => value && value !== "N/A" && value !== "");
+
+  const PRIORITY_KEYWORDS = [
+    "icloud",
+    "fmi",
+    "mdm",
+    "activation lock",
+    "lost mode",
+    "mi activation",
+    "knox",
+    "carrier",
+    "sim lock",
+    "simlock",
+    "unlock",
+    "blacklist",
+    "warranty",
+    "coverage",
+    "purchase date",
+    "activation status",
+    "replaced",
+    "refurbished",
+    "demo",
+    "repair",
+    "loaner",
+    "registration",
+    "mac address",
+  ];
+
+  const EXCLUDED_KEYWORDS = [
+    "image",
+    "device",
+    "imei",
+    "serial",
+    "eid",
+    "notice",
+  ];
+
+  const baseLabelsUsed = new Set(
+    [
+      "activation status",
+      "warranty type",
+      "warranty expires",
+      "coverage end date",
+      "estimated purchase date",
+      "purchase date",
+      "carrier status",
+      "locked carrier",
+      "sim lock status",
+      "sim lock",
+      "simlock",
+      "registration status",
+      "blacklist status",
+      "replaced device",
+      "open repair",
+      "coverage benefits",
+    ].map(normalizeLabel),
+  );
+
+  const additionalPriorityItems = rows
+    .filter((row) => {
+      const lowerLabel = row.label.toLowerCase();
+      const normalized = normalizeLabel(row.label);
+
+      if (baseLabelsUsed.has(normalized)) return false;
+      if (EXCLUDED_KEYWORDS.some((kw) => lowerLabel.includes(kw))) return false;
+
+      return PRIORITY_KEYWORDS.some((kw) => lowerLabel.includes(kw));
+    })
+    .map((row) => [row.label, row.value] as [string, string]);
+
+  const summaryItems = [...baseSummaryItems, ...additionalPriorityItems].slice(
+    0,
+    12,
+  );
 
   const riskPoints = [
     `${activationStatus !== "N/A" ? `Activation status: ${activationStatus}` : "Activation data reviewed"}`,
@@ -246,9 +319,13 @@ export const CertificatePDF = React.forwardRef<
     `${openRepair !== "N/A" ? `Open repair: ${openRepair}` : "Repair history signal reviewed"}`,
   ];
 
-  const additionalRows = rows.filter(
-    (row) =>
-      ![
+  const additionalRows = rows.filter((row) => {
+    const lowerLabel = row.label.toLowerCase();
+    const normalized = normalizeLabel(row.label);
+
+    if (baseLabelsUsed.has(normalized)) return false;
+    if (
+      [
         "image",
         "device",
         "imei number",
@@ -256,24 +333,21 @@ export const CertificatePDF = React.forwardRef<
         "imei2",
         "serial number",
         "eid",
-        "warranty type",
-        "warranty expires",
-        "coverage end date",
-        "estimated purchase date",
-        "purchase date",
-        "activation status",
-        "registration status",
-        "carrier status",
-        "locked carrier",
-        "sim lock status",
-        "sim lock",
-        "blacklist status",
-        "replaced device",
-        "open repair",
-        "coverage benefits",
         "notice",
-      ].includes(row.label.toLowerCase()),
-  );
+      ].includes(lowerLabel)
+    )
+      return false;
+
+    // Also exclude fields that were moved into priority summary items
+    if (
+      PRIORITY_KEYWORDS.some((kw) => lowerLabel.includes(kw)) &&
+      !EXCLUDED_KEYWORDS.some((kw) => lowerLabel.includes(kw))
+    ) {
+      return false;
+    }
+
+    return true;
+  });
 
   return (
     <div
@@ -430,13 +504,20 @@ export const CertificatePDF = React.forwardRef<
           Risk Analysis (AI Powered)
         </div>
         <div style={{ padding: "22px 24px" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-            <CheckCircle2 size={18} color="#F97316" />
-            <span style={{ fontSize: "12px", fontWeight: 900 }}>
+          <div style={{ display: "flex", alignItems: "center" }}>
+            <CheckCircle2
+              size={18}
+              color="#F97316"
+              style={{ marginRight: "12px", flexShrink: 0 }}
+            />
+            <span
+              style={{ fontSize: "12px", fontWeight: 900, marginRight: "12px" }}
+            >
               Overall Risk Level:
             </span>
             <span
               style={{
+                display: "inline-block",
                 background: colors.yellowLine,
                 borderRadius: "999px",
                 padding: "4px 14px",
@@ -473,12 +554,15 @@ export const CertificatePDF = React.forwardRef<
           <div
             style={{
               display: "flex",
-              gap: "10px",
               alignItems: "flex-start",
               marginTop: "18px",
             }}
           >
-            <Shield size={14} color={colors.blue} />
+            <Shield
+              size={14}
+              color={colors.blue}
+              style={{ marginRight: "10px", flexShrink: 0, marginTop: "2px" }}
+            />
             <strong style={{ fontSize: "12px", lineHeight: 1.45 }}>
               Conclusion:{" "}
               {data.aiInsight?.message ||
@@ -636,11 +720,11 @@ function Detail({
 
 function SummaryItem({ label, value }: { label: string; value: string }) {
   return (
-    <div style={{ display: "flex", gap: "10px", alignItems: "flex-start" }}>
+    <div style={{ display: "flex", alignItems: "flex-start" }}>
       <CheckCircle2
         size={16}
         color={colors.blue}
-        style={{ marginTop: "1px" }}
+        style={{ marginRight: "10px", flexShrink: 0, marginTop: "1px" }}
       />
       <div>
         <div style={{ fontSize: "12px", fontWeight: 900 }}>{label}:</div>
@@ -654,11 +738,11 @@ function SummaryItem({ label, value }: { label: string; value: string }) {
 
 function RiskPoint({ text }: { text: string }) {
   return (
-    <div style={{ display: "flex", gap: "10px", alignItems: "flex-start" }}>
+    <div style={{ display: "flex", alignItems: "flex-start" }}>
       <CheckCircle2
         size={13}
         color={colors.blue}
-        style={{ marginTop: "1px" }}
+        style={{ marginRight: "10px", flexShrink: 0, marginTop: "2px" }}
       />
       <span style={{ fontSize: "11px", lineHeight: 1.45 }}>{text}</span>
     </div>
@@ -667,11 +751,11 @@ function RiskPoint({ text }: { text: string }) {
 
 function WarningPoint({ text }: { text: string }) {
   return (
-    <div style={{ display: "flex", gap: "10px", alignItems: "flex-start" }}>
+    <div style={{ display: "flex", alignItems: "flex-start" }}>
       <TriangleAlert
         size={13}
         color={colors.warning}
-        style={{ marginTop: "1px" }}
+        style={{ marginRight: "10px", flexShrink: 0, marginTop: "2px" }}
       />
       <span style={{ fontSize: "11px", lineHeight: 1.45, color: "#92400E" }}>
         {text}
