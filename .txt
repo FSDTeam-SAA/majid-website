@@ -262,4 +262,4 @@ fix this do not change anythign else
 
 prompt: 4:
 in the "Create smart invoice" that pdf that created there is no option for seeing is that payment status is paid or not payed Smart Invoice
-Fill customer & payment details add this input field also. agian add the api becouse i should able to see this smart invoice inside the view invoice section 
+Fill customer & payment details add this input field also. agian add the api becouse i should able to see this smart invoice inside the view invoice section also in the modal popup add another field customerid. you should save all those in the backend 
