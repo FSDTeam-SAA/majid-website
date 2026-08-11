@@ -39,6 +39,7 @@ export interface InvoiceFormData {
   price: number;
   currency?: string;
   paymentMethod: "cash" | "bank" | "tradein";
+  paymentStatus?: "paid" | "unpaid";
   bankDetails?: {
     accountName: string;
     accountNumber: string;
@@ -97,6 +98,8 @@ export const InvoiceModal = ({
     price: marketValue,
     currency: currency || "USD",
     paymentMethod: "cash",
+    paymentStatus: "paid",
+    customerId: "",
   });
   const [tradeInValue, setTradeInValue] = useState<number>(0);
   const [bankAccountNumber, setBankAccountNumber] = useState("");
@@ -149,6 +152,8 @@ export const InvoiceModal = ({
           price: convertedMarketValue,
           currency: selectedCurrency,
           paymentMethod: "cash",
+          paymentStatus: "paid",
+          customerId: "",
         });
         setTradeInValue(0);
         setBankAccountNumber("");
@@ -388,6 +393,16 @@ export const InvoiceModal = ({
       return;
     }
 
+    if (formData.customerId && formData.customerId.trim() !== "") {
+      const invoiceData: InvoiceFormData = {
+        ...formData,
+        currency: selectedCurrency,
+      };
+      onGenerate(invoiceData);
+      onClose();
+      return;
+    }
+
     setIsCreatingCustomer(true);
     setCustomerError(null);
 
@@ -578,6 +593,23 @@ export const InvoiceModal = ({
                       </p>
                     )}
                   </div>
+                  <div>
+                    <div className="relative">
+                      <User
+                        size={16}
+                        className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+                      />
+                      <input
+                        type="text"
+                        placeholder="Customer ID (Optional)"
+                        value={formData.customerId || ""}
+                        onChange={(e) =>
+                          handleInputChange("customerId", e.target.value)
+                        }
+                        className={`w-full pl-10 pr-4 py-2.5 border bg-background text-foreground rounded-xl focus:ring-2 focus:ring-[#84CC16]/20 outline-none transition border-gray-200 dark:border-input focus:border-[#84CC16]`}
+                      />
+                    </div>
+                  </div>
                 </div>
               </div>
 
@@ -662,6 +694,37 @@ export const InvoiceModal = ({
                   >
                     <Landmark size={16} />
                     <span className="text-sm font-semibold">Bank</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Payment Status */}
+              <div>
+                <label className="text-xs font-bold text-gray-500 dark:text-muted-foreground uppercase tracking-wider mb-3 block">
+                  Payment Status
+                </label>
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => handleInputChange("paymentStatus", "paid")}
+                    className={`py-2.5 rounded-xl border-2 flex items-center justify-center gap-2 transition cursor-pointer ${
+                      formData.paymentStatus === "paid"
+                        ? "border-[#84CC16] bg-[#84CC16]/5 text-[#84CC16]"
+                        : "border-gray-200 dark:border-input text-gray-500 dark:text-muted-foreground hover:border-gray-300 dark:hover:border-slate-600"
+                    }`}
+                  >
+                    <span className="text-sm font-semibold">Paid</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleInputChange("paymentStatus", "unpaid")}
+                    className={`py-2.5 rounded-xl border-2 flex items-center justify-center gap-2 transition cursor-pointer ${
+                      formData.paymentStatus === "unpaid"
+                        ? "border-[#84CC16] bg-[#84CC16]/5 text-[#84CC16]"
+                        : "border-gray-200 dark:border-input text-gray-500 dark:text-muted-foreground hover:border-gray-300 dark:hover:border-slate-600"
+                    }`}
+                  >
+                    <span className="text-sm font-semibold">Unpaid</span>
                   </button>
                 </div>
               </div>

@@ -24,6 +24,7 @@ import { SmartInvoicePDF } from "./SmartInvoicePDF";
 import { toast } from "sonner";
 import Image from "next/image";
 import { saveImeiReportPdfApi } from "../api/scanDevice.api";
+import { useCreateInvoice } from "../../inventory/hooks/useInventory";
 
 interface SingleResultViewProps {
   scanResult: IMEIResult;
@@ -730,11 +731,12 @@ export const SingleResultView = ({
   onDownload,
   isDownloading: parentIsDownloading,
 }: SingleResultViewProps) => {
-  const { status } = useSession();
+  const { status, data: session } = useSession();
   const isGuest = status === "unauthenticated";
   const isAuthenticated = status === "authenticated";
   const { downloadCertificatePdf } = useCertificateDownload();
   const savedPdfReportId = useRef<string | null>(null);
+  const { mutate: createInvoice } = useCreateInvoice();
 
   const [isCertificateDownloading, setIsCertificateDownloading] =
     useState(false);
@@ -1511,10 +1513,41 @@ export const SingleResultView = ({
       await new Promise((resolve) =>
         requestAnimationFrame(() => requestAnimationFrame(resolve)),
       );
+      let invoiceBlob: Blob | undefined;
       await downloadCertificatePdf(
         ["smart-invoice-pdf-container"],
         `Invoice_${scanResult.imei}.pdf`,
+        undefined,
+        {
+          download: true,
+          onPdfReady: (pdf) => {
+            invoiceBlob = pdf;
+          },
+        },
       );
+
+      if (invoiceBlob && formData.customerId) {
+        const file = new File([invoiceBlob], `invoice_${scanResult.imei}.pdf`, {
+          type: "application/pdf",
+        });
+        const shopkeeperId =
+          (session?.user as any)?.shopkeeperId ||
+          (session?.user as any)?.id ||
+          "unknown";
+
+        createInvoice({
+          shopkeeperId,
+          customerInfo: formData.customerId,
+          type: "Smart invoice",
+          invoice: file,
+          totalAmount: formData.price,
+          dueAmount: formData.paymentStatus === "paid" ? 0 : formData.price,
+          amountPaid: formData.paymentStatus === "paid" ? formData.price : 0,
+          paymentMethod: formData.paymentMethod,
+          paymentStatus: formData.paymentStatus === "paid" ? "paid" : "due",
+        });
+      }
+
       toast.success("Invoice generated successfully!");
     } catch {
       toast.error("Failed to generate invoice");

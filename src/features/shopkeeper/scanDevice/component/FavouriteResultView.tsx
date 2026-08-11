@@ -20,6 +20,7 @@ import { SmartInvoicePDF } from "./SmartInvoicePDF";
 import Image from "next/image";
 import { useSession } from "next-auth/react";
 import { saveImeiReportPdfApi } from "../api/scanDevice.api";
+import { useCreateInvoice } from "../../inventory/hooks/useInventory";
 
 interface FavouriteResultViewProps {
   scanResult: FavouriteIMEIData;
@@ -54,7 +55,7 @@ export const FavouriteResultView = ({
   isDownloading,
   onRegenerate,
 }: FavouriteResultViewProps) => {
-  const { status } = useSession();
+  const { status, data: session } = useSession();
   const providerData = scanResult.providerResults;
   const riskScoreValue = getRiskScoreValue(scanResult.riskMeter);
   const [copied, setCopied] = useState(false);
@@ -65,6 +66,7 @@ export const FavouriteResultView = ({
   const [isInvoiceGenerating, setIsInvoiceGenerating] = useState(false);
   const { downloadCertificatePdf } = useCertificateDownload();
   const savedPdfReportId = useRef<string | null>(null);
+  const { mutate: createInvoice } = useCreateInvoice();
 
   const isOldGenerated = (scanResult as any).oldGenerated === true;
 
@@ -241,10 +243,40 @@ AI Insight: ${scanResult.aiInsight?.message || "N/A"}
       await new Promise((resolve) => {
         requestAnimationFrame(() => requestAnimationFrame(resolve));
       });
+      let invoiceBlob: Blob | undefined;
       await downloadCertificatePdf(
         ["smart-invoice-pdf-container-fav"],
         `Invoice_${imei}.pdf`,
+        undefined,
+        {
+          download: true,
+          onPdfReady: (pdf) => {
+            invoiceBlob = pdf;
+          },
+        },
       );
+
+      if (invoiceBlob && formData.customerId) {
+        const file = new File([invoiceBlob], `invoice_${imei}.pdf`, {
+          type: "application/pdf",
+        });
+        const shopkeeperId =
+          (session?.user as any)?.shopkeeperId ||
+          (session?.user as any)?.id ||
+          "unknown";
+
+        createInvoice({
+          shopkeeperId,
+          customerInfo: formData.customerId,
+          type: "Smart invoice",
+          invoice: file,
+          totalAmount: formData.price,
+          dueAmount: formData.paymentStatus === "paid" ? 0 : formData.price,
+          amountPaid: formData.paymentStatus === "paid" ? formData.price : 0,
+          paymentMethod: formData.paymentMethod,
+          paymentStatus: formData.paymentStatus === "paid" ? "paid" : "due",
+        });
+      }
     } catch (error) {
       console.error("Invoice generation failed:", error);
     } finally {
@@ -720,7 +752,24 @@ AI Insight: ${scanResult.aiInsight?.message || "N/A"}
         }}
       >
         <CertificatePDF
-          data={scanResult as any}
+          data={
+            {
+              ...scanResult,
+              imei: imeiValue,
+              deviceName: deviceName,
+              parsedProviderData: providerData,
+              providerData: providerData,
+              riskMeter: {
+                score: riskScoreValue,
+                label:
+                  riskScoreValue <= 25
+                    ? "LOW RISK"
+                    : riskScoreValue <= 60
+                      ? "MODERATE RISK"
+                      : "HIGH RISK",
+              },
+            } as any
+          }
           id="certificate-pdf-favourite"
           providerName={
             singleReportMeta?.provider ||
@@ -735,9 +784,27 @@ AI Insight: ${scanResult.aiInsight?.message || "N/A"}
         />
         {invoiceFormData && (
           <SmartInvoicePDF
-            data={scanResult as any}
+            data={
+              {
+                ...scanResult,
+                imei: imeiValue,
+                deviceName: deviceName,
+                parsedProviderData: providerData,
+                providerData: providerData,
+                riskMeter: {
+                  score: riskScoreValue,
+                  label:
+                    riskScoreValue <= 25
+                      ? "LOW RISK"
+                      : riskScoreValue <= 60
+                        ? "MODERATE RISK"
+                        : "HIGH RISK",
+                },
+              } as any
+            }
             id="smart-invoice-pdf-container-fav"
             invoiceData={invoiceFormData}
+            shopkeeperDetails={(session?.user as any)?.shopkeeper}
           />
         )}
       </div>

@@ -183,7 +183,11 @@ export const CertificatePDF = React.forwardRef<
   const renderableDeviceImage = getRenderableImageSrc(deviceImage);
   const imei = findValue(rows, ["IMEI Number", "IMEI"], data.imei);
   const imei2 = findValue(rows, ["IMEI2", "IMEI 2"], "");
-  const deviceName = findValue(rows, ["Device", "Model Name"], data.deviceName);
+  const deviceName = findValue(
+    rows,
+    ["Device", "Model Name", "Model"],
+    data.deviceName,
+  );
   const serialNumber = findValue(rows, ["Serial Number", "Serial"], "N/A");
   const eid = findValue(rows, ["EID"], "N/A");
   const warrantyType = findValue(rows, ["Warranty Type"], "N/A");
@@ -309,9 +313,40 @@ export const CertificatePDF = React.forwardRef<
     })
     .map((row) => [row.label, row.value] as [string, string]);
 
-  const summaryItems = [...baseSummaryItems, ...additionalPriorityItems].slice(
+  let summaryItems = [...baseSummaryItems, ...additionalPriorityItems].slice(
     0,
     12,
+  );
+
+  if (summaryItems.length === 0) {
+    const fallbackItems = rows
+      .filter((row) => {
+        const lowerLabel = row.label.toLowerCase();
+        if (
+          [
+            "image",
+            "device",
+            "imei number",
+            "imei",
+            "imei2",
+            "serial number",
+            "eid",
+            "notice",
+          ].includes(lowerLabel)
+        )
+          return false;
+        if (EXCLUDED_KEYWORDS.some((kw) => lowerLabel.includes(kw)))
+          return false;
+        return true;
+      })
+      .slice(0, 6)
+      .map((row) => [row.label, row.value] as [string, string]);
+
+    summaryItems = fallbackItems;
+  }
+
+  const summaryItemLabels = new Set(
+    summaryItems.map(([label]) => normalizeLabel(label)),
   );
 
   const riskPoints = [
@@ -325,7 +360,7 @@ export const CertificatePDF = React.forwardRef<
     const lowerLabel = row.label.toLowerCase();
     const normalized = normalizeLabel(row.label);
 
-    if (baseLabelsUsed.has(normalized)) return false;
+    if (summaryItemLabels.has(normalized)) return false;
     if (
       [
         "image",
@@ -339,14 +374,6 @@ export const CertificatePDF = React.forwardRef<
       ].includes(lowerLabel)
     )
       return false;
-
-    // Also exclude fields that were moved into priority summary items
-    if (
-      PRIORITY_KEYWORDS.some((kw) => lowerLabel.includes(kw)) &&
-      !EXCLUDED_KEYWORDS.some((kw) => lowerLabel.includes(kw))
-    ) {
-      return false;
-    }
 
     return true;
   });

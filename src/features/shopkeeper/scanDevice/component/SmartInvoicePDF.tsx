@@ -126,7 +126,10 @@ export const SmartInvoicePDF = React.forwardRef<
     vatId: "N/A",
   };
 
-  const deviceName = getValue(["Device", "Model Name"], data.deviceName);
+  const deviceName = getValue(
+    ["Device", "Model Name", "Model"],
+    data.deviceName,
+  );
   const imei = getValue(["IMEI Number", "IMEI"], data.imei);
   const serialNumber = getValue(["Serial Number", "Serial"], "N/A");
   const coverageBenefits = getValue(["Coverage Benefits"], "N/A");
@@ -693,12 +696,15 @@ export const SmartInvoicePDF = React.forwardRef<
             style={{
               margin: "8px 0 0",
               textAlign: "right",
-              color: colors.success,
+              color:
+                invoiceData.paymentStatus === "unpaid"
+                  ? colors.warning
+                  : colors.success,
               fontSize: "9px",
               fontWeight: 900,
             }}
           >
-            PAID
+            {invoiceData.paymentStatus === "unpaid" ? "UNPAID" : "PAID"}
           </p>
         </div>
       </div>

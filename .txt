@@ -260,6 +260,15 @@ and tell me how this pdf creating in short
 
 fix this do not change anythign else 
 
-prompt: 4:
+prompt: 4: done 
 in the "Create smart invoice" that pdf that created there is no option for seeing is that payment status is paid or not payed Smart Invoice
 Fill customer & payment details add this input field also. agian add the api becouse i should able to see this smart invoice inside the view invoice section also in the modal popup add another field customerid. you should save all those in the backend 
+
+Prompt : 5 
+from the scane device when i select Mac full check /best before buy this service and 
+Mac full check /best before buy
+Price: 1.29$
+Device Identifier
+LTQGCD213R
+
+Validation Error showing why this fix this issue it should give responce and and for this service in the certificate pdf Verification Summary option seeing empty fix this. 
