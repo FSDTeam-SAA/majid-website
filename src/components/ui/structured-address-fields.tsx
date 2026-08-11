@@ -1,6 +1,6 @@
 "use client";
 
-import { useId } from "react";
+import { useId, useState } from "react";
 
 import {
   AddressAutocomplete,
@@ -78,6 +78,7 @@ export function StructuredAddressFields({
 }: StructuredAddressFieldsProps) {
   const fieldId = useId();
   const address = splitAddress(value);
+  const [searchQuery, setSearchQuery] = useState("");
 
   const updateAddress = (nextAddress: AddressParts) => {
     onChange(toAddressValue(nextAddress));
@@ -89,82 +90,101 @@ export function StructuredAddressFields({
 
   const handlePlaceSelect = (place: GeoapifyAddress) => {
     updateAddress({
-      buildingNumber: place.housenumber || address.buildingNumber,
-      street: streetFromPlace(place) || address.street,
-      postcode: place.postcode || address.postcode,
-      country: place.country || address.country,
+      buildingNumber: place.housenumber || "",
+      street: streetFromPlace(place) || "",
+      postcode: place.postcode || "",
+      country: place.country || "",
     });
+    setSearchQuery(place.formatted || "");
   };
 
   return (
-    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+    <div className="space-y-4">
       <div className="space-y-1.5">
-        <Label
-          className="text-xs font-semibold"
-          htmlFor={`${fieldId}-building`}
-        >
-          Building number
-        </Label>
-        <Input
-          id={`${fieldId}-building`}
-          value={address.buildingNumber}
-          onChange={(event) =>
-            updateField("buildingNumber", event.target.value)
-          }
-          placeholder="12A"
-          disabled={disabled}
-          required={required}
-        />
-      </div>
-
-      <div className="space-y-1.5">
-        <Label className="text-xs font-semibold" htmlFor={`${fieldId}-street`}>
-          Street
+        <Label className="text-xs font-semibold" htmlFor={`${fieldId}-search`}>
+          Search Address
         </Label>
         <AddressAutocomplete
-          id={`${fieldId}-street`}
-          value={address.street}
-          onChange={(event) => updateField("street", event.target.value)}
+          id={`${fieldId}-search`}
+          value={searchQuery}
+          onChange={(event) => setSearchQuery(event.target.value)}
           onPlaceSelect={handlePlaceSelect}
-          addressType="street"
-          placeholder="Start typing an address"
+          placeholder="Start typing to search for an address..."
           disabled={disabled}
-          required={required}
           className="h-9 rounded-md border-input bg-background"
         />
       </div>
 
-      <div className="space-y-1.5">
-        <Label
-          className="text-xs font-semibold"
-          htmlFor={`${fieldId}-postcode`}
-        >
-          Post code
-        </Label>
-        <Input
-          id={`${fieldId}-postcode`}
-          value={address.postcode}
-          onChange={(event) => updateField("postcode", event.target.value)}
-          placeholder="1207"
-          disabled={disabled}
-          required={required}
-        />
-      </div>
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <div className="space-y-1.5">
+          <Label
+            className="text-xs font-semibold"
+            htmlFor={`${fieldId}-building`}
+          >
+            Building number
+          </Label>
+          <Input
+            id={`${fieldId}-building`}
+            value={address.buildingNumber}
+            onChange={(event) =>
+              updateField("buildingNumber", event.target.value)
+            }
+            placeholder="12A"
+            disabled={disabled}
+            required={required}
+          />
+        </div>
 
-      <div className="space-y-1.5">
-        <Label className="text-xs font-semibold" htmlFor={`${fieldId}-country`}>
-          Country
-        </Label>
-        <AddressAutocomplete
-          id={`${fieldId}-country`}
-          value={address.country}
-          onChange={(event) => updateField("country", event.target.value)}
-          addressType="country"
-          placeholder="Bangladesh"
-          disabled={disabled}
-          required={required}
-          className="h-9 rounded-md border-input bg-background"
-        />
+        <div className="space-y-1.5">
+          <Label
+            className="text-xs font-semibold"
+            htmlFor={`${fieldId}-street`}
+          >
+            Street
+          </Label>
+          <Input
+            id={`${fieldId}-street`}
+            value={address.street}
+            onChange={(event) => updateField("street", event.target.value)}
+            placeholder="Street name"
+            disabled={disabled}
+            required={required}
+          />
+        </div>
+
+        <div className="space-y-1.5">
+          <Label
+            className="text-xs font-semibold"
+            htmlFor={`${fieldId}-postcode`}
+          >
+            Post code
+          </Label>
+          <Input
+            id={`${fieldId}-postcode`}
+            value={address.postcode}
+            onChange={(event) => updateField("postcode", event.target.value)}
+            placeholder="1207"
+            disabled={disabled}
+            required={required}
+          />
+        </div>
+
+        <div className="space-y-1.5">
+          <Label
+            className="text-xs font-semibold"
+            htmlFor={`${fieldId}-country`}
+          >
+            Country
+          </Label>
+          <Input
+            id={`${fieldId}-country`}
+            value={address.country}
+            onChange={(event) => updateField("country", event.target.value)}
+            placeholder="Bangladesh"
+            disabled={disabled}
+            required={required}
+          />
+        </div>
       </div>
     </div>
   );

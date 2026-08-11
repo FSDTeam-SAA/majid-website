@@ -1,21 +1,7 @@
 "use client";
 
-import { Input } from "@/components/ui/input";
-
-const monthOptions = [
-  { value: "01", label: "Jan" },
-  { value: "02", label: "Feb" },
-  { value: "03", label: "Mar" },
-  { value: "04", label: "Apr" },
-  { value: "05", label: "May" },
-  { value: "06", label: "Jun" },
-  { value: "07", label: "Jul" },
-  { value: "08", label: "Aug" },
-  { value: "09", label: "Sep" },
-  { value: "10", label: "Oct" },
-  { value: "11", label: "Nov" },
-  { value: "12", label: "Dec" },
-];
+import React, { useState, useEffect } from "react";
+import { Calendar, Clock } from "lucide-react";
 
 const padValue = (value: number) => value.toString().padStart(2, "0");
 
@@ -47,179 +33,119 @@ export const formatInvoiceDateTime = (dateValue: string, timeValue: string) => {
   });
 };
 
-const timeOptions = Array.from({ length: 48 }, (_, index) => {
-  const hours = Math.floor(index / 2);
-  const minutes = index % 2 === 0 ? 0 : 30;
-  const value = `${padValue(hours)}:${padValue(minutes)}`;
-  const date = new Date();
-  date.setHours(hours, minutes, 0, 0);
-
-  return {
-    value,
-    label: date.toLocaleTimeString("en-US", {
-      hour: "2-digit",
-      minute: "2-digit",
-    }),
-  };
-});
-
 interface InvoiceDateTimeSectionProps {
-  date: string;
-  time: string;
-  onDateChange: (date: string) => void;
-  onTimeChange: (time: string) => void;
+  value: Date;
+  onChange: (date: Date) => void;
+  className?: string;
 }
 
 export function InvoiceDateTimeSection({
-  date,
-  time,
-  onDateChange,
-  onTimeChange,
+  value,
+  onChange,
+  className = "",
 }: InvoiceDateTimeSectionProps) {
-  const [selectedYear, selectedMonth, selectedDay] = date.split("-");
-  const currentYear = new Date().getFullYear();
-  const yearOptions = Array.from({ length: 7 }, (_, index) =>
-    (currentYear - 3 + index).toString(),
-  );
+  const [mounted, setMounted] = useState(false);
 
-  const updateManualDate = (next: {
-    day?: string;
-    month?: string;
-    year?: string;
-  }) => {
-    const nextYear = next.year || selectedYear || currentYear.toString();
-    const nextMonth = next.month || selectedMonth || "01";
-    const nextDay = next.day || selectedDay || "01";
-    const lastDay = new Date(Number(nextYear), Number(nextMonth), 0).getDate();
-    const safeDay = Math.min(Number(nextDay), lastDay);
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setMounted(true);
+  }, []);
 
-    onDateChange(`${nextYear}-${nextMonth}-${padValue(safeDay)}`);
+  const handleQuickOption = (option: "now" | "today" | "yesterday") => {
+    const now = new Date();
+    if (option === "now") {
+      onChange(new Date());
+    } else if (option === "today") {
+      now.setHours(0, 0, 0, 0);
+      onChange(now);
+    } else if (option === "yesterday") {
+      now.setDate(now.getDate() - 1);
+      now.setHours(0, 0, 0, 0);
+      onChange(now);
+    }
   };
 
-  const setQuickDate = (type: "now" | "today" | "yesterday") => {
-    const nextDate = new Date();
+  const formatDateForInput = (d: Date) => {
+    return `${d.getFullYear()}-${padValue(d.getMonth() + 1)}-${padValue(
+      d.getDate(),
+    )}`;
+  };
 
-    if (type === "yesterday") {
-      nextDate.setDate(nextDate.getDate() - 1);
-    }
+  const formatTimeForInput = (d: Date) => {
+    return `${padValue(d.getHours())}:${padValue(d.getMinutes())}`;
+  };
 
-    onDateChange(
-      `${nextDate.getFullYear()}-${padValue(nextDate.getMonth() + 1)}-${padValue(
-        nextDate.getDate(),
-      )}`,
-    );
+  const handleDateChange = (dateStr: string) => {
+    if (!dateStr) return;
+    const [year, month, day] = dateStr.split("-").map(Number);
+    if (!year || !month || !day) return;
+    const newDate = new Date(value);
+    newDate.setFullYear(year, month - 1, day);
+    onChange(newDate);
+  };
 
-    if (type === "now") {
-      onTimeChange(getCurrentTimeValue());
-    }
+  const handleTimeChange = (timeStr: string) => {
+    if (!timeStr) return;
+    const [hours, minutes] = timeStr.split(":").map(Number);
+    if (hours === undefined || minutes === undefined) return;
+    const newDate = new Date(value);
+    newDate.setHours(hours, minutes);
+    onChange(newDate);
   };
 
   return (
-    <div className="rounded-[28px] border border-border bg-card p-6 shadow-sm space-y-5">
-      <p className="text-xs font-black text-muted-foreground uppercase tracking-[0.2em]">
-        Invoice Date & Time
-      </p>
-
-      <div className="space-y-2">
-        <label className="text-[11px] font-black text-muted-foreground uppercase tracking-widest">
-          Date
-        </label>
-        <Input
-          type="date"
-          value={date}
-          onChange={(event) => onDateChange(event.target.value)}
-          className="rounded-2xl h-12 border-primary bg-background font-bold"
-        />
-      </div>
-
-      <div className="space-y-2">
-        <label className="text-[11px] font-black text-muted-foreground uppercase tracking-widest">
-          Time
-        </label>
-        <Input
-          type="time"
-          value={time}
-          onChange={(event) => onTimeChange(event.target.value)}
-          className="rounded-2xl h-12 border-primary bg-background font-bold"
-        />
-      </div>
-
-      <div className="space-y-2">
-        <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">
-          Quick Options
-        </p>
-        <div className="grid grid-cols-3 gap-2">
-          {(["now", "today", "yesterday"] as const).map((option) => (
-            <button
-              key={option}
-              type="button"
-              onClick={() => setQuickDate(option)}
-              className="h-10 rounded-xl border border-border bg-background px-3 text-xs font-black capitalize text-muted-foreground transition-colors hover:border-primary hover:text-primary"
-            >
-              {option}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <div className="space-y-2">
-        <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">
-          Or Select Manually
-        </p>
-        <div className="grid grid-cols-3 gap-2">
-          <select
-            value={selectedDay || "01"}
-            onChange={(event) => updateManualDate({ day: event.target.value })}
-            className="h-11 rounded-xl border border-border bg-background px-3 text-sm font-bold text-foreground"
-          >
-            {Array.from({ length: 31 }, (_, index) => {
-              const day = padValue(index + 1);
-              return (
-                <option key={day} value={day}>
-                  {day}
-                </option>
-              );
-            })}
-          </select>
-
-          <select
-            value={selectedMonth || "01"}
-            onChange={(event) =>
-              updateManualDate({ month: event.target.value })
-            }
-            className="h-11 rounded-xl border border-border bg-background px-3 text-sm font-bold text-foreground"
-          >
-            {monthOptions.map((month) => (
-              <option key={month.value} value={month.value}>
-                {month.label}
-              </option>
-            ))}
-          </select>
-
-          <select
-            value={selectedYear || currentYear.toString()}
-            onChange={(event) => updateManualDate({ year: event.target.value })}
-            className="h-11 rounded-xl border border-border bg-background px-3 text-sm font-bold text-foreground"
-          >
-            {yearOptions.map((year) => (
-              <option key={year} value={year}>
-                {year}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <select
-          value={time}
-          onChange={(event) => onTimeChange(event.target.value)}
-          className="h-11 w-full rounded-xl border border-border bg-background px-3 text-sm font-bold text-foreground"
+    <div
+      className={`inline-flex flex-wrap items-center gap-2 rounded-2xl border border-border bg-card p-1.5 shadow-xs transition-all hover:border-primary/40 ${className}`}
+    >
+      {/* Quick Option Buttons */}
+      <div className="flex items-center gap-1 rounded-xl bg-muted/40 p-1 border border-border/50">
+        <button
+          type="button"
+          onClick={() => handleQuickOption("now")}
+          className="rounded-lg px-2.5 py-1 text-xs font-bold text-muted-foreground transition-all hover:bg-background hover:text-primary hover:shadow-xs active:scale-95 cursor-pointer"
         >
-          {timeOptions.map((timeOption) => (
-            <option key={timeOption.value} value={timeOption.value}>
-              {timeOption.label}
-            </option>
-          ))}
-        </select>
+          Now
+        </button>
+        <button
+          type="button"
+          onClick={() => handleQuickOption("today")}
+          className="rounded-lg px-2.5 py-1 text-xs font-bold text-muted-foreground transition-all hover:bg-background hover:text-primary hover:shadow-xs active:scale-95 cursor-pointer"
+        >
+          Today
+        </button>
+        <button
+          type="button"
+          onClick={() => handleQuickOption("yesterday")}
+          className="rounded-lg px-2.5 py-1 text-xs font-bold text-muted-foreground transition-all hover:bg-background hover:text-primary hover:shadow-xs active:scale-95 cursor-pointer"
+        >
+          Yesterday
+        </button>
+      </div>
+
+      {/* Date Field Container */}
+      <div className="flex items-center gap-1.5 rounded-xl border border-border bg-background px-2.5 py-1 shadow-xs transition-all hover:border-primary/50 focus-within:border-primary focus-within:ring-1 focus-within:ring-primary">
+        <Calendar className="h-3.5 w-3.5 text-primary shrink-0" />
+        <input
+          type="date"
+          value={mounted ? formatDateForInput(value) : ""}
+          onMouseDown={(e) => e.currentTarget.showPicker?.()}
+          onClick={(e) => e.currentTarget.showPicker?.()}
+          onChange={(e) => handleDateChange(e.target.value)}
+          className="w-[130px] bg-transparent text-xs font-bold text-foreground outline-none cursor-pointer [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-70 [&::-webkit-calendar-picker-indicator]:hover:opacity-100"
+        />
+      </div>
+
+      {/* Time Field Container */}
+      <div className="flex items-center gap-1.5 rounded-xl border border-border bg-background px-2.5 py-1 shadow-xs transition-all hover:border-primary/50 focus-within:border-primary focus-within:ring-1 focus-within:ring-primary">
+        <Clock className="h-3.5 w-3.5 text-primary shrink-0" />
+        <input
+          type="time"
+          value={mounted ? formatTimeForInput(value) : ""}
+          onMouseDown={(e) => e.currentTarget.showPicker?.()}
+          onClick={(e) => e.currentTarget.showPicker?.()}
+          onChange={(e) => handleTimeChange(e.target.value)}
+          className="w-[105px] bg-transparent text-xs font-bold text-foreground outline-none cursor-pointer [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-70 [&::-webkit-calendar-picker-indicator]:hover:opacity-100"
+        />
       </div>
     </div>
   );

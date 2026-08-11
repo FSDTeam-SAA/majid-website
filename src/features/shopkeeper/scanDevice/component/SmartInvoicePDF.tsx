@@ -205,7 +205,11 @@ export const SmartInvoicePDF = React.forwardRef<
       >
         <div>
           <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-            <ReceiptText size={28} color={colors.brand} />
+            <ReceiptText
+              size={28}
+              color={colors.brand}
+              style={{ flexShrink: 0, display: "block" }}
+            />
             <div>
               <h1 style={{ margin: 0, fontSize: "30px", fontWeight: 900 }}>
                 INVOICE
@@ -316,7 +320,11 @@ export const SmartInvoicePDF = React.forwardRef<
       >
         <div>
           <div style={{ display: "flex", alignItems: "center", gap: "7px" }}>
-            <UserRound size={14} color={colors.brand} />
+            <UserRound
+              size={14}
+              color={colors.brand}
+              style={{ flexShrink: 0, display: "block" }}
+            />
             <p
               style={{
                 margin: 0,
@@ -469,7 +477,11 @@ export const SmartInvoicePDF = React.forwardRef<
               <div
                 style={{ display: "flex", alignItems: "center", gap: "6px" }}
               >
-                <BadgeCheck size={13} color={colors.success} />
+                <BadgeCheck
+                  size={13}
+                  color={colors.success}
+                  style={{ flexShrink: 0, display: "block" }}
+                />
                 <span style={{ fontSize: "9px", fontWeight: 800 }}>
                   AI checked
                 </span>
@@ -609,7 +621,11 @@ export const SmartInvoicePDF = React.forwardRef<
           }}
         >
           <div style={{ display: "flex", alignItems: "center", gap: "7px" }}>
-            <ShieldCheck size={15} color={colors.brand} />
+            <ShieldCheck
+              size={15}
+              color={colors.brand}
+              style={{ flexShrink: 0, display: "block" }}
+            />
             <p style={{ margin: 0, fontSize: "10px", fontWeight: 900 }}>
               Device Verification Note
             </p>

@@ -20,8 +20,6 @@ import {
   CheckCircle2,
   ShieldAlert,
   X,
-  Calendar,
-  Clock,
   Search,
 } from "lucide-react";
 import { useSession } from "next-auth/react";
@@ -61,6 +59,7 @@ import {
   useCategories,
 } from "@/features/shopkeeper/inventory/hooks/useInventory";
 import { useMyInvoiceGet } from "@/features/shopkeeper/inventory/hooks/useInvoiceGenaretor";
+import { InvoiceDateTimeSection } from "../../_components/InvoiceDateTimeSection";
 
 interface OcrResponse {
   success: boolean;
@@ -400,6 +399,7 @@ const PurchaseReceiptPDF = ({
           <View style={pdfStyles.brandWrap}>
             <View style={pdfStyles.brandRow}>
               {shopkeeper?.image?.url ? (
+                // eslint-disable-next-line jsx-a11y/alt-text
                 <Image src={shopkeeper.image.url} style={pdfStyles.logoImage} />
               ) : (
                 <Text style={pdfStyles.logoFallback}>{shopName}</Text>
@@ -586,7 +586,7 @@ export default function CreatePurchaseReceipt() {
   // New state for NID camera capture
   const [showNidCamera, setShowNidCamera] = useState<boolean>(false);
   const [nidSide, setNidSide] = useState<"front" | "back">("front");
-  const [capturedImage, setCapturedImage] = useState<string | null>(null);
+  const [, setCapturedImage] = useState<string | null>(null);
   const [nidStream, setNidStream] = useState<MediaStream | null>(null);
 
   const [ocrLoading, setOcrLoading] = useState<boolean>(false);
@@ -643,26 +643,6 @@ export default function CreatePurchaseReceipt() {
       ),
     );
   }, [customers, customerSearchQuery]);
-  const isMounted = useSyncExternalStore(
-    () => () => {},
-    () => true,
-    () => false,
-  );
-
-  const handleQuickOption = (option: "now" | "today" | "yesterday") => {
-    const now = new Date();
-    if (option === "now") {
-      setInvoiceDate(new Date());
-    } else if (option === "today") {
-      now.setHours(0, 0, 0, 0);
-      setInvoiceDate(now);
-    } else if (option === "yesterday") {
-      now.setDate(now.getDate() - 1);
-      now.setHours(0, 0, 0, 0);
-      setInvoiceDate(now);
-    }
-  };
-
   useEffect(() => {
     codeReaderRef.current = new BrowserMultiFormatReader();
     return () => {
@@ -675,11 +655,6 @@ export default function CreatePurchaseReceipt() {
       }
     };
   }, [nidStream]);
-
-  const formatDateTimeLocal = (date: Date) =>
-    new Date(date.getTime() - date.getTimezoneOffset() * 60000)
-      .toISOString()
-      .slice(0, 16);
 
   const addItem = () => {
     setItems((prev) => [
@@ -727,7 +702,7 @@ export default function CreatePurchaseReceipt() {
         nidVideoRef.current.srcObject = stream;
       }
       toast.info(`Position ${side} side of NID in front of camera`);
-    } catch (error) {
+    } catch {
       toast.error("Could not access camera. Please check permissions.");
       setShowNidCamera(false);
     }
@@ -833,7 +808,7 @@ export default function CreatePurchaseReceipt() {
         });
         toast.error("OCR server failed validating document parameters.");
       }
-    } catch (error) {
+    } catch {
       setOcrStatus({
         type: "error",
         message: "Unable to connect to dynamic validation server context.",
@@ -892,7 +867,7 @@ export default function CreatePurchaseReceipt() {
         );
         toast.dismiss(`cam-${itemIndex}`);
         toast.success("Camera viewfinder active.");
-      } catch (err: any) {
+      } catch {
         toast.dismiss(`cam-${itemIndex}`);
         toast.error("Failed to connect camera.");
         setActiveCameraStream((prev) => ({ ...prev, [itemIndex]: false }));
@@ -966,7 +941,7 @@ export default function CreatePurchaseReceipt() {
         toast.dismiss(loadingToastId);
         toast.error("Failed to extract legible codes.");
       }
-    } catch (error) {
+    } catch {
       toast.dismiss(loadingToastId);
       toast.error("Engine failed processing targets matrix layout.");
     } finally {
@@ -1104,7 +1079,7 @@ export default function CreatePurchaseReceipt() {
           ? "Purchase receipt created and items added to inventory"
           : "Purchase receipt created successfully",
       );
-    } catch (error) {
+    } catch {
       toast.error(
         addToInventory
           ? "Failed to create purchase receipt or add items to inventory"
@@ -1117,122 +1092,27 @@ export default function CreatePurchaseReceipt() {
     <div className="min-h-screen bg-background px-4 py-8 md:px-8">
       <div className="mx-auto space-y-8">
         {/* HEADER */}
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-black tracking-tight">
-              Purchase Receipt Generator
-            </h1>
-            <p className="text-sm text-muted-foreground mt-1">
+            <div className="flex items-center gap-3">
+              <h1 className="text-3xl font-black tracking-tight">
+                Purchase Receipt Generator
+              </h1>
+              <span className="hidden sm:inline-flex items-center gap-1.5 bg-orange-500/10 text-orange-600 px-3 py-1 rounded-xl text-xs font-bold">
+                <Package size={14} />
+                {items.length} Items Configured
+              </span>
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">
               Unified pipeline mapping identity verification parsing alongside
               barcode registry logs
             </p>
           </div>
-          <div className="hidden md:flex items-center gap-3 bg-orange-50 text-orange-600 px-5 py-3 rounded-2xl font-bold">
-            <Package size={18} />
-            {items.length} Items Configured
-          </div>
-        </div>
 
-        {/* Invoice Date & Time Section */}
-        <div className="bg-card border border-border rounded-[28px] p-8 shadow-sm">
-          <div className="flex items-center gap-3 mb-6">
-            <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center text-blue-600">
-              <Calendar size={20} />
-            </div>
-            <p className="text-xl font-black text-foreground">
-              Invoice Date & Time
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-6">
-            <div className="space-y-2">
-              <label className="text-xs font-black text-muted-foreground uppercase tracking-widest">
-                Date
-              </label>
-              <div className="flex items-center gap-2 rounded-2xl h-12 border border-primary bg-background px-4 font-bold text-sm">
-                <Calendar size={16} className="text-muted-foreground" />
-                <span>
-                  {isMounted
-                    ? invoiceDate.toLocaleDateString("en-GB", {
-                        day: "2-digit",
-                        month: "2-digit",
-                        year: "numeric",
-                      })
-                    : "-- / -- / ----"}
-                </span>
-              </div>
-            </div>
-            <div className="space-y-2">
-              <label className="text-xs font-black text-muted-foreground uppercase tracking-widest">
-                Time
-              </label>
-              <div className="flex items-center gap-2 rounded-2xl h-12 border border-primary bg-background px-4 font-bold text-sm">
-                <Clock size={16} className="text-muted-foreground" />
-                <span>
-                  {isMounted
-                    ? invoiceDate.toLocaleTimeString("en-US", {
-                        hour: "2-digit",
-                        minute: "2-digit",
-                        hour12: true,
-                      })
-                    : "--:--"}
-                </span>
-              </div>
-            </div>
-          </div>
-
-          <div className="space-y-4">
-            <div>
-              <label className="text-[11px] font-black text-slate-500 uppercase tracking-[0.2em]">
-                Quick Options
-              </label>
-              <div className="flex gap-3 mt-2">
-                <button
-                  type="button"
-                  onClick={() => handleQuickOption("now")}
-                  className="px-5 py-2.5 rounded-xl border border-border bg-background text-sm font-bold hover:bg-primary hover:text-white transition-all"
-                >
-                  Now
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleQuickOption("today")}
-                  className="px-5 py-2.5 rounded-xl border border-border bg-background text-sm font-bold hover:bg-primary hover:text-white transition-all"
-                >
-                  Today
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleQuickOption("yesterday")}
-                  className="px-5 py-2.5 rounded-xl border border-border bg-background text-sm font-bold hover:bg-primary hover:text-white transition-all"
-                >
-                  Yesterday
-                </button>
-              </div>
-            </div>
-
-            <div>
-              <label className="text-[11px] font-black text-slate-500 uppercase tracking-[0.2em]">
-                Or Select Date & Time
-              </label>
-              <div className="mt-2 w-full max-w-[280px]">
-                <Input
-                  type="datetime-local"
-                  value={isMounted ? formatDateTimeLocal(invoiceDate) : ""}
-                  onMouseDown={(event) => event.currentTarget.showPicker?.()}
-                  onClick={(event) => event.currentTarget.showPicker?.()}
-                  onFocus={(event) => event.currentTarget.showPicker?.()}
-                  onChange={(event) => {
-                    const nextDate = new Date(event.target.value);
-                    if (!Number.isNaN(nextDate.getTime())) {
-                      setInvoiceDate(nextDate);
-                    }
-                  }}
-                  className="h-12 cursor-pointer rounded-2xl border-primary bg-background px-3 text-sm font-bold"
-                />
-              </div>
-            </div>
-          </div>
+          <InvoiceDateTimeSection
+            value={invoiceDate}
+            onChange={setInvoiceDate}
+          />
         </div>
 
         <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">

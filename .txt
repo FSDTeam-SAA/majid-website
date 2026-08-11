@@ -238,3 +238,28 @@ do this do this feature also store the info in the backend if there is not stori
 
 prompt: 6. done 
 "My shop" tab is showing both in the setting page and also in the dashboard left side tab. remove it from the main left side tab only it will show on the settings page in the wabsite. fix this don't change anything else 
+
+
+
+---------------------------
+@ 11 aug 26 
+prompt 1: done
+there is many address in website all fields are not working properly if i input on one the text gone to another  input field. the way i want in site this section for the suggestions first there will be a search option i will search and input some of the location and when i select form the suggestions it will fillup the the fileds 
+
+----Important: do not change anything else other then that. do not change nay existing system or functions. 
+
+
+prompt 2: done 
+in the invoice sections "Invoice Date & Time" section design (in create invoice purchase invoice delivery invoice ) make that section beautiful and this taking a lot of space full weight make it much smaller  
+
+
+prompt: 3: done 
+in the scane device section after report check a certification download option in that certification pdf there is a secion "Additional API Data" responce make it change change the text with "Additional Insight"
+also i have told you several times. some icon and text not beeing allignment in the pdf design fix this. 
+and tell me how this pdf creating in short
+
+fix this do not change anythign else 
+
+prompt: 4:
+in the "Create smart invoice" that pdf that created there is no option for seeing is that payment status is paid or not payed Smart Invoice
+Fill customer & payment details add this input field also. agian add the api becouse i should able to see this smart invoice inside the view invoice section 

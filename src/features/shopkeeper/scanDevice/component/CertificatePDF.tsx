@@ -223,21 +223,23 @@ export const CertificatePDF = React.forwardRef<
     year: "numeric",
   });
 
-  const baseSummaryItems: [string, string][] = [
-    ["Activation Status", activationStatus],
+  const baseSummaryItems: [string, string][] = (
     [
-      "Warranty Status",
-      `${warrantyType}${warrantyExpires !== "N/A" ? ` (${warrantyExpires})` : ""}`,
-    ],
-    ["Estimated Purchase Date", purchaseDate],
-    ["Carrier Status", carrierStatus],
-    ["SIM Lock", simLock],
-    ["Registration Status", registrationStatus],
-    ["Blacklist Status", blacklist],
-    ["Replaced Device", replacedDevice],
-    ["Open Repair", openRepair],
-    ["Coverage Benefits", coverageBenefits],
-  ].filter(([, value]) => value && value !== "N/A" && value !== "");
+      ["Activation Status", activationStatus],
+      [
+        "Warranty Status",
+        `${warrantyType}${warrantyExpires !== "N/A" ? ` (${warrantyExpires})` : ""}`,
+      ],
+      ["Estimated Purchase Date", purchaseDate],
+      ["Carrier Status", carrierStatus],
+      ["SIM Lock", simLock],
+      ["Registration Status", registrationStatus],
+      ["Blacklist Status", blacklist],
+      ["Replaced Device", replacedDevice],
+      ["Open Repair", openRepair],
+      ["Coverage Benefits", coverageBenefits],
+    ] as [string, string][]
+  ).filter(([, value]) => value && value !== "N/A" && value !== "");
 
   const PRIORITY_KEYWORDS = [
     "icloud",
@@ -381,6 +383,7 @@ export const CertificatePDF = React.forwardRef<
               alignItems: "center",
             }}
           >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src="/images/logo.png"
               alt="Imoscan logo"
@@ -433,6 +436,7 @@ export const CertificatePDF = React.forwardRef<
             }}
           >
             {renderableDeviceImage ? (
+              // eslint-disable-next-line @next/next/no-img-element
               <img
                 src={renderableDeviceImage}
                 alt="Device"
@@ -508,22 +512,29 @@ export const CertificatePDF = React.forwardRef<
             <CheckCircle2
               size={18}
               color="#F97316"
-              style={{ marginRight: "12px", flexShrink: 0 }}
+              style={{ marginRight: "12px", flexShrink: 0, display: "block" }}
             />
             <span
-              style={{ fontSize: "12px", fontWeight: 900, marginRight: "12px" }}
+              style={{
+                fontSize: "12px",
+                fontWeight: 900,
+                marginRight: "12px",
+                lineHeight: "18px",
+              }}
             >
               Overall Risk Level:
             </span>
             <span
               style={{
-                display: "inline-block",
+                display: "inline-flex",
+                alignItems: "center",
                 background: colors.yellowLine,
                 borderRadius: "999px",
                 padding: "4px 14px",
                 fontSize: "10px",
                 fontWeight: 900,
                 color: "#92400E",
+                lineHeight: 1,
               }}
             >
               {riskLabel.toUpperCase()} ({riskScore}/100)
@@ -561,9 +572,14 @@ export const CertificatePDF = React.forwardRef<
             <Shield
               size={14}
               color={colors.blue}
-              style={{ marginRight: "10px", flexShrink: 0, marginTop: "2px" }}
+              style={{
+                marginRight: "10px",
+                flexShrink: 0,
+                marginTop: "2px",
+                display: "block",
+              }}
             />
-            <strong style={{ fontSize: "12px", lineHeight: 1.45 }}>
+            <strong style={{ fontSize: "12px", lineHeight: "18px" }}>
               Conclusion:{" "}
               {data.aiInsight?.message ||
                 "Review all verification details before purchase."}
@@ -586,7 +602,7 @@ export const CertificatePDF = React.forwardRef<
       </div>
 
       {additionalRows.length > 0 && (
-        <Section title="Additional API Data">
+        <Section title="Additional Insight">
           <div
             style={{
               display: "grid",
@@ -633,12 +649,34 @@ export const CertificatePDF = React.forwardRef<
           marginTop: "18px",
         }}
       >
-        <span style={{ display: "flex", gap: "7px", alignItems: "center" }}>
-          <Shield size={12} color={colors.primary} />
+        <span
+          style={{
+            display: "flex",
+            gap: "7px",
+            alignItems: "center",
+            lineHeight: "14px",
+          }}
+        >
+          <Shield
+            size={12}
+            color={colors.primary}
+            style={{ flexShrink: 0, display: "block" }}
+          />
           Report ID: IMO-{String(imei).slice(-8)}
         </span>
-        <span style={{ display: "flex", gap: "7px", alignItems: "center" }}>
-          <Calendar size={12} color={colors.blue} />
+        <span
+          style={{
+            display: "flex",
+            gap: "7px",
+            alignItems: "center",
+            lineHeight: "14px",
+          }}
+        >
+          <Calendar
+            size={12}
+            color={colors.blue}
+            style={{ flexShrink: 0, display: "block" }}
+          />
           Generated On: {reportDate}
         </span>
       </div>
@@ -704,12 +742,15 @@ function Detail({
 }) {
   return (
     <>
-      <div style={{ fontWeight: 900, color: colors.ink }}>{label}:</div>
+      <div style={{ fontWeight: 900, color: colors.ink, lineHeight: 1.4 }}>
+        {label}:
+      </div>
       <div
         style={{
           color: colors.ink,
           fontFamily: mono ? "monospace" : "Arial, Helvetica, sans-serif",
           wordBreak: "break-word",
+          lineHeight: 1.4,
         }}
       >
         {value}
@@ -722,13 +763,27 @@ function SummaryItem({ label, value }: { label: string; value: string }) {
   return (
     <div style={{ display: "flex", alignItems: "flex-start" }}>
       <CheckCircle2
-        size={16}
+        size={15}
         color={colors.blue}
-        style={{ marginRight: "10px", flexShrink: 0, marginTop: "1px" }}
+        style={{
+          marginRight: "10px",
+          flexShrink: 0,
+          marginTop: "1px",
+          display: "block",
+        }}
       />
       <div>
-        <div style={{ fontSize: "12px", fontWeight: 900 }}>{label}:</div>
-        <div style={{ fontSize: "11px", color: colors.ink, lineHeight: 1.4 }}>
+        <div style={{ fontSize: "12px", fontWeight: 900, lineHeight: "17px" }}>
+          {label}:
+        </div>
+        <div
+          style={{
+            fontSize: "11px",
+            color: colors.ink,
+            lineHeight: 1.4,
+            marginTop: "2px",
+          }}
+        >
           {value}
         </div>
       </div>
@@ -742,9 +797,14 @@ function RiskPoint({ text }: { text: string }) {
       <CheckCircle2
         size={13}
         color={colors.blue}
-        style={{ marginRight: "10px", flexShrink: 0, marginTop: "2px" }}
+        style={{
+          marginRight: "10px",
+          flexShrink: 0,
+          marginTop: "1.5px",
+          display: "block",
+        }}
       />
-      <span style={{ fontSize: "11px", lineHeight: 1.45 }}>{text}</span>
+      <span style={{ fontSize: "11px", lineHeight: "16px" }}>{text}</span>
     </div>
   );
 }
@@ -755,9 +815,14 @@ function WarningPoint({ text }: { text: string }) {
       <TriangleAlert
         size={13}
         color={colors.warning}
-        style={{ marginRight: "10px", flexShrink: 0, marginTop: "2px" }}
+        style={{
+          marginRight: "10px",
+          flexShrink: 0,
+          marginTop: "1.5px",
+          display: "block",
+        }}
       />
-      <span style={{ fontSize: "11px", lineHeight: 1.45, color: "#92400E" }}>
+      <span style={{ fontSize: "11px", lineHeight: "16px", color: "#92400E" }}>
         {text}
       </span>
     </div>
