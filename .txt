@@ -264,7 +264,7 @@ prompt: 4: done
 in the "Create smart invoice" that pdf that created there is no option for seeing is that payment status is paid or not payed Smart Invoice
 Fill customer & payment details add this input field also. agian add the api becouse i should able to see this smart invoice inside the view invoice section also in the modal popup add another field customerid. you should save all those in the backend 
 
-Prompt : 5 
+Prompt : 5 done 
 from the scane device when i select Mac full check /best before buy this service and 
 Mac full check /best before buy
 Price: 1.29$
@@ -272,3 +272,9 @@ Device Identifier
 LTQGCD213R
 
 Validation Error showing why this fix this issue it should give responce and and for this service in the certificate pdf Verification Summary option seeing empty fix this. 
+
+
+--------------------------------
+/invoice/create-invoice in the invoice section Device #1 or those section some of the input field dont have labels add labels of those fields. and make everything dropdown like the item name storage color condition in that dropdown the datas will come from the inventory existing datas  i have models datas same on /invoice/purchase-invoice and /invoice/delivery-invoice add the same feature on those pages also. 
+
+----Important: do not change anything else other then that. do not change nay existing system or functions.  

@@ -30,6 +30,7 @@ import {
 import {
   useCategories,
   useCreateInventory,
+  useMyInventory,
 } from "@/features/shopkeeper/inventory/hooks/useInventory";
 import { useCurrency } from "@/hooks/useCurrency";
 
@@ -53,6 +54,30 @@ export function InventoryItemsCard({
   const { data: categoriesData } = useCategories();
   const { mutateAsync: createInventory, isPending: isCreatingInventory } =
     useCreateInventory();
+
+  const { data: inventoryData } = useMyInventory();
+
+  const uniqueInventoryData = useMemo(() => {
+    const items = inventoryData?.data || [];
+    return {
+      names: Array.from(
+        new Set(items.map((i) => i.itemName).filter(Boolean) as string[]),
+      ),
+      storages: Array.from(
+        new Set(items.map((i) => i.storage).filter(Boolean) as string[]),
+      ),
+      colors: Array.from(
+        new Set(items.map((i) => i.color).filter(Boolean) as string[]),
+      ),
+      conditions: Array.from(
+        new Set(
+          items
+            .map((i: any) => i.condition || i.currentState)
+            .filter(Boolean) as string[],
+        ),
+      ),
+    };
+  }, [inventoryData]);
 
   const [items, setItems] = useState<any[]>([{ ...emptyInventoryItem }]);
   const [scanInputs, setScanInputs] = useState<{ [key: number]: string }>({});
@@ -403,6 +428,28 @@ export function InventoryItemsCard({
           </Select>
         </div>
 
+        {/* Datalists for Inventory Autocomplete */}
+        <datalist id="inventory-names">
+          {uniqueInventoryData.names.map((name) => (
+            <option key={name} value={name} />
+          ))}
+        </datalist>
+        <datalist id="inventory-storages">
+          {uniqueInventoryData.storages.map((storage) => (
+            <option key={storage} value={storage} />
+          ))}
+        </datalist>
+        <datalist id="inventory-colors">
+          {uniqueInventoryData.colors.map((color) => (
+            <option key={color} value={color} />
+          ))}
+        </datalist>
+        <datalist id="inventory-conditions">
+          {uniqueInventoryData.conditions.map((condition) => (
+            <option key={condition} value={condition} />
+          ))}
+        </datalist>
+
         <div className="space-y-5">
           {items.map((item, itemIndex) => {
             const currentItemRowTotal =
@@ -434,46 +481,79 @@ export function InventoryItemsCard({
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                  <Input
-                    placeholder="Item Name (Required)"
-                    className="rounded-2xl h-12 border-primary bg-background font-bold"
-                    value={item.name}
-                    onChange={(e) =>
-                      updateItem(itemIndex, "name", e.target.value)
-                    }
-                  />
-                  <Input
-                    placeholder="Storage / Memory (e.g., 256GB)"
-                    className="rounded-2xl h-12 border-primary bg-background font-bold"
-                    value={item.storage || ""}
-                    onChange={(e) =>
-                      updateItem(itemIndex, "storage", e.target.value)
-                    }
-                  />
-                  <Input
-                    placeholder="Color"
-                    className="rounded-2xl h-12 border-primary bg-background font-bold"
-                    value={item.color || ""}
-                    onChange={(e) =>
-                      updateItem(itemIndex, "color", e.target.value)
-                    }
-                  />
-                  <Input
-                    placeholder="Condition"
-                    className="rounded-2xl h-12 border-primary bg-background font-bold"
-                    value={item.condition || ""}
-                    onChange={(e) =>
-                      updateItem(itemIndex, "condition", e.target.value)
-                    }
-                  />
-                  <Input
-                    placeholder="IMEI Number or Serial Number"
-                    className="rounded-2xl h-12 border-primary bg-background font-bold md:col-span-2"
-                    value={item.serials[0] || ""}
-                    onChange={(e) =>
-                      updatePrimarySerial(itemIndex, e.target.value)
-                    }
-                  />
+                  <div>
+                    <label className="font-bold text-sm text-muted-foreground ml-1 mb-1 block">
+                      Item Name <span className="text-red-500">*</span>
+                    </label>
+                    <Input
+                      list="inventory-names"
+                      placeholder="Select or Type Item Name"
+                      className="rounded-2xl h-12 border-primary bg-background font-bold"
+                      value={item.name}
+                      onChange={(e) =>
+                        updateItem(itemIndex, "name", e.target.value)
+                      }
+                    />
+                  </div>
+
+                  <div>
+                    <label className="font-bold text-sm text-muted-foreground ml-1 mb-1 block">
+                      Storage / Memory
+                    </label>
+                    <Input
+                      list="inventory-storages"
+                      placeholder="Select or Type Storage"
+                      className="rounded-2xl h-12 border-primary bg-background font-bold"
+                      value={item.storage || ""}
+                      onChange={(e) =>
+                        updateItem(itemIndex, "storage", e.target.value)
+                      }
+                    />
+                  </div>
+
+                  <div>
+                    <label className="font-bold text-sm text-muted-foreground ml-1 mb-1 block">
+                      Color
+                    </label>
+                    <Input
+                      list="inventory-colors"
+                      placeholder="Select or Type Color"
+                      className="rounded-2xl h-12 border-primary bg-background font-bold"
+                      value={item.color || ""}
+                      onChange={(e) =>
+                        updateItem(itemIndex, "color", e.target.value)
+                      }
+                    />
+                  </div>
+
+                  <div>
+                    <label className="font-bold text-sm text-muted-foreground ml-1 mb-1 block">
+                      Condition
+                    </label>
+                    <Input
+                      list="inventory-conditions"
+                      placeholder="Select or Type Condition"
+                      className="rounded-2xl h-12 border-primary bg-background font-bold"
+                      value={item.condition || ""}
+                      onChange={(e) =>
+                        updateItem(itemIndex, "condition", e.target.value)
+                      }
+                    />
+                  </div>
+
+                  <div className="md:col-span-2">
+                    <label className="font-bold text-sm text-muted-foreground ml-1 mb-1 block">
+                      IMEI Number or Serial Number
+                    </label>
+                    <Input
+                      placeholder="Type IMEI Number or Serial Number"
+                      className="rounded-2xl h-12 border-primary bg-background font-bold"
+                      value={item.serials[0] || ""}
+                      onChange={(e) =>
+                        updatePrimarySerial(itemIndex, e.target.value)
+                      }
+                    />
+                  </div>
                   <div>
                     <label className="font-bold text-sm text-muted-foreground ml-1 mb-1 block">
                       Quantity
