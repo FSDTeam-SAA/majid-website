@@ -278,3 +278,161 @@ Validation Error showing why this fix this issue it should give responce and and
 /invoice/create-invoice in the invoice section Device #1 or those section some of the input field dont have labels add labels of those fields. and make everything dropdown like the item name storage color condition in that dropdown the datas will come from the inventory existing datas  i have models datas same on /invoice/purchase-invoice and /invoice/delivery-invoice add the same feature on those pages also. 
 
 ----Important: do not change anything else other then that. do not change nay existing system or functions.  
+
+Majid: 
+make the dashboard overview similer design  done 
+
+in the dashboard http://localhost:3000/all-users in this page seeing all the users also admin can set there passwords and and change there emails. and user pictures images not showing also admin can give them balace from the site. 
+
+do this    
+
+
+--------------------------------
+13 Aug 26
+Prompt 1: 
+- for /shopkeeper/scan-device page feverit services when i clicked "Generate new" this nothing happainig. 
+- the price and Risk Level that is showing it should be similer ui like the normal servics report after the rusponce came. 
+- Request URL
+http://localhost:5000/api/v1/imei/check-v2
+Request Method
+POST
+{"imei":"LTQGCD213R","serviceId":1001} {
+    "success": true,
+    "message": "IMEI check (v2) completed",
+    "data": [
+        {
+            "imei": "LTQGCD213R",
+            "ok": true,
+            "message": "Bundled IMEI check completed (5/5 services)",
+            "data": {
+                "bundledServiceId": 1001,
+                "bundledServiceName": "Mac full check /best before buy",
+                "bundledServiceCategory": "fevourite",
+                "providerResults": {
+                    "rejected": "Only iPhone & iPad supported on this service!",
+                    "description": "MBP 14 M5 SB/10C/10C GPU/16GB/512GB",
+                    "model": "MacBook Pro (14-inch, M5)",
+                    "serial_number": "LTQGCD213R",
+                    "warranty_status": "Limited Warranty",
+                    "purchase_date": "2026-03-18",
+                    "replaced_device": "No",
+                    "icloud_lock": "ON",
+                    "icloud_status": "Clean",
+                    "error_r01": "Not Found!",
+                    "device_configuration": "MBP 14 SB/10C/10C GPU/16GB/512GB-GBR",
+                    "mdm_lock": "OFF",
+                    "error_s02": "Service ID is Wrong!"
+                },
+                "riskMeter": 20,
+                "aiInsight": {
+                    "title": "iCloud Lock Active",
+                    "message": "The device has iCloud Lock enabled, which increases the risk. No blacklist or finance locks detected."
+                },
+                "marketValue": {
+                    "amount": 1749,
+                    "currency": "USD"
+                },
+                "oldGenerated": true,
+                "reportId": "6a7b190a4c11b35f6a2d1b3b"
+            }
+        }
+    ]
+}
+
+the responce i'm getting     "success": true,
+    "message": "Recent checks fetched successfully",
+    "data": [
+        {
+            "_id": "6a7d93454c11b35f6a2d7126",
+            "imei": "LTQGCD213R",
+            "userId": "6a79a3a42dad7c450784a227",
+            "serviceId": 101,
+            "createdAt": "2026-08-13T09:49:57.388Z",
+            "deviceName": "MacBook Pro (14-inch, M5)",
+            "deviceStatus": "unknown",
+            "marketValue": {
+                "amount": 300,
+                "currency": "USD"
+            },
+            "riskMeter": {
+                "riskLevel": "low",
+                "score": 12,
+                "label": "Low Risk"
+            },
+            "updatedAt": "2026-08-13T09:49:57.441Z"
+        },
+
+        Request URL
+http://localhost:5000/api/v1/imei/history?page=1&limit=10
+Request Method
+GET so the problem is the price i see in the responce is not match on the history data. 
+- also if i can for diffrent service with same device imei or serial number i get diffrent price fix this 
+
+
+do this things fix this properly make it funtional and work as a seniour developer. do not change anithing else or don't wroin any existing things . 
+
+Request URL
+http://localhost:5000/api/v1/imei/check-v2
+Request Method
+POST
+Status Code
+{"imei":"351297474660682","serviceId":1000}
+{
+    "success": true,
+    "message": "IMEI check (v2) completed",
+    "data": [
+        {
+            "imei": "351297474660682",
+            "ok": true,
+            "message": "Bundled IMEI check completed (5/5 services)",
+            "data": {
+                "bundledServiceId": 1000,
+                "bundledServiceName": "iPhone all in one /best before buy",
+                "bundledServiceCategory": "fevourite",
+                "providerResults": {
+                    "model_description": "IPHONE 17 PRO,ROW,256GB,BLU",
+                    "imei": "351297474660682",
+                    "imei2": "351297474271241",
+                    "meid": "35129747466068",
+                    "serial_number": "HQDQW53HTV",
+                    "telephone_technical_support": "Expired",
+                    "repairs_and_service_coverage": "Active",
+                    "repairs_and_service_expires_in": "8 Months and 7 Days",
+                    "repairs_and_service_expiration_date": "2027-04-20",
+                    "estimated_purchase_date": "2026-04-21",
+                    "warranty_status": "Limited Warranty",
+                    "icloud_lock": "OFF",
+                    "demo_unit": "No",
+                    "valid_purchase_date": "Yes",
+                    "activation_status": "Activated",
+                    "registration_status": "Registered",
+                    "locked_carrier": "Unlock.",
+                    "simlock": "Unlocked",
+                    "manufacturer": "APPLE",
+                    "marketing_name": "Apple iPhone 17 Pro - 1TB - Cosmic Orange",
+                    "model": "IPHONE 17 PRO (A3523)",
+                    "operating_system": "IOS",
+                    "blacklist_status": "Clean",
+                    "image": {
+                        "src": "https://km.support.apple.com/kb/securedImage.jsp?productid=301245&size=240",
+                        "html": "<img src=\"https://km.support.apple.com/kb/securedImage.jsp?productid=301245&size=240\">"
+                    },
+                    "applecare_purchase_date": "2026-04-20 20:00:00"
+                },
+                "riskMeter": 1,
+                "aiInsight": {
+                    "title": "Clean and Unlocked Device",
+                    "message": "The device is clean, unlocked, with FMI off and iCloud off. No finance or blacklist issues detected."
+                },
+                "marketValue": {
+                    "amount": 1200,
+                    "currency": "USD"
+                },
+                "oldGenerated": false,
+                "reportId": "6a7d9a524c11b35f6a2d717a"
+            }
+        }
+    ]
+}
+
+in this responce the storage that shoiwng Model: Apple iPhone 17 Pro - 1TB - Cosmic Orange this device is not 1T but in the ui it's showng this fix this problem. 

@@ -10,6 +10,9 @@ import {
   Copy,
   RefreshCw,
   Clock,
+  Gauge,
+  Tag,
+  Shield,
 } from "lucide-react";
 import { FavouriteIMEIData } from "../../scanDevice/types/scanDevice.types";
 import { useEffect, useRef, useState } from "react";
@@ -102,7 +105,14 @@ export const FavouriteResultView = ({
 
   // Extract values from providerResults
   const deviceName =
-    providerData.marketing_name || providerData.model_name || "iPhone";
+    providerData.model_description ||
+    providerData.description ||
+    providerData.device_name ||
+    providerData.full_name ||
+    providerData.marketing_name ||
+    providerData.model_name ||
+    providerData.model ||
+    "iPhone";
   const deviceImage = providerData.image?.src || "";
   const deviceId = providerData.deviceid || "";
   const imeiValue =
@@ -342,7 +352,77 @@ AI Insight: ${scanResult.aiInsight?.message || "N/A"}
               {scanResult.bundledServiceName}
             </p>
 
-            <div className="border-t border-slate-100 dark:border-border pt-2 mt-1"></div>
+            <div className="border-t border-slate-100 dark:border-border pt-2 mt-1 mb-3"></div>
+
+            {/* Report summary */}
+            <div className="grid gap-3 rounded-2xl border border-slate-200 dark:border-border bg-slate-50 dark:bg-muted p-4 text-left sm:grid-cols-2 mb-3">
+              <div className="rounded-xl border border-slate-200 dark:border-border bg-white dark:bg-card p-3">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2 text-slate-500 dark:text-muted-foreground">
+                    <Gauge size={16} className="text-[#84CC16]" />
+                    <span className="text-[11px] font-bold uppercase tracking-wide">
+                      Risk meter
+                    </span>
+                  </div>
+                  <span
+                    className={`px-2 py-0.5 rounded-md text-[10px] font-bold ${
+                      riskScoreValue <= 25
+                        ? "bg-emerald-100 text-emerald-700"
+                        : riskScoreValue <= 60
+                          ? "bg-amber-100 text-amber-700"
+                          : "bg-red-100 text-red-700"
+                    }`}
+                  >
+                    {riskScoreValue <= 25
+                      ? "LOW"
+                      : riskScoreValue <= 60
+                        ? "MODERATE"
+                        : "HIGH"}{" "}
+                    RISK
+                  </span>
+                </div>
+                <div className="mt-3 flex items-end justify-between gap-3">
+                  <p className="text-2xl font-bold text-slate-900 dark:text-foreground">
+                    {riskScoreValue}
+                    <span className="text-sm font-medium text-slate-400 dark:text-muted-foreground">
+                      /100
+                    </span>
+                  </p>
+                  <p className="text-xs font-semibold text-slate-500 dark:text-muted-foreground">
+                    Risk score
+                  </p>
+                </div>
+                <div className="mt-2 h-2 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
+                  <div
+                    className={`h-full ${
+                      riskScoreValue <= 25
+                        ? "bg-emerald-500"
+                        : riskScoreValue <= 60
+                          ? "bg-amber-500"
+                          : "bg-red-500"
+                    }`}
+                    style={{
+                      width: `${Math.max(0, Math.min(riskScoreValue, 100))}%`,
+                    }}
+                  />
+                </div>
+              </div>
+
+              <div className="rounded-xl border border-slate-200 dark:border-border bg-white dark:bg-card p-3">
+                <div className="flex items-center gap-2 text-slate-500 dark:text-muted-foreground">
+                  <Tag size={16} className="text-[#84CC16]" />
+                  <span className="text-[11px] font-bold uppercase tracking-wide">
+                    Market price
+                  </span>
+                </div>
+                <p className="mt-4 text-2xl font-bold text-slate-900 dark:text-foreground break-words">
+                  {marketValue || "Not available"}
+                </p>
+                <p className="mt-1 text-xs font-medium text-slate-500 dark:text-muted-foreground">
+                  Estimated market value
+                </p>
+              </div>
+            </div>
 
             {deviceImage && (
               <div className="flex justify-center">
@@ -361,11 +441,6 @@ AI Insight: ${scanResult.aiInsight?.message || "N/A"}
             <p>
               <span className="font-semibold">Model:</span> {deviceName}
             </p>
-            {marketValue && (
-              <p>
-                <span className="font-semibold">Price:</span> {marketValue}
-              </p>
-            )}
             <p>
               <span className="font-semibold">IMEI:</span> {imeiValue}
             </p>
@@ -651,43 +726,15 @@ AI Insight: ${scanResult.aiInsight?.message || "N/A"}
 
             <div className="border-t border-slate-100 dark:border-border pt-2 mt-1"></div>
 
-            {/* Risk Meter Section */}
-            <div>
-              <div className="flex justify-between items-center mb-2">
-                <span className="font-semibold">Risk Level:</span>
-                <span
-                  className={`px-2 py-0.5 rounded-md text-[10px] font-bold text-white ${
-                    riskScoreValue <= 25
-                      ? "bg-emerald-500"
-                      : riskScoreValue <= 60
-                        ? "bg-amber-500"
-                        : "bg-red-500"
-                  }`}
-                >
-                  {riskScoreValue <= 25
-                    ? "LOW"
-                    : riskScoreValue <= 60
-                      ? "MODERATE"
-                      : "HIGH"}{" "}
-                  RISK
-                </span>
-              </div>
-              <div>
-                <span className="font-semibold">Risk Score:</span>{" "}
-                {riskScoreValue}/100
-              </div>
-              <div className="mt-2 h-2 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
-                <div
-                  className={`h-full ${riskScoreValue <= 25 ? "bg-emerald-500" : riskScoreValue <= 60 ? "bg-amber-500" : "bg-red-500"}`}
-                  style={{ width: `${riskScoreValue}%` }}
-                />
-              </div>
-            </div>
-
             {/* AI Insight Section */}
-            {scanResult.aiInsight && (
+            {scanResult.aiInsight?.message && (
               <div className="border-t border-slate-100 dark:border-border pt-3 mt-2">
-                <p className="font-semibold mb-1">AI Insight:</p>
+                <div className="flex items-center justify-center gap-2 mb-1">
+                  <Shield size={14} className="text-indigo-500" />
+                  <p className="font-semibold text-indigo-600">
+                    {scanResult.aiInsight.title || "AI INSIGHT"}
+                  </p>
+                </div>
                 <p className="text-sm italic text-slate-600 dark:text-slate-300">
                   {scanResult.aiInsight.message}
                 </p>

@@ -339,9 +339,14 @@ const extractDeviceData = (scanResult: IMEIResult): ExtractedDeviceData => {
 
   // Basic device info
   const deviceName =
+    parsedProviderData.model_description ||
+    parsedProviderData.description ||
+    parsedProviderData.device_name ||
+    parsedProviderData.full_name ||
     parsedProviderData.device ||
-    parsedProviderData.model ||
     parsedProviderData.marketing_name ||
+    parsedProviderData.model_name ||
+    parsedProviderData.model ||
     "";
   const deviceId =
     parsedProviderData.deviceid || parsedProviderData.device_id || "";

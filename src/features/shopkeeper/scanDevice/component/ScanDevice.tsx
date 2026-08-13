@@ -208,7 +208,11 @@ export default function ScanDevice() {
         isDownloading={isDownloading}
         onRegenerate={() => {
           // Always use IMEI from API response
-          const imeiToRegenerate = favouriteResult?.providerResults?.imei;
+          const imeiToRegenerate =
+            favouriteResult?.providerResults?.imei ||
+            favouriteResult?.providerResults?.serial_number ||
+            favouriteResult?.providerResults?.deviceid ||
+            imei;
           if (!imeiToRegenerate) {
             console.error("❌ No IMEI found in favouriteResult");
             return Promise.reject(new Error("IMEI not found"));

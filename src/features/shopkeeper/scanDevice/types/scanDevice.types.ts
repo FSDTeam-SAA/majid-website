@@ -152,6 +152,8 @@ export interface BatchImeiResponse {
 }
 export interface FavouriteProviderResults {
   description?: string;
+  model_description?: string;
+  device_name?: string;
   model?: string;
   image?: {
     src?: string;
@@ -209,6 +211,7 @@ export interface FavouriteProviderResults {
   blacklist_status?: string;
   att_status?: string;
   error_r01?: string;
+  [key: string]: unknown;
 }
 
 export interface FavouriteIMEIData {
