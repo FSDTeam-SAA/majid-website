@@ -53,6 +53,7 @@ const navItems = [
     href: "/shopkeeper/payment",
     submenu: [
       { label: "Payment History", href: "/shopkeeper/payment/history" },
+      { label: "Transactions", href: "/shopkeeper/payment/transactions" },
       { label: "Pricing Plane", href: "/shopkeeper/payment/add-funds" },
       { label: "Tax Season", href: "/shopkeeper/payment/tax-season" },
     ],

@@ -435,4 +435,7 @@ Status Code
     ]
 }
 
+Prompt 2: done 
 in this responce the storage that shoiwng Model: Apple iPhone 17 Pro - 1TB - Cosmic Orange this device is not 1T but in the ui it's showng this fix this problem. 
+
+prompt 3: 
