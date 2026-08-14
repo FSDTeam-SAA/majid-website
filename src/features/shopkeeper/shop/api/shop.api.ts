@@ -33,6 +33,40 @@ export const getShopEntitlement = async (): Promise<ShopEntitlement> => {
   return response.data.data;
 };
 
+export interface ShopStats {
+  totalSales: number;
+  cashSales: number;
+  cardSales: number;
+  customersCount: number;
+}
+
+export interface ShopPerformanceItem extends Shop {
+  stats: ShopStats;
+  staff: {
+    _id: string;
+    firstName: string;
+    lastName?: string;
+    image?: { url?: string };
+  }[];
+}
+
+export interface ShopPerformanceData {
+  shops: ShopPerformanceItem[];
+  aggregate: {
+    activeShopsCount: number;
+    totalSales: number;
+    totalCustomers: number;
+    totalStaff: number;
+  };
+}
+
+export const getShopPerformance = async (
+  dateFilter: string = "today",
+): Promise<ShopPerformanceData> => {
+  const response = await api.get(`/shop/performance?dateFilter=${dateFilter}`);
+  return response.data.data;
+};
+
 export const createShop = async (payload: {
   shopName: string;
   shopAddress: string;

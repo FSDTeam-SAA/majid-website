@@ -1,4 +1,4 @@
-import AddShop from "@/features/shopkeeper/shop/component/AddShop";
+import MyShopsDashboard from "@/features/shopkeeper/shop/component/MyShopsDashboard";
 
 export const metadata = {
   title: "My Shop | Shopkeeper Settings",
@@ -6,5 +6,5 @@ export const metadata = {
 };
 
 export default function MyShopPage() {
-  return <AddShop />;
+  return <MyShopsDashboard />;
 }
