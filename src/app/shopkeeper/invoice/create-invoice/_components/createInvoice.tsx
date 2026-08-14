@@ -12,7 +12,21 @@ import {
   Search,
   ChevronLeft,
   ChevronRight,
+  Plus,
+  Trash2,
+  CreditCard,
+  Banknote,
+  Building2,
+  Clock3,
 } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
+
 import { pdf } from "@react-pdf/renderer";
 import {
   Document,
@@ -579,7 +593,11 @@ export const InvoicePDF = ({
             >
               <View style={pdfStyles.colProduct}>
                 <Text style={pdfStyles.productText}>{item.name}</Text>
-                <Text style={pdfStyles.productSub}>Inventory item</Text>
+                <Text style={pdfStyles.productSub}>
+                  {[item.storage, item.color, item.condition]
+                    .filter(Boolean)
+                    .join(" • ") || "Inventory item"}
+                </Text>
               </View>
               <Text style={pdfStyles.colId}>{item.imeiNumber || "N/A"}</Text>
               <Text style={pdfStyles.colQuantity}>1</Text>
@@ -624,16 +642,27 @@ export default function CreateInvoice() {
   const { data: profileData } = useMyProfile();
   const { currency, formatCurrency } = useCurrency();
   const { mutate: createInvoice, isPending } = useCreateInvoice();
-  const [searchQuery, setSearchQuery] = useState("");
-  const [currentInventoryPage, setCurrentInventoryPage] = useState(1);
   const [customerSearchQuery, setCustomerSearchQuery] = useState("");
   const seesion = useSession();
   const shopkeeper = seesion.data?.user.id;
-  const [selectedDeviceIds, setSelectedDeviceIds] = useState<string[]>([]);
   const { mutateAsync: createInvoiceUserAsync } = useCreateInvoiceUser();
   const getInvoiceUser = useMyInvoiceGet(shopkeeper || "223423423");
   const [selectedCustomerId, setSelectedCustomerId] = useState("");
   const [invoiceDate, setInvoiceDate] = useState<Date>(new Date());
+
+  const [invoiceItems, setInvoiceItems] = useState<any[]>([
+    {
+      id: "",
+      name: "",
+      storage: "",
+      color: "",
+      condition: "",
+      imeiNumber: "",
+      quantity: 1,
+      price: "",
+    },
+  ]);
+  const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
 
   const [customer, setCustomer] = useState({
     firstName: "",
@@ -641,8 +670,6 @@ export default function CreateInvoice() {
     email: "",
     phone: "",
     address: "",
-    paymentType: "",
-    alreadyPaid: 0,
   });
 
   const customers = useMemo(
@@ -650,29 +677,14 @@ export default function CreateInvoice() {
     [getInvoiceUser?.data?.data],
   );
 
-  // Custom Dynamic Input Payment states
   const [paymentType, setPaymentType] = useState("cash");
   const [alreadyPaid, setAlreadyPaid] = useState<number>(0);
-
-  const toggleDevice = (id: string) => {
-    setSelectedDeviceIds((prev) =>
-      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id],
-    );
-  };
 
   const items = useMemo(() => {
     return (inventoryData?.data || []).filter(
       (item: any) => item.type === "inventory",
     );
   }, [inventoryData]);
-
-  const filteredDevices = useMemo(() => {
-    return items.filter(
-      (item: any) =>
-        item.itemName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        item.imeiNumber?.toLowerCase().includes(searchQuery.toLowerCase()),
-    );
-  }, [items, searchQuery]);
 
   const allDevices = useMemo(() => {
     return (
@@ -682,32 +694,12 @@ export default function CreateInvoice() {
         price: item.expectedPrice,
         image: item.image?.url || "/placeholder.png",
         imeiNumber: item.imeiNumber,
+        storage: item.storage,
+        color: item.color,
+        condition: item.condition || item.currentState,
       })) || []
     );
   }, [items]);
-
-  const devices = useMemo(() => {
-    return (
-      filteredDevices.map((item: any) => ({
-        id: item._id,
-        name: item.itemName,
-        price: item.expectedPrice,
-        image: item.image?.url || "/placeholder.png",
-        imeiNumber: item.imeiNumber,
-      })) || []
-    );
-  }, [filteredDevices]);
-
-  const inventoryPageCount = Math.max(
-    1,
-    Math.ceil(devices.length / INVENTORY_PAGE_SIZE),
-  );
-  const inventoryPage = Math.min(currentInventoryPage, inventoryPageCount);
-
-  const paginatedDevices = useMemo(() => {
-    const start = (inventoryPage - 1) * INVENTORY_PAGE_SIZE;
-    return devices.slice(start, start + INVENTORY_PAGE_SIZE);
-  }, [devices, inventoryPage]);
 
   const filteredCustomers = useMemo(() => {
     const query = customerSearchQuery.trim().toLowerCase();
@@ -728,13 +720,10 @@ export default function CreateInvoice() {
     );
   }, [customers, customerSearchQuery]);
 
-  const selectedDevicesData = useMemo(
-    () => allDevices.filter((device) => selectedDeviceIds.includes(device.id)),
-    [allDevices, selectedDeviceIds],
-  );
+  const selectedDevicesData = invoiceItems;
 
-  const totalPrice = selectedDevicesData.reduce(
-    (sum, device) => sum + Number(device.price || 0),
+  const totalPrice = invoiceItems.reduce(
+    (sum, item) => sum + Number(item.price || 0) * Number(item.quantity || 1),
     0,
   );
 
@@ -802,7 +791,7 @@ export default function CreateInvoice() {
           customerInfo: finalCustomerId,
           type: "Custom invoice",
           invoice: file,
-          itemsIds: selectedDeviceIds,
+          itemsIds: invoiceItems.map((i) => i.id).filter(Boolean),
           dueAmount: totalPrice,
         },
         {
@@ -829,7 +818,7 @@ export default function CreateInvoice() {
               Invoice Generator
             </h1>
             <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest mt-1">
-              Selected Items: {selectedDeviceIds.length}
+              Selected Items: {invoiceItems.filter((i) => i.name).length}
             </p>
           </div>
 
@@ -874,8 +863,6 @@ export default function CreateInvoice() {
                         email: selectedCustomer.email || "",
                         phone: selectedCustomer.phone || "",
                         address: selectedCustomer.address || "",
-                        paymentType: selectedCustomer.paymentType || "cash",
-                        alreadyPaid: selectedCustomer.alreadyPaid || 0,
                       });
 
                       setPaymentType(selectedCustomer.paymentType || "cash");
@@ -1041,74 +1028,6 @@ export default function CreateInvoice() {
                   onChange={(address) => setCustomer({ ...customer, address })}
                 />
               </div>
-
-              {/* Payment Select UI Field Implementation */}
-              <div className="space-y-2">
-                <label className="text-xs font-black text-muted-foreground uppercase tracking-widest">
-                  Payment Type
-                </label>
-                <select
-                  value={paymentType}
-                  onChange={(e) => setPaymentType(e.target.value)}
-                  className="flex w-full rounded-2xl h-12 border border-primary bg-background px-3 py-2 text-sm font-bold shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  <option value="cash">Cash</option>
-                  <option value="card">Card</option>
-                </select>
-              </div>
-
-              {/* Already Paid Input Box Field */}
-              <div className="space-y-2">
-                <label className="text-xs font-black text-muted-foreground uppercase tracking-widest">
-                  Already Paid
-                </label>
-                <Input
-                  type="number"
-                  className="rounded-2xl h-12 border-primary bg-background font-bold"
-                  placeholder="0.00"
-                  value={alreadyPaid}
-                  onChange={(e) => setAlreadyPaid(Number(e.target.value))}
-                />
-              </div>
-              {/* Conditional Card field wrapper layer */}
-              {/* {paymentType === "card" && (
-                <div className="space-y-2 sm:col-span-2">
-                  <label className="text-xs font-black text-muted-foreground uppercase tracking-widest">
-                    Card Number
-                  </label>
-                  <Input
-                    type="text"
-                    className="rounded-2xl h-12 border-primary bg-background font-bold"
-                    placeholder="xxxx-xxxx-xxxx-xxxx"
-                    value={customer.card}
-                    onChange={(e) =>
-                      setCustomer({ ...customer, card: e.target.value })
-                    }
-                  />
-                </div>
-              )} */}
-            </div>
-
-            {/* Calculations Status Grid view matching original structure style */}
-            <div className="grid grid-cols-2 gap-4 pt-2 border-t border-dashed border-border">
-              <div className="bg-slate-50 dark:bg-slate-900 p-4 rounded-xl">
-                <span className="text-[10px] font-black text-muted-foreground uppercase tracking-wider block">
-                  Sub-Total Amount
-                </span>
-                <span className="text-lg font-black text-slate-800 dark:text-slate-200">
-                  {formatCurrency(totalPrice, currency)}
-                </span>
-              </div>
-              <div className="bg-slate-50 dark:bg-slate-900 p-4 rounded-xl">
-                <span className="text-[10px] font-black text-muted-foreground uppercase tracking-wider block">
-                  Remaining Due
-                </span>
-                <span
-                  className={`text-lg font-black ${dueAmount === 0 ? "text-green-600" : "text-red-500"}`}
-                >
-                  {formatCurrency(dueAmount, currency)}
-                </span>
-              </div>
             </div>
           </div>
 
@@ -1148,153 +1067,201 @@ export default function CreateInvoice() {
           </div>
         </div>
 
-        <InventoryItemsCard shopkeeperId={shopkeeper} />
-
-        {/* Search Field */}
-        <div>
-          <div className="relative">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-            <input
-              type="text"
-              placeholder="Search devices..."
-              value={searchQuery}
-              onChange={(e) => {
-                setSearchQuery(e.target.value);
-                setCurrentInventoryPage(1);
-              }}
-              className="pl-12 pr-4 h-12 w-full bg-white border border-slate-100 dark:bg-slate-800 dark:border-slate-600 dark:text-white rounded-xl font-bold text-sm focus:ring-[#84CC16] focus:border-[#84CC16] outline-none transition"
-            />
-          </div>
-        </div>
-
-        {/* Device Table */}
-        <div className="rounded-[32px] border border-border bg-card overflow-hidden shadow-sm">
-          <table className="w-full text-left">
-            <thead className="border-b border-border bg-surface text-xs font-black uppercase tracking-wider text-muted-foreground">
-              <tr>
-                <th className="px-8 py-6 w-20">Select</th>
-                <th className="px-8 py-6">Product Details</th>
-                <th className="px-8 py-6 text-right">Unit Price</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border">
-              {isLoading ? (
-                <tr>
-                  <td
-                    colSpan={3}
-                    className="px-8 py-6 text-center text-sm font-bold text-muted-foreground"
-                  >
-                    Loading inventory data...
-                  </td>
-                </tr>
-              ) : isError ? (
-                <tr>
-                  <td
-                    colSpan={3}
-                    className="px-8 py-6 text-center text-sm font-bold text-destructive"
-                  >
-                    Failed to fetch products.
-                  </td>
-                </tr>
-              ) : devices.length === 0 ? (
-                <tr>
-                  <td
-                    colSpan={3}
-                    className="px-8 py-6 text-center text-sm font-bold text-muted-foreground"
-                  >
-                    No devices match search criteria.
-                  </td>
-                </tr>
-              ) : (
-                paginatedDevices.map((device) => {
-                  const isSelected = selectedDeviceIds.includes(device.id);
-                  return (
-                    <tr
-                      key={device.id}
-                      className={`group transition-all hover:bg-slate-50/50 cursor-pointer ${
-                        isSelected ? "bg-orange-50/40" : ""
-                      }`}
-                      onClick={() => toggleDevice(device.id)}
-                    >
-                      <td
-                        className="px-8 py-6"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        <Checkbox
-                          className="h-6 w-6 rounded-lg border-primary focus:ring-primary"
-                          checked={isSelected}
-                          onCheckedChange={() => toggleDevice(device.id)}
-                        />
-                      </td>
-
-                      <td className="px-8 py-6 flex items-center gap-4">
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img
-                          src={device.image}
-                          className="w-12 h-12 rounded-2xl object-cover"
-                          alt={device.name}
-                        />
-                        <div>
-                          <p className="font-black text-foreground">
-                            {device.name}
-                          </p>
-                          <p className="text-xs font-bold text-muted-foreground">
-                            #DEV-{device.id}
-                          </p>
-                        </div>
-                      </td>
-
-                      <td className="px-8 py-6 text-right font-black text-lg">
-                        {formatCurrency(Number(device.price || 0), currency)}
-                      </td>
-                    </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
-          {devices.length > INVENTORY_PAGE_SIZE && (
-            <div className="flex flex-col gap-3 border-t border-border px-6 py-4 sm:flex-row sm:items-center sm:justify-between">
-              <p className="text-sm font-semibold text-muted-foreground">
-                Showing {(inventoryPage - 1) * INVENTORY_PAGE_SIZE + 1}–
-                {Math.min(inventoryPage * INVENTORY_PAGE_SIZE, devices.length)}{" "}
-                of {devices.length} products
+        <datalist id="inventory-names-list">
+          {allDevices.map((d) => (
+            <option key={d.id} value={d.name}>
+              {d.name}
+            </option>
+          ))}
+        </datalist>
+        <div className="bg-card border border-border rounded-[28px] p-8 shadow-sm space-y-6">
+          <div className="flex flex-col md:flex-row justify-between md:items-center gap-4 mb-4">
+            <div>
+              <h2 className="text-2xl font-black">Invoice Items</h2>
+              <p className="text-sm text-muted-foreground">
+                Add products to this invoice.
               </p>
-              <div className="flex items-center gap-2 self-end sm:self-auto">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="gap-1 rounded-xl"
-                  disabled={inventoryPage === 1}
-                  onClick={() =>
-                    setCurrentInventoryPage(Math.max(1, inventoryPage - 1))
-                  }
-                >
-                  <ChevronLeft className="h-4 w-4" />
-                  Previous
-                </Button>
-                <span className="px-2 text-sm font-bold text-muted-foreground">
-                  Page {inventoryPage} of {inventoryPageCount}
-                </span>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="gap-1 rounded-xl"
-                  disabled={inventoryPage === inventoryPageCount}
-                  onClick={() =>
-                    setCurrentInventoryPage(
-                      Math.min(inventoryPageCount, inventoryPage + 1),
-                    )
-                  }
-                >
-                  Next
-                  <ChevronRight className="h-4 w-4" />
-                </Button>
-              </div>
             </div>
-          )}
+            <Button
+              onClick={() =>
+                setInvoiceItems([
+                  ...invoiceItems,
+                  {
+                    id: "",
+                    name: "",
+                    storage: "",
+                    color: "",
+                    condition: "",
+                    imeiNumber: "",
+                    quantity: 1,
+                    price: "",
+                  },
+                ])
+              }
+              className="rounded-2xl"
+            >
+              <Plus size={16} className="mr-2" /> Add Item
+            </Button>
+          </div>
+
+          <div className="space-y-4">
+            {invoiceItems.map((item, index) => (
+              <div
+                key={index}
+                className="border rounded-3xl p-6 bg-muted/20 space-y-4 relative group"
+              >
+                <Button
+                  variant="destructive"
+                  size="icon"
+                  className="absolute top-4 right-4 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity"
+                  onClick={() =>
+                    setInvoiceItems(invoiceItems.filter((_, i) => i !== index))
+                  }
+                  disabled={invoiceItems.length === 1}
+                >
+                  <Trash2 size={16} />
+                </Button>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="font-bold text-sm text-muted-foreground ml-1 mb-1 block">
+                      Item Name <span className="text-red-500">*</span>
+                    </label>
+                    <Input
+                      list="inventory-names-list"
+                      placeholder="Select or Type Item Name"
+                      className="rounded-2xl h-12 border-primary bg-background font-bold"
+                      value={item.name}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        const found = allDevices.find((d) => d.name === val);
+                        const next = [...invoiceItems];
+                        if (found) {
+                          next[index] = {
+                            ...next[index],
+                            id: found.id,
+                            name: found.name,
+                            storage: found.storage || "",
+                            color: found.color || "",
+                            condition: found.condition || "",
+                            price: found.price || 0,
+                            imeiNumber: found.imeiNumber || "",
+                          };
+                        } else {
+                          next[index] = { ...next[index], name: val };
+                        }
+                        setInvoiceItems(next);
+                      }}
+                    />
+                  </div>
+                  <div>
+                    <label className="font-bold text-sm text-muted-foreground ml-1 mb-1 block">
+                      Storage / Memory
+                    </label>
+                    <Input
+                      placeholder="Select or Type Storage"
+                      className="rounded-2xl h-12 border-primary bg-background font-bold"
+                      value={item.storage || ""}
+                      onChange={(e) => {
+                        const next = [...invoiceItems];
+                        next[index] = {
+                          ...next[index],
+                          storage: e.target.value,
+                        };
+                        setInvoiceItems(next);
+                      }}
+                    />
+                  </div>
+                  <div>
+                    <label className="font-bold text-sm text-muted-foreground ml-1 mb-1 block">
+                      Color
+                    </label>
+                    <Input
+                      placeholder="Select or Type Color"
+                      className="rounded-2xl h-12 border-primary bg-background font-bold"
+                      value={item.color || ""}
+                      onChange={(e) => {
+                        const next = [...invoiceItems];
+                        next[index] = { ...next[index], color: e.target.value };
+                        setInvoiceItems(next);
+                      }}
+                    />
+                  </div>
+                  <div>
+                    <label className="font-bold text-sm text-muted-foreground ml-1 mb-1 block">
+                      Condition
+                    </label>
+                    <Input
+                      placeholder="Select or Type Condition"
+                      className="rounded-2xl h-12 border-primary bg-background font-bold"
+                      value={item.condition || ""}
+                      onChange={(e) => {
+                        const next = [...invoiceItems];
+                        next[index] = {
+                          ...next[index],
+                          condition: e.target.value,
+                        };
+                        setInvoiceItems(next);
+                      }}
+                    />
+                  </div>
+                  <div className="md:col-span-2">
+                    <label className="font-bold text-sm text-muted-foreground ml-1 mb-1 block">
+                      IMEI Number or Serial Number
+                    </label>
+                    <Input
+                      placeholder="Type IMEI Number or Serial Number"
+                      className="rounded-2xl h-12 border-primary bg-background font-bold"
+                      value={item.imeiNumber || ""}
+                      onChange={(e) => {
+                        const next = [...invoiceItems];
+                        next[index] = {
+                          ...next[index],
+                          imeiNumber: e.target.value,
+                        };
+                        setInvoiceItems(next);
+                      }}
+                    />
+                  </div>
+                  <div>
+                    <label className="font-bold text-sm text-muted-foreground ml-1 mb-1 block">
+                      Quantity
+                    </label>
+                    <Input
+                      type="number"
+                      min={1}
+                      className="rounded-2xl h-12 border-primary bg-background font-bold"
+                      value={item.quantity}
+                      onChange={(e) => {
+                        const next = [...invoiceItems];
+                        next[index] = {
+                          ...next[index],
+                          quantity: Math.max(1, Number(e.target.value)),
+                        };
+                        setInvoiceItems(next);
+                      }}
+                    />
+                  </div>
+                  <div>
+                    <label className="font-bold text-sm text-muted-foreground ml-1 mb-1 block">
+                      Price Per Unit ({currency})
+                    </label>
+                    <Input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      className="rounded-2xl h-12 border-primary bg-background font-bold"
+                      value={item.price ?? ""}
+                      onChange={(e) => {
+                        const next = [...invoiceItems];
+                        next[index] = { ...next[index], price: e.target.value };
+                        setInvoiceItems(next);
+                      }}
+                    />
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
 
         {/* Action Bar */}
@@ -1314,14 +1281,180 @@ export default function CreateInvoice() {
           </div>
 
           <Button
-            onClick={handleCreateInvoice}
-            disabled={selectedDeviceIds.length === 0 || isPending}
+            onClick={() => setIsPaymentModalOpen(true)}
+            disabled={invoiceItems.filter((i) => i.name).length === 0}
             className="bg-primary hover:bg-primary/90 h-16 px-10 text-sm font-black rounded-full shadow-lg flex items-center gap-3 uppercase tracking-wider"
           >
-            Send Invoice {isPending && <Loader2 className="animate-spin" />}
+            Create Invoice
           </Button>
         </div>
       </div>
+
+      <Dialog
+        open={isPaymentModalOpen}
+        onOpenChange={(open) => {
+          if (!isPending) {
+            setIsPaymentModalOpen(open);
+          }
+        }}
+      >
+        <DialogContent className="max-h-[92vh] overflow-y-auto rounded-3xl border-none bg-white p-0 font-poppins sm:max-w-2xl">
+          <DialogHeader className="border-b border-slate-100 px-6 py-5 text-left">
+            <DialogTitle className="flex items-center gap-3 text-xl font-black text-slate-950">
+              <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-lime-50 text-[#84CC16]">
+                <CreditCard size={19} />
+              </span>
+              Collect Payment
+            </DialogTitle>
+            <DialogDescription className="text-xs font-semibold text-slate-500">
+              Select how the customer is paying{" "}
+              <span className="font-black text-slate-900">
+                {formatCurrency(totalPrice, currency)}
+              </span>
+              . The payment record will be saved with the customer invoice.
+            </DialogDescription>
+          </DialogHeader>
+
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              setIsPaymentModalOpen(false);
+              handleCreateInvoice();
+            }}
+            className="space-y-5 p-6"
+          >
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+              {[
+                {
+                  id: "cash",
+                  label: "Cash",
+                  description: "Cash received",
+                  icon: Banknote,
+                },
+                {
+                  id: "card",
+                  label: "Card",
+                  description: "Debit or credit",
+                  icon: CreditCard,
+                },
+                {
+                  id: "bank",
+                  label: "Bank",
+                  description: "Bank transfer",
+                  icon: Building2,
+                },
+                {
+                  id: "due",
+                  label: "Due",
+                  description: "Pay later",
+                  icon: Clock3,
+                },
+              ].map(({ id, label, description, icon: Icon }) => {
+                const isSelected = paymentType === id;
+                const isDisabled = id === "due" && !selectedCustomerId;
+
+                return (
+                  <button
+                    key={id}
+                    type="button"
+                    disabled={isDisabled}
+                    onClick={() => setPaymentType(id)}
+                    className={`rounded-2xl border p-3 text-left transition-all ${
+                      isSelected
+                        ? "border-[#84CC16] bg-lime-50 shadow-sm"
+                        : "border-slate-200 bg-white hover:border-slate-300"
+                    } ${isDisabled ? "cursor-not-allowed opacity-45" : ""}`}
+                  >
+                    <span
+                      className={`flex h-9 w-9 items-center justify-center rounded-xl ${
+                        isSelected
+                          ? "bg-[#84CC16] text-white"
+                          : "bg-slate-100 text-slate-500"
+                      }`}
+                    >
+                      <Icon size={17} />
+                    </span>
+                    <span className="mt-3 block text-sm font-black text-slate-950">
+                      {label}
+                    </span>
+                    <span className="mt-0.5 block text-[10px] font-bold text-slate-500">
+                      {isDisabled ? "Customer required" : description}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+
+            {!paymentType ? (
+              <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-7 text-center">
+                <CreditCard className="mx-auto h-7 w-7 text-slate-300" />
+                <p className="mt-2 text-xs font-black text-slate-600">
+                  Choose a payment method to continue
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-4 rounded-2xl border border-slate-100 bg-slate-50 p-4">
+                <div>
+                  <p className="text-sm font-black text-slate-950">
+                    {paymentType.charAt(0).toUpperCase() + paymentType.slice(1)}{" "}
+                    details
+                  </p>
+                </div>
+
+                {paymentType === "cash" && (
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <label className="space-y-1.5">
+                      <span className="text-[10px] font-black uppercase tracking-wider text-slate-500">
+                        Cash Received
+                      </span>
+                      <Input
+                        type="number"
+                        min={totalPrice}
+                        step="0.01"
+                        value={alreadyPaid}
+                        onChange={(event) =>
+                          setAlreadyPaid(Number(event.target.value))
+                        }
+                        className="h-11 rounded-xl border-slate-200 bg-white text-sm font-black focus-visible:ring-[#84CC16]"
+                      />
+                    </label>
+                    <div className="rounded-xl border border-lime-100 bg-lime-50 px-4 py-3">
+                      <span className="text-[10px] font-black uppercase tracking-wider text-lime-700">
+                        Change
+                      </span>
+                      <p className="mt-1 text-lg font-black text-lime-700">
+                        {formatCurrency(
+                          Math.max(0, Number(alreadyPaid || 0) - totalPrice),
+                          currency,
+                        )}
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            <div className="flex justify-end gap-3 pt-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setIsPaymentModalOpen(false)}
+                className="h-12 rounded-xl px-6 font-bold"
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                disabled={isPending || !paymentType}
+                className="h-12 rounded-xl bg-[#84CC16] px-8 font-black text-white hover:bg-[#75b213]"
+              >
+                {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Confirm & Print Receipt
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
