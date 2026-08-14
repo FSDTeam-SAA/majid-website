@@ -510,13 +510,13 @@ shopkeeper/inventory/suppliers in this page page make the ui as list view table 
 do not change any existing feature or funtions anything please. 
 
 
-prompt 7:  
+prompt 7:  done 
 in the system as a shopkeeper many thimes they add images on category, items right and those are saving on my backend. add a feature when they see the upload image after thy can see the images the upload previously they search those and add those when they create the category or a add item. 
 
 do this feature properly make it looks beutiful and make the ui nice and smoth. you can take referemnce to the other ui's . 
 do not change any existing feature or funtions anything please. 
 
-prompt : 8 :
+prompt : 8 : done 
 
 r/invoice/create-invoice in this page i need some things to change, 
 first remove  1. Select	Product Details this section 
@@ -574,3 +574,17 @@ those datas will be soon on the invoice that created.
 
 
 other existing this will be the same do not change anythign else. work like a sinior enginior. 
+
+
+prompt : 9 :
+/shopkeeper/invoice/purchase-invoice in this page and /shopkeeper/invoice/delivery-invoice this page also 
+ Item Name * when i see the items in the dropdown when i clicked on this if the selected item has    Storage / Memory
+Select or Type Storage
+Color
+Select or Type Color
+Condition
+ those infos those will be fill in to the box. also if the user want to edit those they can edit it or chagne it. 
+
+ 2. /shopkeeper/invoice/purchase-invoice in this page there is a check list add to inventory update the ui make like a toggle button insted of check box. andd add color inside the toggle green and red  
+
+ also in the purchase and delivery ivoice page 
