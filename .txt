@@ -439,3 +439,23 @@ Prompt 2: done
 in this responce the storage that shoiwng Model: Apple iPhone 17 Pro - 1TB - Cosmic Orange this device is not 1T but in the ui it's showng this fix this problem. 
 
 prompt 3: 
+
+
+when reports says MDM on or BTU on or knox on in any report put high alaert risk with red bar
+
+
+
+---------------------------------------------
+Date: 14 aug 26
+prompt: 1: done 
+in the webiste /payment/transactions in this page remove the unlinked refund button and make this page design like /invoice/invoice-history in the table first same icons that is right now cash card bank etc, then there will be invoice id, Generation Date, then the amount, then two button process refund, and new receipt option. 
+
+do this properly make things smoth and beautiful.   do not change any existing features or functions other thant that. 
+
+prompt : 2
+/shopkeeper/inventory in this page when i'm in smaller screes it not responsive fix this. in the item cart there is a 3 dot add another option to there name will be print lable by clicking this. it will ask some quesions probided on the screenshort. then it will genarat and print the lable. properly i have also give an example lable in the screenshort. 
+
+do this feature properly. you may need to work on the backend. work as a senior developer. 
+
+
+do not change any existing feature or funtions anything please. 

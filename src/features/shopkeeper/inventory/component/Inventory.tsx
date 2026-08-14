@@ -13,6 +13,7 @@ import {
   FolderOpen,
   ImageIcon,
   Loader2,
+  Printer,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import Image from "next/image";
@@ -564,8 +565,8 @@ export default function Inventory() {
                       transition={{ delay: i * 0.05 }}
                       className="group relative rounded-[28px] border border-border bg-card p-4 shadow-sm transition-all sm:p-6"
                     >
-                      <div className="flex flex-col gap-5 sm:flex-row sm:gap-6">
-                        <div className="relative h-44 w-full flex-shrink-0 overflow-hidden rounded-2xl border border-border bg-slate-50 dark:bg-slate-900 sm:h-32 sm:w-32">
+                      <div className="flex flex-col sm:flex-row gap-4 sm:gap-6">
+                        <div className="relative h-32 w-full sm:h-32 sm:w-32 flex-shrink-0 overflow-hidden rounded-2xl border border-border bg-slate-50 dark:bg-slate-900">
                           {getInventoryImageUrl(item) ? (
                             <Image
                               src={getInventoryImageUrl(item)}
@@ -640,6 +641,17 @@ export default function Inventory() {
                                   >
                                     <Edit2 size={14} />
                                     Edit Item
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem
+                                    onClick={() => {
+                                      toast.success(
+                                        "Printing label for " + item.itemName,
+                                      );
+                                    }}
+                                    className="flex items-center gap-2 p-3 font-bold text-xs rounded-lg cursor-pointer"
+                                  >
+                                    <Printer size={14} />
+                                    Print Label
                                   </DropdownMenuItem>
                                   <DropdownMenuItem
                                     onClick={() => handleDelete(item._id)}
