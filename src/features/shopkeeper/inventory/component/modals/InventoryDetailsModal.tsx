@@ -255,54 +255,6 @@ export function InventoryDetailsModal({
               </div>
             )}
 
-            {/* AI Insights Section */}
-            {item.aiDescription && (
-              <div className="space-y-4">
-                <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-lg bg-lime-500 flex items-center justify-center text-white shadow-lg shadow-lime-500/20">
-                    <Sparkles size={16} />
-                  </div>
-                  <h3 className="text-sm font-black text-[#0F172A] uppercase tracking-widest">
-                    AI Diagnostic Report
-                  </h3>
-                </div>
-                <div className="bg-slate-900 rounded-[32px] p-8 text-slate-300 relative overflow-hidden">
-                  <div className="absolute top-0 right-0 w-32 h-32 bg-[#84CC16] rounded-full filter blur-[60px] opacity-10" />
-                  <div className="relative z-10 space-y-4">
-                    <div className="prose prose-invert prose-sm max-w-none">
-                      {item.aiDescription.split("\n\n").map((para, i) => (
-                        <p
-                          key={i}
-                          className="text-[13px] leading-relaxed font-medium text-slate-300"
-                        >
-                          {para.startsWith("PRODUCT OVERVIEW:") ||
-                          para.startsWith("BRAND & MANUFACTURER:") ||
-                          para.startsWith("CATEGORY & CLASSIFICATION:") ||
-                          para.startsWith("CONDITION ASSESSMENT:") ||
-                          para.startsWith("AUTHENTICATION & IDENTIFICATION:") ||
-                          para.startsWith("MARKET VALUATION:") ||
-                          para.startsWith("QUALITY METRICS:") ||
-                          para.startsWith("INVESTMENT & RESALE POTENTIAL:") ||
-                          para.startsWith("AI ANALYSIS & RECOMMENDATIONS:") ||
-                          para.startsWith("COMPLIANCE & DOCUMENTATION:") ||
-                          para.startsWith("FINAL RECOMMENDATIONS:") ? (
-                            <span className="block text-[11px] font-black text-[#84CC16] uppercase tracking-widest mb-2 mt-6 first:mt-0">
-                              {para.split("\n")[0]}
-                              <span className="block text-slate-300 font-medium normal-case mt-1 tracking-normal">
-                                {para.split("\n").slice(1).join("\n")}
-                              </span>
-                            </span>
-                          ) : (
-                            para
-                          )}
-                        </p>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-
             {/* Footer Note */}
             <div className="p-6 bg-blue-50/50 rounded-2xl border border-blue-100 flex gap-4 items-start">
               <div className="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center text-blue-600 flex-shrink-0 shadow-sm">

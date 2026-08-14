@@ -1027,26 +1027,7 @@ export function InventoryFormModal({
   };
 
   const handleGenerateAiDescription = () => {
-    const values = form.getValues();
-    if (!String(values.itemName || "").trim()) {
-      toast.error("Please enter the item name first.");
-      return;
-    }
-
-    setIsGeneratingAiDescription(true);
-
-    const generatedDescription = buildInventoryAiDescription(
-      values,
-      currencySymbol,
-    );
-
-    form.setValue("aiDescription", generatedDescription, {
-      shouldDirty: true,
-      shouldValidate: true,
-    });
-
-    setIsGeneratingAiDescription(false);
-    toast.success("AI description generated.");
+    // Left empty since AI generation button is removed, or can just be removed
   };
 
   const form = useForm<CreateInventoryInput>({
@@ -1120,6 +1101,7 @@ export function InventoryFormModal({
         saleMethod: item.saleMethod ?? "In-store",
         image: undefined, // Reset image on edit
         categoryId: item.categoryId ?? categoryId ?? "",
+        variants: item.variants ?? [],
       });
 
       setTimeout(() => {
@@ -1205,6 +1187,7 @@ export function InventoryFormModal({
         saleMethod: "In-store",
         image: undefined,
         categoryId: categoryId ?? "",
+        variants: [],
       });
       setTimeout(() => {
         syncMultiValueField("color", [""], {
@@ -3349,37 +3332,24 @@ export function InventoryFormModal({
               Descriptions & Details
             </h4>
             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-              Generate AI content only when you need it
+              Add product description
             </p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-1 gap-6">
             <FormField
               control={form.control}
-              name="aiDescription"
+              name="productDetails"
               render={({ field }) => (
                 <FormItem>
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <FormLabel className="text-[10px] font-black uppercase tracking-widest text-slate-700 dark:text-white block ml-1">
-                      AI Description
+                      Product Description
                     </FormLabel>
-                    <Button
-                      type="button"
-                      onClick={handleGenerateAiDescription}
-                      className="bg-[#84CC16] hover:bg-[#65a30d] text-white rounded-2xl px-5 h-11 font-black uppercase tracking-widest shadow-lg shadow-[#84CC16]/20 flex items-center gap-2"
-                      disabled={isGeneratingAiDescription}
-                    >
-                      {isGeneratingAiDescription ? (
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                      ) : (
-                        <Sparkles className="w-4 h-4" />
-                      )}
-                      Generate AI Description
-                    </Button>
                   </div>
                   <FormControl>
                     <textarea
-                      placeholder="AI-generated description will appear here..."
+                      placeholder="Product description will appear here..."
                       className="w-full min-h-[120px] p-4 bg-[#84CC16]/5 border border-[#84CC16]/20 hover:border-[#84CC16]/40 hover:bg-[#84CC16]/10 rounded-[20px] font-bold text-slate-900 placeholder:text-slate-400 focus:bg-white focus:ring-4 focus:ring-[#84CC16]/15 focus:border-[#84CC16] transition-all shadow-sm outline-none resize-none"
                       {...field}
                     />

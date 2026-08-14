@@ -560,7 +560,7 @@ export default function Inventory() {
               transition={{ duration: 0.18 }}
             >
               {/* Stock Grid */}
-              <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
+              <div className="grid grid-cols-1 gap-5 md:grid-cols-2 2xl:grid-cols-3">
                 {stockItems.length > 0 ? (
                   stockItems.map((item: InventoryItem, i: number) => (
                     <motion.div
@@ -589,9 +589,9 @@ export default function Inventory() {
                         </div>
 
                         <div className="min-w-0 flex-1 space-y-3">
-                          <div className="flex justify-between items-start">
-                            <div>
-                              <h3 className="text-[15px] font-black leading-tight text-foreground">
+                          <div className="flex justify-between items-start gap-2">
+                            <div className="min-w-0 flex-1">
+                              <h3 className="text-[15px] font-black leading-tight text-foreground line-clamp-2">
                                 {item.itemName}
                               </h3>
                               <div className="flex flex-wrap gap-x-2 gap-y-0.5 mt-1">
@@ -618,7 +618,7 @@ export default function Inventory() {
                         Added {new Date(item.createdAt).toLocaleDateString()}
                       </p> */}
                             </div>
-                            <div className="flex gap-1">
+                            <div className="flex gap-1 shrink-0">
                               <button
                                 onClick={() => setSelectedItem(item)}
                                 className="p-1.5 bg-gray-50 text-gray-400 hover:text-[#84CC16] hover:bg-[#84CC16]/10 rounded-lg transition cursor-pointer"
@@ -684,15 +684,15 @@ export default function Inventory() {
                           </div>
 
                           <div className="flex items-end justify-between pt-2">
-                            <div className="flex flex-col gap-1">
-                              <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                            <div className="flex flex-col gap-1 min-w-0">
+                              <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 truncate">
                                 Selling Price
                               </span>
-                              <span className="text-xl font-black text-foreground">
+                              <span className="text-lg font-black text-foreground truncate">
                                 {formatCurrency(getInventoryDisplayPrice(item))}
                               </span>
                             </div>
-                            <span className="text-[10px] font-bold text-muted-foreground">
+                            <span className="text-[10px] font-bold text-muted-foreground whitespace-nowrap ml-2 shrink-0">
                               Qty : {item.quantity || 0}
                             </span>
                           </div>

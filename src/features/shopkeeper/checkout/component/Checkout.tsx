@@ -1247,7 +1247,7 @@ export default function Checkout() {
               ))}
             </div>
           ) : pagedInventory.length > 0 ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 pt-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 2xl:grid-cols-3 gap-6 pt-2">
               {pagedInventory.map((item: any) => {
                 const qty = localQuantities[item._id] || 1;
                 const itemImageUrl = getInventoryImageUrl(item);
@@ -1302,7 +1302,7 @@ export default function Checkout() {
                             }
                             className="flex w-full items-center justify-between rounded-lg bg-white px-2 py-1.5 text-left text-[10px] font-bold text-slate-700 shadow-sm disabled:opacity-50"
                           >
-                            <span>
+                            <span className="truncate min-w-0 flex-1">
                               {variant.color || "Variant"}
                               {variant.storage
                                 ? ` · ${variant.storage}`
@@ -1311,11 +1311,8 @@ export default function Checkout() {
                                 ({variant.quantity} left)
                               </span>
                             </span>
-                            <span className="text-[#65a30d]">
-                              {formatCurrency(
-                                convertAmount(variant.expectedPrice || 0),
-                              )}{" "}
-                              +
+                            <span className="text-[#65a30d] shrink-0 whitespace-nowrap ml-2">
+                              {formatCurrency(variant.expectedPrice || 0)} +
                             </span>
                           </button>
                         ))}
@@ -1323,44 +1320,42 @@ export default function Checkout() {
                     )}
 
                     {/* Price and Add Row */}
-                    {(item.variants || []).length === 0 && (
-                      <div className="flex items-center justify-between mt-4">
-                        <p className="text-[15px] font-black text-slate-900">
-                          {formatCurrency(convertAmount(item.expectedPrice))}
-                        </p>
+                    <div className="flex flex-wrap items-center justify-between mt-4 gap-2">
+                      <p className="text-[15px] font-black text-slate-900 truncate flex-1 min-w-[80px]">
+                        {formatCurrency(item.expectedPrice)}
+                      </p>
 
-                        {/* Quantity select & Add */}
-                        <div className="flex items-center gap-2">
-                          {/* Qty count adjuster */}
-                          <div className="flex items-center bg-slate-100 rounded-lg p-0.5 border border-slate-200">
-                            <button
-                              onClick={() => handleLocalQtyChange(item._id, -1)}
-                              className="w-6 h-6 flex items-center justify-center text-slate-500 hover:text-slate-800"
-                            >
-                              <Minus size={12} />
-                            </button>
-                            <span className="w-6 text-center text-xs font-black">
-                              {qty}
-                            </span>
-                            <button
-                              onClick={() => handleLocalQtyChange(item._id, 1)}
-                              className="w-6 h-6 flex items-center justify-center text-slate-500 hover:text-slate-800"
-                            >
-                              <Plus size={12} />
-                            </button>
-                          </div>
-
-                          {/* Add Circle button */}
+                      {/* Quantity select & Add */}
+                      <div className="flex items-center gap-2 shrink-0">
+                        {/* Qty count adjuster */}
+                        <div className="flex items-center bg-slate-100 rounded-lg p-0.5 border border-slate-200 shrink-0">
                           <button
-                            onClick={() => handleAddToCart(item._id, qty)}
-                            disabled={addingItemId === item._id}
-                            className="w-8 h-8 rounded-full bg-[#84CC16] text-white flex items-center justify-center hover:bg-[#74b313] active:scale-95 shadow shadow-lime-500/25 transition-all"
+                            onClick={() => handleLocalQtyChange(item._id, -1)}
+                            className="w-6 h-6 flex items-center justify-center text-slate-500 hover:text-slate-800"
                           >
-                            <Plus size={16} strokeWidth={3} />
+                            <Minus size={12} />
+                          </button>
+                          <span className="w-6 text-center text-xs font-black">
+                            {qty}
+                          </span>
+                          <button
+                            onClick={() => handleLocalQtyChange(item._id, 1)}
+                            className="w-6 h-6 flex items-center justify-center text-slate-500 hover:text-slate-800"
+                          >
+                            <Plus size={12} />
                           </button>
                         </div>
+
+                        {/* Add Circle button */}
+                        <button
+                          onClick={() => handleAddToCart(item._id, qty)}
+                          disabled={addingItemId === item._id}
+                          className="w-8 h-8 rounded-full bg-[#84CC16] text-white flex items-center justify-center hover:bg-[#74b313] active:scale-95 shadow shadow-lime-500/25 transition-all"
+                        >
+                          <Plus size={16} strokeWidth={3} />
+                        </button>
                       </div>
-                    )}
+                    </div>
                   </motion.div>
                 );
               })}
@@ -1472,7 +1467,7 @@ export default function Checkout() {
         </div>
 
         {/* Checkout Modes (Walk-In, Repair, Delivery, Online, Return) */}
-        <div className="grid grid-cols-5 gap-1.5 p-1 bg-slate-100 rounded-xl mt-4">
+        <div className="flex flex-wrap gap-1.5 p-1 bg-slate-100 rounded-xl mt-4">
           {(["walk-in", "repair", "delivery", "online", "return"] as const).map(
             (mode) => (
               <button
@@ -1483,7 +1478,7 @@ export default function Checkout() {
                     setIsReturnModalOpen(true);
                   }
                 }}
-                className={`py-2 text-[10px] font-black uppercase tracking-wider rounded-lg transition-all ${
+                className={`flex-1 min-w-[70px] py-2 text-[10px] font-black uppercase tracking-wider rounded-lg transition-all ${
                   checkoutMode === mode
                     ? "bg-[#84CC16] text-white shadow shadow-lime-500/20"
                     : "text-slate-500 hover:text-slate-900"
@@ -1626,7 +1621,7 @@ export default function Checkout() {
                       </div>
                     </div>
 
-                    <div className="flex flex-col items-end gap-2 ml-4">
+                    <div className="flex flex-col items-end gap-2 ml-2 shrink-0">
                       <button
                         onClick={() => handleDeleteCartItem(cartItem._id)}
                         className="p-1 text-slate-400 hover:text-red-500 rounded-full hover:bg-red-50 transition-colors"
@@ -2545,7 +2540,7 @@ export default function Checkout() {
                 className="h-12 rounded-2xl bg-[#84CC16] px-5 text-sm font-black text-white shadow-lg shadow-lime-500/20 transition-colors hover:bg-[#74b313]"
               >
                 Add Selected ({selectedRecommendationItems.length}) -{" "}
-                {formatCurrency(convertAmount(selectedRecommendationTotal))}
+                {formatCurrency(selectedRecommendationTotal)}
               </button>
             </div>
           </div>

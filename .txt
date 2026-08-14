@@ -462,8 +462,39 @@ do not change any existing feature or funtions anything please.
 
 
 
-prompt : 3 
+prompt : 3 - done 
 i'm getting some issue in the /shopkeeper/inventory page in the webiste the problem is the items are not bistaring based on category. if i add a item inside a category it should be autometicly be a product of that spacifica category it not but it not happaing all the items are showing same inside all the category. fix this 
 
 - remove the ai description add the api product discripton that will ok 
-- seeing issue in the pricing system 
+- seeing issue in the pricing system from the settings inventory. so i have set the currtency to bdt. in the ui i can see /shopkeeper/inventory in this page Woodcessories Smartphone-Hülle »Case Slim«, iPhone 12 Pro Max, 17 Cm (6,7 Zoll)
+Woodcessories Smartphone-Hülle »Case Slim«, iPhone 12 Pro Max, 17 Cm (6,7 Zoll)
+Woodcessories
+4260382637850
+
+new
+In Stock
+Sell
+Selling Price
+BDT 24,577.41
+Qty : 1
+
+look the price and 
+but in the check out page /shopkeeper/checkout Woodcessories Smartphone-Hülle »Case Slim«, iPhone 12 Pro Max, 17 Cm (6,7 Zoll)
+Woodcessories Smartphone-Hülle »Case Slim«, iPhone 12 Pro Max, 17 Cm (6,7 Zoll)
+
+Woodcessories
+
+BDT 3,020,245.41
+
+there the price shoing diffrent. fix this issue. also /shopkeeper/checkout amke this page responsive in the makbook air disply size the item cart are braking . 
+
+do not change any existing feature or funtions anything please. 
+
+
+prompt: 4 
+in the inventory the varient issue is showing 
+1. when i edit item i can not edit the varients. 
+2. in the /shopkeeper/checkout page if the item has varient the design currenty not proper way showing in there. 
+3. if any item has varient then by default once are gone like as you can see in the schime the quantity is and the price got los or i can not add to cart when there not no variel i can but when there is varient then the defal item i can not add or add to cart fix this 
+
+do not change any existing feature or funtions anything please. 
