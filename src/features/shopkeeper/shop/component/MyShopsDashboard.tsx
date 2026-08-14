@@ -34,11 +34,13 @@ import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { getShopPerformance } from "../api/shop.api";
 import { useShop } from "../store/shop.store";
+import { useCurrency } from "@/hooks/useCurrency";
 import AddShop from "./AddShop";
 
 export default function MyShopsDashboard() {
   const router = useRouter();
-  const { setActiveShop, activeShopId } = useShop();
+  const { setActiveShop } = useShop();
+  const { formatCurrency, currencySymbol } = useCurrency();
 
   const [searchQuery, setSearchQuery] = useState("");
   const [shopFilter, setShopFilter] = useState("all");
@@ -77,16 +79,6 @@ export default function MyShopsDashboard() {
     totalSales: 0,
     totalCustomers: 0,
     totalStaff: 0,
-  };
-  const baseCurrency = filteredShops.find((s) => s.isActive)?.currency || "GBP";
-  const currencySymbol =
-    baseCurrency === "BDT" ? "৳" : baseCurrency === "USD" ? "$" : "£";
-
-  const formatCurrency = (amount: number, currency: string) => {
-    return new Intl.NumberFormat("en-GB", {
-      style: "currency",
-      currency: currency || "GBP",
-    }).format(amount || 0);
   };
 
   return (
@@ -155,59 +147,62 @@ export default function MyShopsDashboard() {
         <>
           {/* KPI Cards */}
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <div className="flex items-center gap-4 rounded-2xl bg-white p-5 border border-slate-200 shadow-sm transition-all hover:shadow-md">
+            <div className="flex items-center gap-4 rounded-2xl bg-white p-5 border border-slate-200 shadow-sm transition-all hover:shadow-md min-w-0">
               <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#84CC16]/10">
                 <Building2 className="h-6 w-6 text-[#84CC16]" />
               </div>
-              <div>
-                <p className="text-2xl font-black text-slate-900">
+              <div className="min-w-0 flex-1">
+                <p className="text-2xl font-black text-slate-900 truncate">
                   {aggregate.activeShopsCount}
                 </p>
-                <p className="text-sm font-semibold text-slate-500">
+                <p className="text-sm font-semibold text-slate-500 truncate">
                   Active Shops
                 </p>
               </div>
             </div>
 
-            <div className="flex items-center gap-4 rounded-2xl bg-white p-5 border border-slate-200 shadow-sm transition-all hover:shadow-md">
+            <div className="flex items-center gap-4 rounded-2xl bg-white p-5 border border-slate-200 shadow-sm transition-all hover:shadow-md min-w-0">
               <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#84CC16]/10">
                 <span className="text-2xl font-black text-[#84CC16]">
                   {currencySymbol}
                 </span>
               </div>
-              <div>
-                <p className="text-2xl font-black text-[#84CC16]">
-                  {formatCurrency(aggregate.totalSales, baseCurrency)}
+              <div className="min-w-0 flex-1">
+                <p
+                  className="text-xl sm:text-2xl font-black text-[#84CC16] truncate"
+                  title={formatCurrency(aggregate.totalSales)}
+                >
+                  {formatCurrency(aggregate.totalSales)}
                 </p>
-                <p className="text-sm font-semibold text-slate-500">
+                <p className="text-sm font-semibold text-slate-500 truncate">
                   {dateFilter === "today" ? "Today's Sales" : "Total Sales"}
                 </p>
               </div>
             </div>
 
-            <div className="flex items-center gap-4 rounded-2xl bg-white p-5 border border-slate-200 shadow-sm transition-all hover:shadow-md">
+            <div className="flex items-center gap-4 rounded-2xl bg-white p-5 border border-slate-200 shadow-sm transition-all hover:shadow-md min-w-0">
               <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#84CC16]/10">
                 <Users className="h-6 w-6 text-[#84CC16]" />
               </div>
-              <div>
-                <p className="text-2xl font-black text-slate-900">
+              <div className="min-w-0 flex-1">
+                <p className="text-2xl font-black text-slate-900 truncate">
                   {aggregate.totalCustomers}
                 </p>
-                <p className="text-sm font-semibold text-slate-500">
+                <p className="text-sm font-semibold text-slate-500 truncate">
                   Customers
                 </p>
               </div>
             </div>
 
-            <div className="flex items-center gap-4 rounded-2xl bg-white p-5 border border-slate-200 shadow-sm transition-all hover:shadow-md">
+            <div className="flex items-center gap-4 rounded-2xl bg-white p-5 border border-slate-200 shadow-sm transition-all hover:shadow-md min-w-0">
               <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#84CC16]/10">
                 <UserCheck className="h-6 w-6 text-[#84CC16]" />
               </div>
-              <div>
-                <p className="text-2xl font-black text-slate-900">
+              <div className="min-w-0 flex-1">
+                <p className="text-2xl font-black text-slate-900 truncate">
                   {aggregate.totalStaff}
                 </p>
-                <p className="text-sm font-semibold text-slate-500">
+                <p className="text-sm font-semibold text-slate-500 truncate">
                   Staff Working
                 </p>
               </div>
@@ -219,15 +214,15 @@ export default function MyShopsDashboard() {
             {filteredShops.map((shop) => (
               <div
                 key={shop._id}
-                className="flex flex-col rounded-3xl bg-white p-6 border border-slate-200 shadow-sm transition-all hover:shadow-md"
+                className="flex flex-col rounded-3xl bg-white p-6 border border-slate-200 shadow-sm transition-all hover:shadow-md min-w-0"
               >
-                <div className="flex items-start justify-between mb-6">
-                  <div className="flex items-start gap-4">
+                <div className="flex items-start justify-between mb-6 gap-2">
+                  <div className="flex items-start gap-4 min-w-0 flex-1">
                     <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#84CC16]/10">
                       <Store className="h-6 w-6 text-[#84CC16]" />
                     </div>
-                    <div>
-                      <h3 className="text-lg font-black text-slate-900 leading-none mb-1.5">
+                    <div className="min-w-0 flex-1">
+                      <h3 className="text-lg font-black text-slate-900 leading-none mb-1.5 truncate">
                         {shop.shopName}
                       </h3>
                       <p className="text-sm font-medium text-slate-500 line-clamp-1">
@@ -235,7 +230,7 @@ export default function MyShopsDashboard() {
                       </p>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 shrink-0">
                     {shop.isActive ? (
                       <span className="flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-bold uppercase text-emerald-600 border border-emerald-200/50">
                         <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
@@ -280,55 +275,61 @@ export default function MyShopsDashboard() {
                   </div>
                 </div>
 
-                <div className="mb-6 space-y-1">
-                  <p className="text-sm font-semibold text-slate-500">
+                <div className="mb-6 space-y-1 min-w-0">
+                  <p className="text-sm font-semibold text-slate-500 truncate">
                     {dateFilter === "today" ? "Today's Sales" : "Sales"}
                   </p>
-                  <p className="text-3xl font-black text-slate-900">
-                    {formatCurrency(
-                      shop.stats.totalSales,
-                      shop.currency || "GBP",
-                    )}
+                  <p
+                    className="text-2xl sm:text-3xl font-black text-slate-900 truncate"
+                    title={formatCurrency(shop.stats.totalSales, shop.currency)}
+                  >
+                    {formatCurrency(shop.stats.totalSales, shop.currency)}
                   </p>
                 </div>
 
-                <div className="grid grid-cols-3 gap-4 mb-6 border-t border-b border-slate-100 py-4">
-                  <div className="flex flex-col gap-1">
-                    <div className="flex items-center gap-1.5 text-slate-500">
-                      <Users className="h-4 w-4" />
-                      <span className="text-xs font-bold text-slate-900">
+                <div className="grid grid-cols-3 gap-2 sm:gap-4 mb-6 border-t border-b border-slate-100 py-4 min-w-0">
+                  <div className="flex flex-col gap-1 min-w-0">
+                    <div className="flex items-center gap-1.5 text-slate-500 min-w-0">
+                      <Users className="h-4 w-4 shrink-0" />
+                      <span className="text-xs font-bold text-slate-900 truncate">
                         {shop.stats.customersCount}
                       </span>
                     </div>
-                    <span className="text-xs font-semibold text-slate-400">
+                    <span className="text-xs font-semibold text-slate-400 truncate">
                       Customers
                     </span>
                   </div>
-                  <div className="flex flex-col gap-1">
-                    <div className="flex items-center gap-1.5 text-[#84CC16]">
-                      <Banknote className="h-4 w-4" />
-                      <span className="text-xs font-bold text-slate-900">
-                        {formatCurrency(
+                  <div className="flex flex-col gap-1 min-w-0">
+                    <div className="flex items-center gap-1.5 text-[#84CC16] min-w-0">
+                      <Banknote className="h-4 w-4 shrink-0" />
+                      <span
+                        className="text-xs font-bold text-slate-900 truncate"
+                        title={formatCurrency(
                           shop.stats.cashSales,
-                          shop.currency || "GBP",
+                          shop.currency,
                         )}
+                      >
+                        {formatCurrency(shop.stats.cashSales, shop.currency)}
                       </span>
                     </div>
-                    <span className="text-xs font-semibold text-slate-400">
+                    <span className="text-xs font-semibold text-slate-400 truncate">
                       Cash Sales
                     </span>
                   </div>
-                  <div className="flex flex-col gap-1">
-                    <div className="flex items-center gap-1.5 text-blue-500">
-                      <CreditCard className="h-4 w-4" />
-                      <span className="text-xs font-bold text-slate-900">
-                        {formatCurrency(
+                  <div className="flex flex-col gap-1 min-w-0">
+                    <div className="flex items-center gap-1.5 text-blue-500 min-w-0">
+                      <CreditCard className="h-4 w-4 shrink-0" />
+                      <span
+                        className="text-xs font-bold text-slate-900 truncate"
+                        title={formatCurrency(
                           shop.stats.cardSales,
-                          shop.currency || "GBP",
+                          shop.currency,
                         )}
+                      >
+                        {formatCurrency(shop.stats.cardSales, shop.currency)}
                       </span>
                     </div>
-                    <span className="text-xs font-semibold text-slate-400">
+                    <span className="text-xs font-semibold text-slate-400 truncate">
                       Card Sales
                     </span>
                   </div>

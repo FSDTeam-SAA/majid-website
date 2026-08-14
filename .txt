@@ -505,4 +505,9 @@ settings/my-shop this page the givn page everythig should be funtional and the d
 
 do not change any existing feature or funtions anything please. 
 
-prompt 6:  
+prompt 6:  done 
+shopkeeper/inventory/suppliers in this page page make the ui as list view table view just like other invoice list 
+do not change any existing feature or funtions anything please. 
+
+
+prompt 7:  
