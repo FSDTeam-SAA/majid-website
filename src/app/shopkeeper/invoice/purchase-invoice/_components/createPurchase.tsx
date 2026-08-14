@@ -1427,16 +1427,21 @@ export default function CreatePurchaseReceipt() {
                   </div>
                   <div className="flex items-center gap-4">
                     <div className="flex items-center gap-2 rounded-2xl border bg-background px-4 py-2">
-                      <Checkbox
-                        id="add-to-inventory"
-                        checked={addToInventory}
-                        onCheckedChange={(checked) =>
-                          setAddToInventory(checked === true)
-                        }
-                      />
+                      <div
+                        onClick={() => setAddToInventory(!addToInventory)}
+                        className={`relative inline-flex h-6 w-11 cursor-pointer items-center rounded-full transition-colors ${
+                          addToInventory ? "bg-[#84CC16]" : "bg-red-500"
+                        }`}
+                      >
+                        <span
+                          className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                            addToInventory ? "translate-x-6" : "translate-x-1"
+                          }`}
+                        />
+                      </div>
                       <Label
-                        htmlFor="add-to-inventory"
                         className="cursor-pointer font-semibold"
+                        onClick={() => setAddToInventory(!addToInventory)}
                       >
                         Add to inventory
                       </Label>
@@ -1549,9 +1554,32 @@ export default function CreatePurchaseReceipt() {
                                   : ""
                               }`}
                               value={item.name}
-                              onChange={(e) =>
-                                updateItem(itemIndex, "name", e.target.value)
-                              }
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                const allInv = inventoryData?.data || [];
+                                const found = allInv.find(
+                                  (d: any) => d.itemName === val,
+                                );
+                                if (found) {
+                                  const updated = [...items];
+                                  updated[itemIndex] = {
+                                    ...updated[itemIndex],
+                                    name: found.itemName,
+                                    storage: found.storage || "",
+                                    color: found.color || "",
+                                    condition:
+                                      (found as any).condition ||
+                                      found.currentState ||
+                                      "",
+                                    expectedPrice:
+                                      found.expectedPrice ||
+                                      updated[itemIndex].expectedPrice,
+                                  };
+                                  setItems(updated);
+                                } else {
+                                  updateItem(itemIndex, "name", val);
+                                }
+                              }}
                             />
                           </div>
 

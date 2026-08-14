@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { StructuredAddressFields } from "@/components/ui/structured-address-fields";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
-import { User, Package, Loader2, Search } from "lucide-react";
+import { User, Package, Loader2, Search, Trash2, Plus } from "lucide-react";
 import { pdf } from "@react-pdf/renderer";
 import { StyleSheet } from "@react-pdf/renderer";
 import {
@@ -269,14 +269,25 @@ export default function DeliveryInvoice() {
   const { data: profileData } = useMyProfile();
   const { currency, formatCurrency } = useCurrency();
   const { mutate: createInvoice, isPending } = useCreateInvoice();
-  const [searchQuery, setSearchQuery] = useState("");
   const seesion = useSession();
   const shopkeeper = seesion.data?.user.id;
-  const [selectedDeviceIds, setSelectedDeviceIds] = useState<string[]>([]);
   const { mutateAsync: createInvoiceUserAsync } = useCreateInvoiceUser();
   const getInvoiceUser = useMyInvoiceGet(shopkeeper || "223423423");
   const [selectedCustomerId, setSelectedCustomerId] = useState("");
   const [invoiceDate, setInvoiceDate] = useState<Date>(new Date());
+
+  const [invoiceItems, setInvoiceItems] = useState<any[]>([
+    {
+      id: "",
+      name: "",
+      storage: "",
+      color: "",
+      condition: "",
+      imeiNumber: "",
+      quantity: 1,
+      price: "",
+    },
+  ]);
 
   const [customer, setCustomer] = useState({
     firstName: "",
@@ -284,55 +295,35 @@ export default function DeliveryInvoice() {
     email: "",
     phone: "",
     address: "",
-    paymentType: "",
-    alreadyPaid: 0,
     customerId: "",
   });
 
   const customers = getInvoiceUser?.data?.data || [];
 
-  // Custom Dynamic Input Payment states
   const [paymentType, setPaymentType] = useState("cash on delivery");
   const [alreadyPaid, setAlreadyPaid] = useState<number>(0);
 
-  const toggleDevice = (id: string) => {
-    setSelectedDeviceIds((prev) =>
-      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id],
-    );
-  };
-
-  const items = useMemo(() => {
-    return (inventoryData?.data || []).filter(
-      (item: any) => item.type === "inventory",
-    );
-  }, [inventoryData]);
-
-  const filteredDevices = useMemo(() => {
-    return items.filter(
-      (item: any) =>
-        item.itemName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        item.imeiNumber?.toLowerCase().includes(searchQuery.toLowerCase()),
-    );
-  }, [items, searchQuery]);
-
-  const devices = useMemo(() => {
+  const allDevices = useMemo(() => {
     return (
-      filteredDevices.map((item: any) => ({
+      (inventoryData?.data || []).map((item: any) => ({
         id: item._id,
         name: item.itemName,
         price: item.expectedPrice,
         image: item.image?.url || "/placeholder.png",
         imeiNumber: item.imeiNumber,
+        storage: item.storage,
+        color: item.color,
+        condition: item.condition || item.currentState,
       })) || []
     );
-  }, [filteredDevices]);
+  }, [inventoryData]);
 
-  const selectedDevicesData = useMemo(
-    () => devices.filter((device) => selectedDeviceIds.includes(device.id)),
-    [devices, selectedDeviceIds],
+  const selectedDevicesData = invoiceItems;
+
+  const totalPrice = invoiceItems.reduce(
+    (sum, item) => sum + Number(item.price || 0) * Number(item.quantity || 1),
+    0,
   );
-
-  const totalPrice = selectedDevicesData.reduce((sum, d) => sum + d.price, 0);
 
   // Balanced calculation state handler logic
   const dueAmount = useMemo(() => {
@@ -402,7 +393,7 @@ export default function DeliveryInvoice() {
           customerInfo: finalCustomerId,
           type: "delivery Note",
           invoice: file,
-          itemsIds: selectedDeviceIds,
+          itemsIds: invoiceItems.map((i) => i.id).filter(Boolean),
           dueAmount: totalPrice,
         },
         {
@@ -430,7 +421,7 @@ export default function DeliveryInvoice() {
               Delivery Invoice
             </h1>
             <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest mt-1">
-              Selected Items: {selectedDeviceIds.length}
+              Selected Items: {invoiceItems.filter((i) => i.name).length}
             </p>
           </div>
 
@@ -472,9 +463,6 @@ export default function DeliveryInvoice() {
                         email: selectedCustomer.email || "",
                         phone: selectedCustomer.phone || "",
                         address: selectedCustomer.address || "",
-                        paymentType:
-                          selectedCustomer.paymentType || "cash on delivery",
-                        alreadyPaid: selectedCustomer.alreadyPaid || 0,
                         customerId: selectedCustomer.customerId || "",
                       });
 
@@ -746,108 +734,203 @@ export default function DeliveryInvoice() {
           </div>
         </div>
 
-        <InventoryItemsCard shopkeeperId={shopkeeper} />
-
-        {/* Search Field */}
-        <div>
-          <div className="relative">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-            <input
-              type="text"
-              placeholder="Search devices..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-12 pr-4 h-12 w-full bg-white border border-slate-100 dark:bg-slate-800 dark:border-slate-600 dark:text-white rounded-xl font-bold text-sm focus:ring-[#84CC16] focus:border-[#84CC16] outline-none transition"
-            />
+        <datalist id="inventory-names-list">
+          {allDevices.map((d: any) => (
+            <option key={d.id} value={d.name}>
+              {d.name}
+            </option>
+          ))}
+        </datalist>
+        <div className="bg-card border border-border rounded-[28px] p-8 shadow-sm space-y-6">
+          <div className="flex flex-col md:flex-row justify-between md:items-center gap-4 mb-4">
+            <div>
+              <h2 className="text-2xl font-black">Invoice Items</h2>
+              <p className="text-sm text-muted-foreground">
+                Add products to this invoice.
+              </p>
+            </div>
+            <Button
+              onClick={() =>
+                setInvoiceItems([
+                  ...invoiceItems,
+                  {
+                    id: "",
+                    name: "",
+                    storage: "",
+                    color: "",
+                    condition: "",
+                    imeiNumber: "",
+                    quantity: 1,
+                    price: "",
+                  },
+                ])
+              }
+              className="rounded-2xl"
+            >
+              <Plus size={16} className="mr-2" /> Add Item
+            </Button>
           </div>
-        </div>
 
-        {/* Device Table */}
-        <div className="rounded-[32px] border border-border bg-card overflow-hidden shadow-sm">
-          <table className="w-full text-left">
-            <thead className="border-b border-border bg-surface text-xs font-black uppercase tracking-wider text-muted-foreground">
-              <tr>
-                <th className="px-8 py-6 w-20">Select</th>
-                <th className="px-8 py-6">Product Details</th>
-                <th className="px-8 py-6 text-right">Unit Price</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border">
-              {isLoading ? (
-                <tr>
-                  <td
-                    colSpan={3}
-                    className="px-8 py-6 text-center text-sm font-bold text-muted-foreground"
-                  >
-                    Loading inventory data...
-                  </td>
-                </tr>
-              ) : isError ? (
-                <tr>
-                  <td
-                    colSpan={3}
-                    className="px-8 py-6 text-center text-sm font-bold text-destructive"
-                  >
-                    Failed to fetch products.
-                  </td>
-                </tr>
-              ) : devices.length === 0 ? (
-                <tr>
-                  <td
-                    colSpan={3}
-                    className="px-8 py-6 text-center text-sm font-bold text-muted-foreground"
-                  >
-                    No devices match search criteria.
-                  </td>
-                </tr>
-              ) : (
-                devices.map((device) => {
-                  const isSelected = selectedDeviceIds.includes(device.id);
-                  return (
-                    <tr
-                      key={device.id}
-                      className={`group transition-all hover:bg-slate-50/50 cursor-pointer ${
-                        isSelected ? "bg-orange-50/40" : ""
-                      }`}
-                      onClick={() => toggleDevice(device.id)}
-                    >
-                      <td
-                        className="px-8 py-6"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        <Checkbox
-                          className="h-6 w-6 rounded-lg border-primary focus:ring-primary"
-                          checked={isSelected}
-                          onCheckedChange={() => toggleDevice(device.id)}
-                        />
-                      </td>
-
-                      <td className="px-8 py-6 flex items-center gap-4">
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img
-                          src={device.image}
-                          className="w-12 h-12 rounded-2xl object-cover"
-                          alt={device.name}
-                        />
-                        <div>
-                          <p className="font-black text-foreground">
-                            {device.name}
-                          </p>
-                          <p className="text-xs font-bold text-muted-foreground">
-                            #DEV-{device.id}
-                          </p>
-                        </div>
-                      </td>
-
-                      <td className="px-8 py-6 text-right font-black text-lg">
-                        {formatCurrency(device.price || 0)}
-                      </td>
-                    </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
+          <div className="space-y-4">
+            {invoiceItems.map((item, index) => (
+              <div
+                key={index}
+                className="border rounded-3xl p-6 bg-muted/20 space-y-4 relative group"
+              >
+                <Button
+                  variant="destructive"
+                  size="icon"
+                  className="absolute top-4 right-4 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity"
+                  onClick={() =>
+                    setInvoiceItems(invoiceItems.filter((_, i) => i !== index))
+                  }
+                  disabled={invoiceItems.length === 1}
+                >
+                  <Trash2 size={16} />
+                </Button>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="font-bold text-sm text-muted-foreground ml-1 mb-1 block">
+                      Item Name <span className="text-red-500">*</span>
+                    </label>
+                    <Input
+                      list="inventory-names-list"
+                      placeholder="Select or Type Item Name"
+                      className="rounded-2xl h-12 border-primary bg-background font-bold"
+                      value={item.name}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        const found = allDevices.find(
+                          (d: any) => d.name === val,
+                        );
+                        const next = [...invoiceItems];
+                        if (found) {
+                          next[index] = {
+                            ...next[index],
+                            id: found.id,
+                            name: found.name,
+                            storage: found.storage || "",
+                            color: found.color || "",
+                            condition: found.condition || "",
+                            price: found.price || 0,
+                            imeiNumber: found.imeiNumber || "",
+                          };
+                        } else {
+                          next[index] = { ...next[index], name: val };
+                        }
+                        setInvoiceItems(next);
+                      }}
+                    />
+                  </div>
+                  <div>
+                    <label className="font-bold text-sm text-muted-foreground ml-1 mb-1 block">
+                      Storage / Memory
+                    </label>
+                    <Input
+                      placeholder="Select or Type Storage"
+                      className="rounded-2xl h-12 border-primary bg-background font-bold"
+                      value={item.storage || ""}
+                      onChange={(e) => {
+                        const next = [...invoiceItems];
+                        next[index] = {
+                          ...next[index],
+                          storage: e.target.value,
+                        };
+                        setInvoiceItems(next);
+                      }}
+                    />
+                  </div>
+                  <div>
+                    <label className="font-bold text-sm text-muted-foreground ml-1 mb-1 block">
+                      Color
+                    </label>
+                    <Input
+                      placeholder="Select or Type Color"
+                      className="rounded-2xl h-12 border-primary bg-background font-bold"
+                      value={item.color || ""}
+                      onChange={(e) => {
+                        const next = [...invoiceItems];
+                        next[index] = { ...next[index], color: e.target.value };
+                        setInvoiceItems(next);
+                      }}
+                    />
+                  </div>
+                  <div>
+                    <label className="font-bold text-sm text-muted-foreground ml-1 mb-1 block">
+                      Condition
+                    </label>
+                    <Input
+                      placeholder="Select or Type Condition"
+                      className="rounded-2xl h-12 border-primary bg-background font-bold"
+                      value={item.condition || ""}
+                      onChange={(e) => {
+                        const next = [...invoiceItems];
+                        next[index] = {
+                          ...next[index],
+                          condition: e.target.value,
+                        };
+                        setInvoiceItems(next);
+                      }}
+                    />
+                  </div>
+                  <div className="md:col-span-2">
+                    <label className="font-bold text-sm text-muted-foreground ml-1 mb-1 block">
+                      IMEI Number or Serial Number
+                    </label>
+                    <Input
+                      placeholder="Type IMEI Number or Serial Number"
+                      className="rounded-2xl h-12 border-primary bg-background font-bold"
+                      value={item.imeiNumber || ""}
+                      onChange={(e) => {
+                        const next = [...invoiceItems];
+                        next[index] = {
+                          ...next[index],
+                          imeiNumber: e.target.value,
+                        };
+                        setInvoiceItems(next);
+                      }}
+                    />
+                  </div>
+                  <div>
+                    <label className="font-bold text-sm text-muted-foreground ml-1 mb-1 block">
+                      Quantity
+                    </label>
+                    <Input
+                      type="number"
+                      min={1}
+                      className="rounded-2xl h-12 border-primary bg-background font-bold"
+                      value={item.quantity}
+                      onChange={(e) => {
+                        const next = [...invoiceItems];
+                        next[index] = {
+                          ...next[index],
+                          quantity: Math.max(1, Number(e.target.value)),
+                        };
+                        setInvoiceItems(next);
+                      }}
+                    />
+                  </div>
+                  <div>
+                    <label className="font-bold text-sm text-muted-foreground ml-1 mb-1 block">
+                      Price Per Unit ({currency})
+                    </label>
+                    <Input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      className="rounded-2xl h-12 border-primary bg-background font-bold"
+                      value={item.price ?? ""}
+                      onChange={(e) => {
+                        const next = [...invoiceItems];
+                        next[index] = { ...next[index], price: e.target.value };
+                        setInvoiceItems(next);
+                      }}
+                    />
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
 
         {/* Action Bar */}
@@ -868,7 +951,9 @@ export default function DeliveryInvoice() {
 
           <Button
             onClick={handleCreateInvoice}
-            disabled={selectedDeviceIds.length === 0 || isPending}
+            disabled={
+              invoiceItems.filter((i) => i.name).length === 0 || isPending
+            }
             className="bg-primary hover:bg-primary/90 h-16 px-10 text-sm font-black rounded-full shadow-lg flex items-center gap-3 uppercase tracking-wider"
           >
             Send Invoice {isPending && <Loader2 className="animate-spin" />}
