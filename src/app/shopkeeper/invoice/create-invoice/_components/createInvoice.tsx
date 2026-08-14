@@ -679,6 +679,10 @@ export default function CreateInvoice() {
 
   const [paymentType, setPaymentType] = useState("cash");
   const [alreadyPaid, setAlreadyPaid] = useState<number>(0);
+  const [cardLastFour, setCardLastFour] = useState("");
+  const [transactionReference, setTransactionReference] = useState("");
+  const [bankName, setBankName] = useState("");
+  const [cardholderName, setCardholderName] = useState("");
 
   const items = useMemo(() => {
     return (inventoryData?.data || []).filter(
@@ -737,6 +741,17 @@ export default function CreateInvoice() {
     if (!selectedDevicesData.length) return;
 
     try {
+      let finalAlreadyPaid = alreadyPaid;
+      let finalDueAmount = dueAmount;
+
+      if (paymentType === "card" || paymentType === "bank") {
+        finalAlreadyPaid = totalPrice;
+        finalDueAmount = 0;
+      } else if (paymentType === "due") {
+        finalAlreadyPaid = 0;
+        finalDueAmount = totalPrice;
+      }
+
       let finalCustomerId = selectedCustomerId;
 
       if (!selectedCustomerId) {
@@ -748,7 +763,7 @@ export default function CreateInvoice() {
           address: customer.address,
           shopkeeperId: shopkeeper || "223423423",
           paymentType: paymentType,
-          alreadyPaid: alreadyPaid,
+          alreadyPaid: finalAlreadyPaid,
         });
 
         finalCustomerId = customerResponse?.data?._id;
@@ -766,9 +781,10 @@ export default function CreateInvoice() {
           items={selectedDevicesData}
           total={totalPrice}
           shopkeeper={profileData?.data}
-          alreadyPaid={alreadyPaid}
-          dueAmount={dueAmount}
+          alreadyPaid={finalAlreadyPaid}
+          dueAmount={finalDueAmount}
           paymentType={paymentType}
+          card={cardLastFour}
           invoiceDate={invoiceDate}
           currency={currency}
         />
@@ -792,7 +808,7 @@ export default function CreateInvoice() {
           type: "Custom invoice",
           invoice: file,
           itemsIds: invoiceItems.map((i) => i.id).filter(Boolean),
-          dueAmount: totalPrice,
+          dueAmount: finalDueAmount,
         },
         {
           onSuccess: () => {
