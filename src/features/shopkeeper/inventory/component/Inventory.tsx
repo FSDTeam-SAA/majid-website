@@ -34,6 +34,7 @@ import { useShop } from "../../shop/store/shop.store";
 import { InventorySkeleton } from "./skeletons/InventorySkeleton";
 import { InventoryFormModal } from "./modals/InventoryFormModal";
 import { InventoryDetailsModal } from "./modals/InventoryDetailsModal";
+import { PrintLabelModal } from "./modals/PrintLabelModal";
 import { ImportCsvTab } from "./ImportCsvTab";
 import type { Category, InventoryItem } from "../types";
 import { toast } from "sonner";
@@ -167,6 +168,9 @@ export default function Inventory() {
     "inventory" | "sold" | undefined
   >(undefined);
   const [editingItem, setEditingItem] = useState<InventoryItem | null>(null);
+  const [printLabelItem, setPrintLabelItem] = useState<InventoryItem | null>(
+    null,
+  );
 
   const filteredItems = useMemo(() => {
     return items.filter(
@@ -485,7 +489,7 @@ export default function Inventory() {
                     setSearchQuery("");
                     setActiveTab("inventory");
                   }}
-                  className="flex h-12 items-center gap-3 rounded-xl border border-border bg-card px-4 text-foreground shadow-sm transition hover:border-[#84CC16]/50 hover:bg-[#84CC16]/5 active:scale-95 cursor-pointer"
+                  className="flex h-12 shrink-0 items-center gap-2 rounded-xl border border-border bg-card px-4 text-foreground shadow-sm transition hover:border-[#84CC16]/50 hover:bg-[#84CC16]/5 active:scale-95 cursor-pointer"
                   aria-label="Back to categories"
                 >
                   <ArrowLeft size={18} strokeWidth={2.6} />
@@ -493,14 +497,14 @@ export default function Inventory() {
                     Categories
                   </span>
                 </button>
-                <div className="relative hidden md:block">
+                <div className="relative flex-1 min-w-[200px]">
                   <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                   <input
                     type="text"
                     placeholder="Search devices..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="h-12 w-64 rounded-xl border border-border bg-card pl-12 pr-4 text-sm font-bold text-foreground outline-none transition placeholder:text-muted-foreground focus:border-[#84CC16] focus:ring-[#84CC16]"
+                    className="h-12 w-full rounded-xl border border-border bg-card pl-12 pr-4 text-sm font-bold text-foreground outline-none transition placeholder:text-muted-foreground focus:border-[#84CC16] focus:ring-[#84CC16]"
                   />
                 </div>
                 <button
@@ -509,10 +513,11 @@ export default function Inventory() {
                     setFormForceType("inventory");
                     setIsFormOpen(true);
                   }}
-                  className="flex items-center gap-2 px-6 py-3 bg-[#84CC16] text-white font-black rounded-xl hover:bg-[#76b813] transition shadow-lg shadow-lime-500/20 active:scale-95 cursor-pointer"
+                  className="flex shrink-0 items-center gap-2 px-6 py-3 bg-[#84CC16] text-white font-black rounded-xl hover:bg-[#76b813] transition shadow-lg shadow-lime-500/20 active:scale-95 cursor-pointer"
                 >
                   <Plus size={18} strokeWidth={3} />
-                  <span>Add Item</span>
+                  <span className="hidden sm:inline">Add Item</span>
+                  <span className="sm:hidden">Add</span>
                 </button>
               </div>
             )}
@@ -644,9 +649,7 @@ export default function Inventory() {
                                   </DropdownMenuItem>
                                   <DropdownMenuItem
                                     onClick={() => {
-                                      toast.success(
-                                        "Printing label for " + item.itemName,
-                                      );
+                                      setPrintLabelItem(item);
                                     }}
                                     className="flex items-center gap-2 p-3 font-bold text-xs rounded-lg cursor-pointer"
                                   >
@@ -745,6 +748,11 @@ export default function Inventory() {
           onImageChange={handleCategoryImageChange}
           onClose={closeCategoryForm}
           onSubmit={handleCategorySubmit}
+        />
+        <PrintLabelModal
+          isOpen={!!printLabelItem}
+          onClose={() => setPrintLabelItem(null)}
+          item={printLabelItem}
         />
       </div>
     </div>

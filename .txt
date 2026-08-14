@@ -452,10 +452,18 @@ in the webiste /payment/transactions in this page remove the unlinked refund but
 
 do this properly make things smoth and beautiful.   do not change any existing features or functions other thant that. 
 
-prompt : 2
+prompt : 2 done 
 /shopkeeper/inventory in this page when i'm in smaller screes it not responsive fix this. in the item cart there is a 3 dot add another option to there name will be print lable by clicking this. it will ask some quesions probided on the screenshort. then it will genarat and print the lable. properly i have also give an example lable in the screenshort. 
 
 do this feature properly. you may need to work on the backend. work as a senior developer. 
 
 
 do not change any existing feature or funtions anything please. 
+
+
+
+prompt : 3 
+i'm getting some issue in the /shopkeeper/inventory page in the webiste the problem is the items are not bistaring based on category. if i add a item inside a category it should be autometicly be a product of that spacifica category it not but it not happaing all the items are showing same inside all the category. fix this 
+
+- remove the ai description add the api product discripton that will ok 
+- seeing issue in the pricing system 
