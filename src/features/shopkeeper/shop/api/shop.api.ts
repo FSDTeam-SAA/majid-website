@@ -90,3 +90,10 @@ export const deleteShop = async (shopId: string): Promise<{ _id: string }> => {
   const response = await api.delete(`/shop/${shopId}`);
   return response.data.data;
 };
+
+export const getUploadedImages = async (): Promise<
+  { url: string; public_id: string }[]
+> => {
+  const response = await api.get("/shop/images");
+  return response.data.data;
+};

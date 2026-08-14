@@ -36,6 +36,7 @@ import { InventoryFormModal } from "./modals/InventoryFormModal";
 import { InventoryDetailsModal } from "./modals/InventoryDetailsModal";
 import { PrintLabelModal } from "./modals/PrintLabelModal";
 import { ImportCsvTab } from "./ImportCsvTab";
+import { ImageGalleryModal } from "./modals/ImageGalleryModal";
 import type { Category, InventoryItem } from "../types";
 import { toast } from "sonner";
 import {
@@ -89,7 +90,7 @@ const getInventoryDisplayPrice = (item: InventoryItem) =>
   item.expectedPrice ?? item.salePrice ?? 0;
 
 export default function Inventory() {
-  const { currency, formatCurrency } = useCurrency();
+  const { formatCurrency } = useCurrency();
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(
     null,
   );
@@ -780,98 +781,131 @@ function CategoryFormDialog({
   onClose: () => void;
   onSubmit: (event: React.FormEvent<HTMLFormElement>) => void;
 }) {
-  return (
-    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-md overflow-hidden rounded-2xl border-border p-0">
-        <DialogHeader className="border-b border-border px-6 py-5 text-left">
-          <DialogTitle className="text-xl font-black text-foreground">
-            {category ? "Edit Category" : "Create Category"}
-          </DialogTitle>
-          <DialogDescription className="text-sm font-medium text-muted-foreground">
-            Categories organize inventory before products are shown.
-          </DialogDescription>
-        </DialogHeader>
-        <form onSubmit={onSubmit} className="space-y-5 p-6">
-          <div className="space-y-2">
-            <label className="ml-1 block text-[10px] font-black uppercase tracking-widest text-foreground">
-              Name <span className="text-red-500">*</span>
-            </label>
-            <div className="relative">
-              <FolderOpen className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-              <Input
-                value={name}
-                onChange={(event) => onNameChange(event.target.value)}
-                placeholder="Electronics"
-                className="h-12 rounded-xl border-border pl-11 font-bold"
-              />
-            </div>
-          </div>
+  const [isGalleryOpen, setIsGalleryOpen] = useState(false);
 
-          <div className="space-y-2">
-            <label className="ml-1 block text-[10px] font-black uppercase tracking-widest text-foreground">
-              Category Image
-            </label>
-            <div className="rounded-2xl border border-dashed border-border bg-surface p-4">
-              {imagePreview ? (
-                <div
-                  className="mb-4 h-40 rounded-xl bg-slate-50 bg-contain bg-center bg-no-repeat"
-                  style={{
-                    backgroundImage: `url("${getCategoryImageSrc(imagePreview)}")`,
-                  }}
-                  aria-label="Selected category image preview"
-                  role="img"
+  const handleGallerySelect = async (url: string) => {
+    try {
+      const response = await fetch(
+        `/api/image-proxy?url=${encodeURIComponent(url)}`,
+      );
+      const blob = await response.blob();
+      const file = new File([blob], `gallery-image.jpg`, { type: blob.type });
+      onImageChange(file);
+    } catch (error) {
+      console.error("Failed to process gallery image", error);
+      toast.error("Failed to load image from gallery.");
+    } finally {
+      setIsGalleryOpen(false);
+    }
+  };
+
+  return (
+    <>
+      <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+        <DialogContent className="max-w-md overflow-hidden rounded-2xl border-border p-0">
+          <DialogHeader className="border-b border-border px-6 py-5 text-left">
+            <DialogTitle className="text-xl font-black text-foreground">
+              {category ? "Edit Category" : "Create Category"}
+            </DialogTitle>
+            <DialogDescription className="text-sm font-medium text-muted-foreground">
+              Categories organize inventory before products are shown.
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={onSubmit} className="space-y-5 p-6">
+            <div className="space-y-2">
+              <label className="ml-1 block text-[10px] font-black uppercase tracking-widest text-foreground">
+                Name <span className="text-red-500">*</span>
+              </label>
+              <div className="relative">
+                <FolderOpen className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                <Input
+                  value={name}
+                  onChange={(event) => onNameChange(event.target.value)}
+                  placeholder="Electronics"
+                  className="h-12 rounded-xl border-border pl-11 font-bold"
                 />
-              ) : (
-                <div className="mb-4 flex h-40 items-center justify-center rounded-xl bg-card text-slate-300">
-                  <ImageIcon size={40} strokeWidth={1.8} />
-                </div>
-              )}
-              <div className="flex flex-wrap items-center gap-3">
-                <label className="flex h-11 cursor-pointer items-center justify-center gap-2 rounded-xl bg-card px-5 text-sm font-black text-foreground shadow-sm transition hover:bg-muted">
-                  <ImageIcon size={16} />
-                  Choose Image
-                  <input
-                    type="file"
-                    accept="image/*"
-                    className="hidden"
-                    onChange={(event) => {
-                      onImageChange(event.target.files?.[0] ?? null);
-                      event.target.value = "";
-                    }}
-                  />
-                </label>
-                {imagePreview && (
-                  <button
-                    type="button"
-                    onClick={() => onImageChange(null)}
-                    className="h-11 rounded-xl px-4 text-sm font-black text-muted-foreground transition hover:bg-card hover:text-red-500"
-                  >
-                    Remove
-                  </button>
-                )}
               </div>
             </div>
-          </div>
 
-          <div className="flex justify-end gap-3 pt-2">
-            <button
-              type="button"
-              onClick={onClose}
-              className="h-11 rounded-xl border border-border px-5 text-sm font-black text-muted-foreground transition hover:bg-surface"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={isPending}
-              className="flex h-11 min-w-28 items-center justify-center gap-2 rounded-xl bg-[#84CC16] px-5 text-sm font-black text-white transition hover:bg-[#76b813] disabled:cursor-not-allowed disabled:opacity-70"
-            >
-              {isPending && <Loader2 className="h-4 w-4 animate-spin" />}
-              {category ? "Update" : "Create"}
-            </button>
-          </div>
-        </form>
-      </DialogContent>
-    </Dialog>
+            <div className="space-y-2">
+              <label className="ml-1 block text-[10px] font-black uppercase tracking-widest text-foreground">
+                Category Image
+              </label>
+              <div className="rounded-2xl border border-dashed border-border bg-surface p-4">
+                {imagePreview ? (
+                  <div
+                    className="mb-4 h-40 rounded-xl bg-slate-50 bg-contain bg-center bg-no-repeat"
+                    style={{
+                      backgroundImage: `url("${getCategoryImageSrc(imagePreview)}")`,
+                    }}
+                    aria-label="Selected category image preview"
+                    role="img"
+                  />
+                ) : (
+                  <div className="mb-4 flex h-40 items-center justify-center rounded-xl bg-card text-slate-300">
+                    <ImageIcon size={40} strokeWidth={1.8} />
+                  </div>
+                )}
+                <div className="flex flex-wrap items-center gap-3">
+                  <label className="flex h-11 cursor-pointer items-center justify-center gap-2 rounded-xl bg-card px-5 text-sm font-black text-foreground shadow-sm transition hover:bg-muted">
+                    <ImageIcon size={16} />
+                    Upload
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(event) => {
+                        onImageChange(event.target.files?.[0] ?? null);
+                        event.target.value = "";
+                      }}
+                    />
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setIsGalleryOpen(true)}
+                    className="flex h-11 items-center justify-center gap-2 rounded-xl border border-border bg-card px-5 text-sm font-black text-foreground shadow-sm transition hover:border-[#84CC16]/50 hover:bg-[#84CC16]/5 hover:text-[#84CC16]"
+                  >
+                    <Search size={16} />
+                    Gallery
+                  </button>
+                  {imagePreview && (
+                    <button
+                      type="button"
+                      onClick={() => onImageChange(null)}
+                      className="h-11 rounded-xl px-4 text-sm font-black text-muted-foreground transition hover:bg-card hover:text-red-500"
+                    >
+                      Remove
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-3 pt-2">
+              <button
+                type="button"
+                onClick={onClose}
+                className="h-11 rounded-xl border border-border px-5 text-sm font-black text-muted-foreground transition hover:bg-surface"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={isPending}
+                className="flex h-11 min-w-28 items-center justify-center gap-2 rounded-xl bg-[#84CC16] px-5 text-sm font-black text-white transition hover:bg-[#76b813] disabled:cursor-not-allowed disabled:opacity-70"
+              >
+                {isPending && <Loader2 className="h-4 w-4 animate-spin" />}
+                {category ? "Update" : "Create"}
+              </button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
+      <ImageGalleryModal
+        isOpen={isGalleryOpen}
+        onClose={() => setIsGalleryOpen(false)}
+        onSelect={handleGallerySelect}
+      />
+    </>
   );
 }

@@ -453,3 +453,13 @@ export function useImportCsvInventory() {
     },
   });
 }
+
+import { getUploadedImages } from "../../shop/api/shop.api";
+
+export function useUploadedImages() {
+  return useQuery({
+    queryKey: ["uploaded-images"],
+    queryFn: getUploadedImages,
+    staleTime: 1000 * 60 * 5,
+  });
+}

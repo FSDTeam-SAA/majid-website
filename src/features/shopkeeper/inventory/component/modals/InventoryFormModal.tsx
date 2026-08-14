@@ -57,7 +57,6 @@ import {
   ShoppingCart,
   Phone,
   Truck,
-  Sparkles,
 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
@@ -99,6 +98,7 @@ import {
 } from "../../../supplier/hooks/useSuppliers";
 import { SupplierFormModal } from "../../../supplier/component/modals/SupplierFormModal";
 import { ScanResultModal } from "./ScanResultModal";
+import { ImageGalleryModal } from "./ImageGalleryModal";
 import { useCurrency } from "@/hooks/useCurrency";
 import { useMyProfile } from "@/features/shopkeeper/settings/hooks/useSettings";
 import { generateGoogleReviewQrCodeDataUrl } from "@/features/shopkeeper/settings/utils/googleReviewQr";
@@ -594,46 +594,6 @@ const getSuggestionTitle = (product?: BarcodeSearchItem) => {
   return product?.brand?.trim() || "Unnamed Product";
 };
 
-const buildInventoryAiDescription = (
-  values: Partial<CreateInventoryInput>,
-  currencySymbol: string,
-) => {
-  const specs = [
-    values.brand,
-    values.itemName,
-    values.modelNumber,
-    values.storage,
-    values.color,
-  ]
-    .map((value) => String(value || "").trim())
-    .filter(Boolean);
-
-  const uniqueSpecs = Array.from(new Set(specs));
-  const itemTitle = uniqueSpecs.join(" ");
-  const condition = String(values.currentState || "").trim();
-  const quantity = Number(values.quantity || 1);
-  const expectedPrice = Number(values.expectedPrice || 0);
-  const imeiNumber = String(values.imeiNumber || "").trim();
-
-  const descriptionParts = [
-    itemTitle
-      ? `${itemTitle} is available in stock`
-      : "This device is available in stock",
-    condition ? `with ${condition.toLowerCase()} condition` : "",
-    quantity > 1 ? `and quantity ${quantity}` : "",
-  ].filter(Boolean);
-
-  const secondaryParts = [
-    expectedPrice > 0
-      ? `Expected selling price is ${currencySymbol}${expectedPrice}.`
-      : "",
-    imeiNumber ? `IMEI/Serial: ${imeiNumber}.` : "",
-    "Suitable for daily use with reliable performance and clean presentation.",
-  ].filter(Boolean);
-
-  return `${descriptionParts.join(" ")}. ${secondaryParts.join(" ")}`.trim();
-};
-
 interface InventoryFormModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -656,6 +616,10 @@ export function InventoryFormModal({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [imageGallery, setImageGallery] = useState<string[]>([]);
+  const [isGalleryOpen, setIsGalleryOpen] = useState(false);
+  const [galleryTarget, setGalleryTarget] = useState<"main" | "variant" | null>(
+    null,
+  );
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [isCameraActive, setIsCameraActive] = useState(false);
   const html5QrCodeRef = useRef<Html5Qrcode | null>(null);
@@ -695,8 +659,6 @@ export function InventoryFormModal({
   const [isCustomStorage, setIsCustomStorage] = useState(false);
   const [isCustomColor, setIsCustomColor] = useState(false);
   const [isCustomSaleMethod, setIsCustomSaleMethod] = useState(false);
-  const [isGeneratingAiDescription, setIsGeneratingAiDescription] =
-    useState(false);
   const [colorValues, setColorValues] = useState<string[]>([""]);
   const [storageValues, setStorageValues] = useState<string[]>([""]);
   const [isVariantModalOpen, setIsVariantModalOpen] = useState(false);
@@ -825,6 +787,35 @@ export function InventoryFormModal({
         },
       },
     );
+  };
+
+  const handleGallerySelect = async (url: string) => {
+    try {
+      const response = await fetch(
+        `/api/image-proxy?url=${encodeURIComponent(url)}`,
+      );
+      const blob = await response.blob();
+      const file = new File([blob], `gallery-image.jpg`, { type: blob.type });
+
+      if (galleryTarget === "main") {
+        form.setValue("image", file, {
+          shouldDirty: true,
+          shouldValidate: true,
+        });
+        setImagePreview(url);
+      } else if (galleryTarget === "variant") {
+        setVariantDraft((previous) => ({
+          ...previous,
+          imageFile: file,
+        }));
+      }
+    } catch (error) {
+      console.error("Gallery select error", error);
+      toast.error("Failed to select image from gallery");
+    } finally {
+      setIsGalleryOpen(false);
+      setGalleryTarget(null);
+    }
   };
 
   const { mutate: createItem, isPending: isCreating } = useCreateInventory();
@@ -1024,10 +1015,6 @@ export function InventoryFormModal({
         },
       },
     );
-  };
-
-  const handleGenerateAiDescription = () => {
-    // Left empty since AI generation button is removed, or can just be removed
   };
 
   const form = useForm<CreateInventoryInput>({
@@ -3452,6 +3439,18 @@ export function InventoryFormModal({
                     PNG, JPG or WEBP up to 5MB
                   </span>
                 </div>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setGalleryTarget("main");
+                    setIsGalleryOpen(true);
+                  }}
+                  className="mt-2 flex h-9 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-xs font-black text-slate-600 shadow-sm transition hover:border-[#84CC16]/50 hover:bg-[#84CC16]/5 hover:text-[#84CC16]"
+                >
+                  <Search size={14} />
+                  Choose from Gallery
+                </button>
               </>
             )}
           </div>
@@ -4062,16 +4061,31 @@ export function InventoryFormModal({
               <label className="mb-1 block text-xs font-bold text-slate-600">
                 Variant image
               </label>
-              <Input
-                type="file"
-                accept="image/*"
-                onChange={(event) =>
-                  setVariantDraft((previous) => ({
-                    ...previous,
-                    imageFile: event.target.files?.[0],
-                  }))
-                }
-              />
+              <div className="flex gap-2">
+                <Input
+                  type="file"
+                  accept="image/*"
+                  onChange={(event) =>
+                    setVariantDraft((previous) => ({
+                      ...previous,
+                      imageFile: event.target.files?.[0] || undefined,
+                    }))
+                  }
+                  className="flex-1"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    setGalleryTarget("variant");
+                    setIsGalleryOpen(true);
+                  }}
+                  className="px-3"
+                  title="Choose from Gallery"
+                >
+                  <Search size={16} />
+                </Button>
+              </div>
             </div>
           </div>
           <div className="flex justify-end gap-2">
@@ -4092,6 +4106,11 @@ export function InventoryFormModal({
           </div>
         </DialogContent>
       </Dialog>
+      <ImageGalleryModal
+        isOpen={isGalleryOpen}
+        onClose={() => setIsGalleryOpen(false)}
+        onSelect={handleGallerySelect}
+      />
     </>
   );
 }
