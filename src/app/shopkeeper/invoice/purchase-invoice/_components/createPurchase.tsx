@@ -43,6 +43,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { StructuredAddressFields } from "@/components/ui/structured-address-fields";
 import { Label } from "@/components/ui/label";
+import { getPdfLogoStyles } from "@/lib/logoHelper";
 import {
   Select,
   SelectContent,
@@ -61,6 +62,13 @@ import {
 } from "@/features/shopkeeper/inventory/hooks/useInventory";
 import { useMyInvoiceGet } from "@/features/shopkeeper/inventory/hooks/useInvoiceGenaretor";
 import { InvoiceDateTimeSection } from "../../_components/InvoiceDateTimeSection";
+import { CollectPaymentModal } from "../../_components/CollectPaymentModal";
+import {
+  createCheckoutPaymentForm,
+  validateCheckoutPayment,
+  CheckoutPaymentForm,
+  CheckoutPaymentResult,
+} from "@/features/shopkeeper/checkout/component/checkoutPayment";
 
 interface OcrResponse {
   success: boolean;
@@ -400,8 +408,22 @@ const PurchaseReceiptPDF = ({
           <View style={pdfStyles.brandWrap}>
             <View style={pdfStyles.brandRow}>
               {shopkeeper?.image?.url ? (
-                // eslint-disable-next-line jsx-a11y/alt-text
-                <Image src={shopkeeper.image.url} style={pdfStyles.logoImage} />
+                (() => {
+                  const logoStyles = getPdfLogoStyles(
+                    shopkeeper.logoSettings,
+                    34,
+                    34,
+                  );
+                  return (
+                    <View style={logoStyles.container}>
+                      {/* eslint-disable-next-line jsx-a11y/alt-text */}
+                      <Image
+                        src={shopkeeper.image.url}
+                        style={logoStyles.image}
+                      />
+                    </View>
+                  );
+                })()
               ) : (
                 <Text style={pdfStyles.logoFallback}>{shopName}</Text>
               )}
@@ -1043,7 +1065,12 @@ export default function CreatePurchaseReceipt() {
   );
   const isSubmitting = isCreatingInvoice || isCreatingInventory;
 
-  const handleCreateReceipt = async () => {
+  const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
+  const [paymentForm, setPaymentForm] = useState<CheckoutPaymentForm>(() =>
+    createCheckoutPaymentForm(0),
+  );
+
+  const handleInitiateReceipt = () => {
     setValidationAttempted(true);
 
     if (!isFormValid) {
@@ -1058,6 +1085,38 @@ export default function CreatePurchaseReceipt() {
       return;
     }
 
+    setPaymentForm((prev) => ({
+      ...createCheckoutPaymentForm(total),
+      method: prev.method || "cash",
+    }));
+    setIsPaymentModalOpen(true);
+  };
+
+  const handleConfirmPayment = async (event: React.FormEvent) => {
+    event.preventDefault();
+
+    if (
+      paymentForm.method === "due" &&
+      !customer.firstName &&
+      !customer.phone
+    ) {
+      toast.error(
+        "Customer information is required before recording an amount due",
+      );
+      return;
+    }
+
+    const { error, payment } = validateCheckoutPayment(paymentForm, total);
+
+    if (error || !payment) {
+      toast.error(error || "Payment details are incomplete");
+      return;
+    }
+
+    await handleCreateReceipt(payment);
+  };
+
+  const handleCreateReceipt = async (payment?: CheckoutPaymentResult) => {
     const doc = (
       <PurchaseReceiptPDF
         customer={customer}
@@ -1066,12 +1125,13 @@ export default function CreatePurchaseReceipt() {
         total={total}
         invoiceDate={invoiceDate}
         currency={currency}
+        payment={payment}
       />
     );
     const blob = await pdf(doc).toBlob();
     const file = new File(
       [blob],
-      `purchase_receipt_${customer.firstName}.pdf`,
+      `purchase_receipt_${customer.firstName || "customer"}.pdf`,
       { type: "application/pdf" },
     );
 
@@ -1108,6 +1168,8 @@ export default function CreatePurchaseReceipt() {
         type: "Purchase Invoice",
         invoice: file,
       });
+
+      setIsPaymentModalOpen(false);
 
       toast.success(
         addToInventory
@@ -1920,7 +1982,7 @@ export default function CreatePurchaseReceipt() {
 
                 <Button
                   disabled={isSubmitting || ocrLoading}
-                  onClick={handleCreateReceipt}
+                  onClick={handleInitiateReceipt}
                   className="w-full h-14 rounded-2xl text-sm font-black uppercase tracking-wider"
                 >
                   Create Purchase Receipt
@@ -1931,6 +1993,20 @@ export default function CreatePurchaseReceipt() {
           </div>
         </div>
       </div>
+
+      <CollectPaymentModal
+        open={isPaymentModalOpen}
+        onOpenChange={setIsPaymentModalOpen}
+        totalAmount={total}
+        currency={currency}
+        formatCurrency={formatCurrency}
+        paymentForm={paymentForm}
+        setPaymentForm={setPaymentForm}
+        onConfirm={handleConfirmPayment}
+        isPending={isSubmitting}
+        isDueDisabled={!customer.firstName && !customer.phone}
+        confirmButtonText="Confirm & Print Receipt"
+      />
     </div>
   );
 }

@@ -95,7 +95,7 @@ const periodLabel: Record<DashboardFilter, string> = {
 export default function DashboardOverview() {
   const [period, setPeriod] = useState<DashboardFilter>("monthly");
   const [startingCash, setStartingCash] = useState("");
-  const { formatCurrency, convertAmount } = useCurrency();
+  const { formatCurrency } = useCurrency();
   const { data: session, status } = useSession();
   const shopkeeperId = (session?.user as { id?: string })?.id;
   const { activeShopId } = useShop();
@@ -182,16 +182,16 @@ export default function DashboardOverview() {
     return [
       {
         name: `Prev ${periodLabel[period]}`,
-        current: convertAmount(previousSales),
+        current: previousSales,
         orders: previousOrders,
       },
       {
         name: `This ${periodLabel[period]}`,
-        current: convertAmount(currentSales),
+        current: currentSales,
         orders: currentOrders,
       },
     ];
-  }, [stats, period, convertAmount]);
+  }, [stats, period]);
 
   const pieData = useMemo(() => {
     if (!stats?.metrics) return [];

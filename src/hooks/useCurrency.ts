@@ -21,8 +21,13 @@ export interface CurrencyContext {
     fromCurrency?: string,
     toCurrency?: string,
   ) => number;
-  formatCurrency: (amount: number, fromCurrency?: string) => string;
-  formatNumber: (amount: number, fromCurrency?: string) => string;
+  convertAndFormat: (
+    amount: number,
+    fromCurrency?: string,
+    toCurrency?: string,
+  ) => string;
+  formatCurrency: (amount: number, targetCurrency?: string) => string;
+  formatNumber: (amount: number) => string;
   currencyOptions: CurrencyOption[];
 }
 
@@ -62,18 +67,26 @@ export function useCurrency(): CurrencyContext {
     [currency, exchangeRatesData?.rates],
   );
 
-  const formatCurrency = useMemo(
+  const convertAndFormat = useMemo(
     () =>
-      (amount: number, fromCurrency = "USD") =>
-        baseFormatCurrency(convertAmount(amount, fromCurrency), currency),
+      (amount: number, fromCurrency = "USD", toCurrency = currency) =>
+        baseFormatCurrency(
+          convertAmount(amount, fromCurrency, toCurrency),
+          toCurrency,
+        ),
     [convertAmount, currency],
   );
 
-  const formatNumber = useMemo(
+  const formatCurrency = useMemo(
     () =>
-      (amount: number, fromCurrency = "USD") =>
-        convertAmount(amount, fromCurrency).toFixed(2),
-    [convertAmount],
+      (amount: number, targetCurrency = currency) =>
+        baseFormatCurrency(Number(amount || 0), targetCurrency || currency),
+    [currency],
+  );
+
+  const formatNumber = useMemo(
+    () => (amount: number) => Number(amount || 0).toFixed(2),
+    [],
   );
 
   return {
@@ -82,6 +95,7 @@ export function useCurrency(): CurrencyContext {
     exchangeRate,
     isRateLoading,
     convertAmount,
+    convertAndFormat,
     formatCurrency,
     formatNumber,
     currencyOptions: CURRENCY_LIST,

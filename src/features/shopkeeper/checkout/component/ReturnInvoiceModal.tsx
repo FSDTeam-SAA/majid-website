@@ -14,6 +14,7 @@ import {
   User,
 } from "lucide-react";
 import { toast } from "sonner";
+import { getPdfLogoStyles } from "@/lib/logoHelper";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
@@ -55,7 +56,18 @@ const RefundInvoicePDF = ({
 
       <View style={pdfStyles.topSection}>
         {shopkeeper?.image?.url ? (
-          <Image src={shopkeeper.image.url} style={pdfStyles.logo} />
+          (() => {
+            const logoStyles = getPdfLogoStyles(
+              shopkeeper.logoSettings,
+              110,
+              42,
+            );
+            return (
+              <View style={logoStyles.container}>
+                <Image src={shopkeeper.image.url} style={logoStyles.image} />
+              </View>
+            );
+          })()
         ) : (
           <Text
             style={[

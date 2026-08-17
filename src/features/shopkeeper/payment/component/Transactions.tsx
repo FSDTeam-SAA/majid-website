@@ -131,7 +131,7 @@ export default function Transactions() {
             status: transaction.paymentStatus || "paid",
             details: transaction.paymentDetails || {},
           }}
-          currency={currency}
+          currency={transaction.currency || currency}
         />
       );
 
@@ -332,7 +332,10 @@ export default function Transactions() {
                         {/* Amount */}
                         <TableCell className="px-6 py-5 whitespace-nowrap">
                           <span className="text-[16px] font-black text-slate-900 tracking-tight">
-                            {formatCurrency(inv.totalAmount || 0)}
+                            {formatCurrency(
+                              inv.totalAmount || 0,
+                              inv.currency || currency,
+                            )}
                           </span>
                         </TableCell>
 

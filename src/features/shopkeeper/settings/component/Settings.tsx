@@ -48,6 +48,7 @@ import { normalizeGoogleReviewPageUrl } from "../utils/googleReviewQr";
 import { useMyPayments } from "@/features/shopkeeper/payment/hooks/usePayments";
 import { useSubscriptions } from "@/features/shopkeeper/payment/hooks/useSubscriptions";
 import { StructuredAddressFields } from "@/components/ui/structured-address-fields";
+import LogoAdjustmentCard from "./LogoAdjustmentCard";
 
 function generateShopkeeperId(id: string, name: string): string {
   const prefix = "IMS";
@@ -1163,6 +1164,9 @@ export default function Settings({
           </div>
         </motion.div>
       </form>
+
+      {/* Logo & Invoice Settings Section */}
+      <LogoAdjustmentCard />
 
       {/* Change Password Section */}
       <form onSubmit={passwordForm.handleSubmit(onPasswordSubmit)}>

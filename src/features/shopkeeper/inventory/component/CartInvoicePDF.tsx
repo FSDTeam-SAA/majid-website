@@ -10,6 +10,7 @@ import {
 } from "@react-pdf/renderer";
 import type { CartItem, Shopkeeper } from "../types";
 import { formatCurrency as baseFormatCurrency } from "@/lib/currency";
+import { getPdfLogoStyles } from "@/lib/logoHelper";
 
 const colors = {
   teal: "#155E63",
@@ -294,7 +295,25 @@ export default function CartInvoicePDF({
           <View style={styles.header}>
             <View>
               <View style={styles.brandRow}>
-                <Image src="/images/logo.png" style={styles.logo} />
+                {shopkeeper?.image?.url ? (
+                  (() => {
+                    const logoStyles = getPdfLogoStyles(
+                      shopkeeper.logoSettings,
+                      34,
+                      34,
+                    );
+                    return (
+                      <View style={logoStyles.container}>
+                        <Image
+                          src={shopkeeper.image.url}
+                          style={logoStyles.image}
+                        />
+                      </View>
+                    );
+                  })()
+                ) : (
+                  <Image src="/images/logo.png" style={styles.logo} />
+                )}
                 <Text style={styles.checkDot}>✓</Text>
               </View>
               <Text style={styles.shopAddress}>

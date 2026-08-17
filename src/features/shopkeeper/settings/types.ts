@@ -37,6 +37,24 @@ export const passwordSchema = z
 
 export type PasswordValues = z.infer<typeof passwordSchema>;
 
+export interface LogoSettings {
+  zoom: number; // 0.2 to 3.0 (default 1)
+  x: number; // -100 to 100 percentage offset (default 0)
+  y: number; // -100 to 100 percentage offset (default 0)
+  fit: "contain" | "cover" | "fill" | "none";
+  rotation?: number;
+  backgroundColor?: string;
+}
+
+export const DEFAULT_LOGO_SETTINGS: LogoSettings = {
+  zoom: 1,
+  x: 0,
+  y: 0,
+  fit: "contain",
+  rotation: 0,
+  backgroundColor: "transparent",
+};
+
 export interface UserProfile {
   _id: string;
   firstName: string;
@@ -53,6 +71,7 @@ export interface UserProfile {
     url: string;
     public_id: string;
   };
+  logoSettings?: LogoSettings;
   balance: number;
   createdAt: string;
   updatedAt: string;

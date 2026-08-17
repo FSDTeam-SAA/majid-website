@@ -30,6 +30,13 @@ import {
 import { InvoicePDF } from "../../create-invoice/_components/createInvoice";
 import { InventoryItemsCard } from "../../_components/inventoryItemsCard";
 import { InvoiceDateTimeSection } from "../../_components/InvoiceDateTimeSection";
+import { CollectPaymentModal } from "../../_components/CollectPaymentModal";
+import {
+  createCheckoutPaymentForm,
+  validateCheckoutPayment,
+  CheckoutPaymentForm,
+  CheckoutPaymentResult,
+} from "@/features/shopkeeper/checkout/component/checkoutPayment";
 
 // --- Ultra-Modern PDF Styles (Premium Layout) ---
 export const pdfStyles = StyleSheet.create({
@@ -300,8 +307,12 @@ export default function DeliveryInvoice() {
 
   const customers = getInvoiceUser?.data?.data || [];
 
-  const [paymentType, setPaymentType] = useState("cash on delivery");
+  const [paymentType, setPaymentType] = useState("cash");
   const [alreadyPaid, setAlreadyPaid] = useState<number>(0);
+  const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
+  const [paymentForm, setPaymentForm] = useState<CheckoutPaymentForm>(() =>
+    createCheckoutPaymentForm(0),
+  );
 
   const allDevices = useMemo(() => {
     return (
@@ -331,8 +342,51 @@ export default function DeliveryInvoice() {
     return calculatedDue < 0 ? 0 : calculatedDue;
   }, [totalPrice, alreadyPaid]);
 
-  const handleCreateInvoice = async () => {
+  const handleInitiateInvoice = () => {
+    if (invoiceItems.filter((i) => i.name).length === 0) {
+      toast.error("Please add at least one item");
+      return;
+    }
+
+    setPaymentForm((prev) => ({
+      ...createCheckoutPaymentForm(totalPrice),
+      method: prev.method || "cash",
+    }));
+    setIsPaymentModalOpen(true);
+  };
+
+  const handleConfirmPayment = async (event: React.FormEvent) => {
+    event.preventDefault();
+
+    if (
+      paymentForm.method === "due" &&
+      !selectedCustomerId &&
+      !customer.firstName &&
+      !customer.phone
+    ) {
+      toast.error("Select or enter a customer before recording an amount due");
+      return;
+    }
+
+    const { error, payment } = validateCheckoutPayment(paymentForm, totalPrice);
+
+    if (error || !payment) {
+      toast.error(error || "Payment details are incomplete");
+      return;
+    }
+
+    await handleProcessInvoice(payment);
+  };
+
+  const handleProcessInvoice = async (payment: CheckoutPaymentResult) => {
     if (!selectedDevicesData.length) return;
+
+    const finalPaymentType = payment.method;
+    const finalAlreadyPaid = payment.amountPaid;
+    const finalDueAmount = payment.dueAmount;
+
+    setPaymentType(finalPaymentType);
+    setAlreadyPaid(finalAlreadyPaid);
 
     try {
       let finalCustomerId = selectedCustomerId;
@@ -345,8 +399,8 @@ export default function DeliveryInvoice() {
           phone: customer.phone,
           address: customer.address,
           shopkeeperId: shopkeeper || "223423423",
-          paymentType: paymentType,
-          alreadyPaid: alreadyPaid,
+          paymentType: finalPaymentType,
+          alreadyPaid: finalAlreadyPaid,
           customerId: customer.customerId,
         });
 
@@ -365,9 +419,9 @@ export default function DeliveryInvoice() {
           items={selectedDevicesData}
           total={totalPrice}
           shopkeeper={profileData?.data}
-          alreadyPaid={alreadyPaid}
-          dueAmount={dueAmount}
-          paymentType={paymentType}
+          alreadyPaid={finalAlreadyPaid}
+          dueAmount={finalDueAmount}
+          paymentType={finalPaymentType}
           InvoiceName="DELIVERY INVOICE"
           customerInfoLabel="Deliver To"
           shopkeeperInfoLabel="Deliver From"
@@ -394,10 +448,11 @@ export default function DeliveryInvoice() {
           type: "delivery Note",
           invoice: file,
           itemsIds: invoiceItems.map((i) => i.id).filter(Boolean),
-          dueAmount: totalPrice,
+          dueAmount: finalDueAmount,
         },
         {
           onSuccess: () => {
+            setIsPaymentModalOpen(false);
             toast.success("Invoice added successfully");
           },
           onError: () => {
@@ -613,35 +668,6 @@ export default function DeliveryInvoice() {
                 />
               </div>
 
-              {/* Payment Select UI Field Implementation */}
-              <div className="space-y-2">
-                <label className="text-xs font-black text-muted-foreground uppercase tracking-widest">
-                  Payment Method
-                </label>
-                <select
-                  value={paymentType}
-                  onChange={(e) => setPaymentType(e.target.value)}
-                  className="flex w-full rounded-2xl h-12 border border-primary bg-background px-3 py-2 text-sm font-bold shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  <option value="cash on delivery">Cash on Delivery</option>
-                  <option value="card">Card</option>
-                  <option value="bank transfer">Bank Transfer</option>
-                </select>
-              </div>
-
-              {/* Already Paid Input Box Field */}
-              <div className="space-y-2">
-                <label className="text-xs font-black text-muted-foreground uppercase tracking-widest">
-                  Already Paid
-                </label>
-                <Input
-                  type="number"
-                  className="rounded-2xl h-12 border-primary bg-background font-bold"
-                  placeholder="0.00"
-                  value={alreadyPaid}
-                  onChange={(e) => setAlreadyPaid(Number(e.target.value))}
-                />
-              </div>
               <div className="space-y-2">
                 <label className="text-xs font-black text-muted-foreground uppercase tracking-widest">
                   Customer ID
@@ -950,7 +976,7 @@ export default function DeliveryInvoice() {
           </div>
 
           <Button
-            onClick={handleCreateInvoice}
+            onClick={handleInitiateInvoice}
             disabled={
               invoiceItems.filter((i) => i.name).length === 0 || isPending
             }
@@ -960,6 +986,22 @@ export default function DeliveryInvoice() {
           </Button>
         </div>
       </div>
+
+      <CollectPaymentModal
+        open={isPaymentModalOpen}
+        onOpenChange={setIsPaymentModalOpen}
+        totalAmount={totalPrice}
+        currency={currency}
+        formatCurrency={formatCurrency}
+        paymentForm={paymentForm}
+        setPaymentForm={setPaymentForm}
+        onConfirm={handleConfirmPayment}
+        isPending={isPending}
+        isDueDisabled={
+          !selectedCustomerId && !customer.firstName && !customer.phone
+        }
+        confirmButtonText="Confirm & Print Receipt"
+      />
     </div>
   );
 }

@@ -316,7 +316,7 @@ export default function Checkout() {
 
   const subtotal = useMemo(() => {
     return orderCartItems.reduce((sum, item) => {
-      const originalPrice = convertAmount(getCartPrice(item));
+      const originalPrice = getCartPrice(item);
       const manualValue = manualPrices[item._id];
       const parsedManual = Number(manualValue);
       let effectivePrice =
@@ -335,14 +335,14 @@ export default function Checkout() {
 
       return sum + effectivePrice * item.quantity;
     }, 0);
-  }, [convertAmount, manualPrices, orderCartItems]);
+  }, [manualPrices, orderCartItems]);
 
   const subtotalBeforeDiscount = useMemo(() => {
     return orderCartItems.reduce((sum, item) => {
-      const price = convertAmount(getCartPrice(item));
+      const price = getCartPrice(item);
       return sum + price * item.quantity;
     }, 0);
-  }, [convertAmount, orderCartItems]);
+  }, [orderCartItems]);
 
   const totalDiscount = useMemo(() => {
     return Math.max(0, subtotalBeforeDiscount - subtotal);
@@ -670,7 +670,7 @@ export default function Checkout() {
       setIsPlacingOrder(true);
       const transactionDate = new Date();
       const pricedOrderCartItems = orderCartItems.map((cartItem: any) => {
-        const originalPrice = convertAmount(getCartPrice(cartItem));
+        const originalPrice = getCartPrice(cartItem);
         const manualValue = manualPrices[cartItem._id];
         const parsedManual = Number(manualValue);
         const sellingPrice =
@@ -807,6 +807,7 @@ export default function Checkout() {
           createdAt: transactionDate,
           shopName: profileData?.data?.shopName || "imoscan Store",
           logoUrl: profileData?.data?.image?.url,
+          logoSettings: profileData?.data?.logoSettings,
           shopAddress: profileData?.data?.shopAddress,
           shopPhone: profileData?.data?.phone,
           cashierName:
@@ -1426,7 +1427,7 @@ export default function Checkout() {
             orderCartItems.map((cartItem: any) => {
               const item = cartItem.itemId;
               const variant = getCartVariant(cartItem);
-              const originalPrice = convertAmount(getCartPrice(cartItem));
+              const originalPrice = getCartPrice(cartItem);
               const manualValue = manualPrices[cartItem._id];
               const parsedManual = Number(manualValue);
               const isExceeded =
@@ -1786,9 +1787,7 @@ export default function Checkout() {
                           </p>
                           <p className="text-[10px] font-bold text-slate-500">
                             Qty {cartItem.quantity} •{" "}
-                            {formatCurrency(
-                              convertAmount(getCartPrice(cartItem)),
-                            )}
+                            {formatCurrency(getCartPrice(cartItem))}
                             {variant
                               ? ` • ${variant.color || "Variant"}${variant.storage ? ` · ${variant.storage}` : ""}`
                               : ""}

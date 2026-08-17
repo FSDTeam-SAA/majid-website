@@ -12,6 +12,7 @@ import {
   CheckoutPaymentResult,
   getPaymentMethodLabel,
 } from "./checkoutPayment";
+import { getPdfLogoStyles } from "@/lib/logoHelper";
 
 const colors = {
   teal: "#155E63",
@@ -336,7 +337,25 @@ export default function CheckoutInvoicePDF({
           <View style={styles.header}>
             <View>
               <View style={styles.brandRow}>
-                <Text style={styles.logoFallback}>{shopName}</Text>
+                {shopkeeper?.image?.url ? (
+                  (() => {
+                    const logoStyles = getPdfLogoStyles(
+                      shopkeeper.logoSettings,
+                      34,
+                      34,
+                    );
+                    return (
+                      <View style={logoStyles.container}>
+                        <Image
+                          src={shopkeeper.image.url}
+                          style={logoStyles.image}
+                        />
+                      </View>
+                    );
+                  })()
+                ) : (
+                  <Text style={styles.logoFallback}>{shopName}</Text>
+                )}
                 <Text style={styles.checkDot}>✓</Text>
               </View>
               <Text style={styles.shopAddress}>

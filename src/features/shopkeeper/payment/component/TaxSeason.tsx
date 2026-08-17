@@ -35,9 +35,10 @@ export default function TaxSeason() {
         createdAt: string;
         subscriptionId: string;
         paymentMethod?: string;
+        currency?: string;
       }) => ({
         id: `#${p._id.substring(0, 8).toUpperCase()}`,
-        amount: formatCurrency(p.amount),
+        amount: formatCurrency(p.amount, p.currency),
         status:
           p.status === "completed" || p.paymentStatus === "paid"
             ? "PAID"

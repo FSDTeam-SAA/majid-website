@@ -36,6 +36,7 @@ import { CURRENCY_LIST, getCurrencySymbol } from "@/lib/currency";
 import { shouldAutoDetectCurrency } from "@/features/shopkeeper/settings/utils/currencyDetection";
 import { normalizeGoogleReviewPageUrl } from "@/features/shopkeeper/settings/utils/googleReviewQr";
 import { StructuredAddressFields } from "@/components/ui/structured-address-fields";
+import LogoAdjustmentCard from "@/features/shopkeeper/settings/component/LogoAdjustmentCard";
 
 export default function ProfilePage() {
   const { data: profileData, isLoading } = useMyProfile();
@@ -681,6 +682,9 @@ export default function ProfilePage() {
           </div>
         </motion.div>
       </form>
+
+      {/* Logo & Invoice Settings Section */}
+      <LogoAdjustmentCard />
     </div>
   );
 }

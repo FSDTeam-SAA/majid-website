@@ -95,6 +95,7 @@ export const createInventory = async (input: CreateInventoryInput) => {
     }
 
     if (key === "variants" && Array.isArray(value)) {
+      if (value.length === 0) continue;
       let imageUploadIndex = 0;
       formData.append(
         "variants",
@@ -117,6 +118,7 @@ export const createInventory = async (input: CreateInventoryInput) => {
     }
 
     if (Array.isArray(value)) {
+      if (value.length === 0) continue;
       formData.append(key, JSON.stringify(value));
       continue;
     }
@@ -157,6 +159,7 @@ export const updateInventory = async ({
     }
 
     if (key === "variants" && Array.isArray(value)) {
+      if (value.length === 0) continue;
       let imageUploadIndex = 0;
       formData.append(
         "variants",
@@ -176,6 +179,7 @@ export const updateInventory = async ({
     }
 
     if (Array.isArray(value)) {
+      if (value.length === 0) continue;
       formData.append(key, JSON.stringify(value));
       continue;
     }

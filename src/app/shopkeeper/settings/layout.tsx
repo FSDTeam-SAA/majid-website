@@ -13,6 +13,7 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   Store,
+  FileText,
 } from "lucide-react";
 
 const tabs = [
@@ -22,6 +23,11 @@ const tabs = [
     icon: QrCode,
   },
   { label: "Profile", href: "/shopkeeper/settings/profile", icon: User },
+  {
+    label: "Invoice & Logo",
+    href: "/shopkeeper/settings/invoice",
+    icon: FileText,
+  },
   { label: "My Shop", href: "/shopkeeper/settings/my-shop", icon: Store },
   { label: "Staff", href: "/shopkeeper/settings/staff", icon: UsersRound },
   { label: "Password", href: "/shopkeeper/settings/password", icon: KeyRound },

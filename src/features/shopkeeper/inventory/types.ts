@@ -278,6 +278,18 @@ export interface Shopkeeper {
   phone: string;
   currency?: string;
   googleReviewPageUrl?: string;
+  image?: {
+    url?: string;
+    public_id?: string;
+  };
+  logoSettings?: {
+    zoom?: number;
+    x?: number;
+    y?: number;
+    fit?: "contain" | "cover" | "fill" | "none";
+    rotation?: number;
+    backgroundColor?: string;
+  };
 }
 
 export interface InvoiceHistoryItem {

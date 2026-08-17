@@ -8,6 +8,8 @@ import {
   Image,
 } from "@react-pdf/renderer";
 import { formatCurrency as baseFormatCurrency } from "@/lib/currency";
+import { getPdfLogoStyles } from "@/lib/logoHelper";
+import { LogoSettings } from "@/features/shopkeeper/settings/types";
 
 const styles = StyleSheet.create({
   page: {
@@ -246,6 +248,8 @@ export interface SalesInvoicePDFProps {
     shopPhone?: string;
     invoiceNumber?: string;
     currency?: string;
+    logoUrl?: string;
+    logoSettings?: LogoSettings;
     reviewQrCodeDataUrl?: string | null;
   };
 }
@@ -268,7 +272,18 @@ const SalesInvoicePDF: React.FC<SalesInvoicePDFProps> = ({ data }) => {
         {/* Header Section */}
         <View style={styles.topSection}>
           <View>
-            <Image src="/images/logo.png" style={styles.logo} />
+            {data.logoUrl ? (
+              (() => {
+                const logoStyles = getPdfLogoStyles(data.logoSettings, 110, 40);
+                return (
+                  <View style={logoStyles.container}>
+                    <Image src={data.logoUrl} style={logoStyles.image} />
+                  </View>
+                );
+              })()
+            ) : (
+              <Image src="/images/logo.png" style={styles.logo} />
+            )}
           </View>
           <View>
             <Text style={styles.invoiceTitle}>INVOICE</Text>

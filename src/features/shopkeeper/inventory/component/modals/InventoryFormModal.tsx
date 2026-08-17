@@ -1049,14 +1049,8 @@ export function InventoryFormModal({
         imeiNumber: item.imeiNumber ?? "",
         modelNumber: item.modelNumber ?? "",
         quantity: item.quantity ?? 1,
-        purchasePrice:
-          typeof item.purchasePrice === "number"
-            ? convertAmount(item.purchasePrice, "USD", currency)
-            : item.purchasePrice,
-        expectedPrice:
-          typeof item.expectedPrice === "number"
-            ? convertAmount(item.expectedPrice, "USD", currency)
-            : item.expectedPrice,
+        purchasePrice: item.purchasePrice,
+        expectedPrice: item.expectedPrice,
         productDetails: item.productDetails ?? "",
         aiDescription: item.aiDescription ?? "",
         supplierId:
@@ -1080,10 +1074,7 @@ export function InventoryFormModal({
         customerEmail: item.customerEmail ?? "",
         customerPhone: item.customerPhone ?? "",
         customerAddress: item.customerAddress ?? "",
-        salePrice:
-          typeof item.salePrice === "number"
-            ? convertAmount(item.salePrice, "USD", currency)
-            : item.salePrice,
+        salePrice: item.salePrice,
         saleQuantity: item.saleQuantity ?? 1,
         saleMethod: item.saleMethod ?? "In-store",
         image: undefined, // Reset image on edit
@@ -1339,28 +1330,22 @@ export function InventoryFormModal({
       ...values,
       purchasePrice:
         typeof values.purchasePrice === "number"
-          ? convertAmount(values.purchasePrice, currency, "USD")
+          ? values.purchasePrice
           : undefined,
       expectedPrice:
-        typeof values.expectedPrice === "number"
-          ? convertAmount(values.expectedPrice, currency, "USD")
-          : 0,
+        typeof values.expectedPrice === "number" ? values.expectedPrice : 0,
       salePrice:
         typeof values.salePrice === "number"
-          ? convertAmount(values.salePrice, currency, "USD")
+          ? values.salePrice
           : typeof values.expectedPrice === "number"
-            ? convertAmount(values.expectedPrice, currency, "USD")
+            ? values.expectedPrice
             : undefined,
       variants: values.variants?.map((v) => ({
         ...v,
         purchasePrice:
-          typeof v.purchasePrice === "number"
-            ? convertAmount(v.purchasePrice, currency, "USD")
-            : undefined,
+          typeof v.purchasePrice === "number" ? v.purchasePrice : undefined,
         expectedPrice:
-          typeof v.expectedPrice === "number"
-            ? convertAmount(v.expectedPrice, currency, "USD")
-            : 0,
+          typeof v.expectedPrice === "number" ? v.expectedPrice : 0,
       })),
       images:
         values.images && values.images.length ? values.images : imageGallery,

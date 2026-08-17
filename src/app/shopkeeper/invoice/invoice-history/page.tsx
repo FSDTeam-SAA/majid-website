@@ -876,6 +876,7 @@ import { InvoiceHistoryItem } from "@/features/shopkeeper/inventory/types";
 import { pdfStyles } from "../create-invoice/_components/createInvoice";
 import { useCurrency } from "@/hooks/useCurrency";
 import { formatCurrency as baseFormatCurrency } from "@/lib/currency";
+import { getPdfLogoStyles } from "@/lib/logoHelper";
 
 interface InvoiceItem {
   _id: string;
@@ -944,7 +945,19 @@ const InvoicePDF = ({
       {/* Brand Header */}
       <View style={pdfStyles.topSection}>
         {shopkeeper?.image?.url ? (
-          <Image src={shopkeeper.image.url} style={pdfStyles.logo} />
+          (() => {
+            const logoStyles = getPdfLogoStyles(
+              shopkeeper.logoSettings,
+              110,
+              42,
+            );
+            return (
+              <View style={logoStyles.container}>
+                {/* eslint-disable-next-line jsx-a11y/alt-text */}
+                <Image src={shopkeeper.image.url} style={logoStyles.image} />
+              </View>
+            );
+          })()
         ) : (
           <Text
             style={[

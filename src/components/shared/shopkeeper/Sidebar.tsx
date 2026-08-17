@@ -73,6 +73,10 @@ const navItems = [
         label: "Delivery Invoice",
         href: "/shopkeeper/invoice/delivery-invoice",
       },
+      {
+        label: "Logo & Invoice Settings",
+        href: "/shopkeeper/settings/invoice",
+      },
     ],
   },
   // {

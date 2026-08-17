@@ -43,6 +43,7 @@ import {
 import { useSession } from "next-auth/react";
 import { toast } from "sonner";
 import { useMyProfile } from "@/features/shopkeeper/settings/hooks/useSettings";
+import { getPdfLogoStyles } from "@/lib/logoHelper";
 import { useCurrency } from "@/hooks/useCurrency";
 import {
   useCreateInvoiceUser,
@@ -503,10 +504,23 @@ export const InvoicePDF = ({
           <View style={pdfStyles.header}>
             <View>
               <View style={pdfStyles.brandRow}>
-                {shopkeeper?.image?.url && (
-                  // eslint-disable-next-line jsx-a11y/alt-text
-                  <Image src={shopkeeper.image.url} style={pdfStyles.logo} />
-                )}
+                {shopkeeper?.image?.url &&
+                  (() => {
+                    const logoStyles = getPdfLogoStyles(
+                      shopkeeper.logoSettings,
+                      34,
+                      34,
+                    );
+                    return (
+                      <View style={logoStyles.container}>
+                        {/* eslint-disable-next-line jsx-a11y/alt-text */}
+                        <Image
+                          src={shopkeeper.image.url}
+                          style={logoStyles.image}
+                        />
+                      </View>
+                    );
+                  })()}
                 <Text style={pdfStyles.logoFallback}>
                   {shopkeeper?.shopName || "STORE"}
                 </Text>

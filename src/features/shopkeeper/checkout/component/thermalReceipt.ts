@@ -15,6 +15,13 @@ export interface ThermalReceiptPayload {
   createdAt: Date;
   shopName: string;
   logoUrl?: string;
+  logoSettings?: {
+    zoom?: number;
+    x?: number;
+    y?: number;
+    fit?: "contain" | "cover" | "fill" | "none";
+    backgroundColor?: string;
+  };
   shopAddress?: string;
   shopPhone?: string;
   cashierName?: string;
@@ -230,7 +237,22 @@ export const buildThermalReceiptHtml = (payload: ThermalReceiptPayload) => {
     <header class="center">
       ${
         payload.logoUrl
-          ? `<img class="logo" src="${escapeHtml(payload.logoUrl)}" alt="${escapeHtml(payload.shopName)}" onerror="this.style.display='none';this.nextElementSibling.style.display='block'" />`
+          ? (() => {
+              const zoom = payload.logoSettings?.zoom ?? 1;
+              const x = payload.logoSettings?.x ?? 0;
+              const y = payload.logoSettings?.y ?? 0;
+              const fit = payload.logoSettings?.fit ?? "contain";
+              const bg =
+                payload.logoSettings?.backgroundColor &&
+                payload.logoSettings.backgroundColor !== "transparent"
+                  ? `background-color: ${escapeHtml(payload.logoSettings.backgroundColor)};`
+                  : "";
+              return `
+                <div class="logo-wrapper" style="width: auto; max-width: 48mm; max-height: 16mm; overflow: hidden; display: flex; align-items: center; justify-content: center; margin: 0 auto 4px; border-radius: 4px; ${bg}">
+                  <img class="logo" src="${escapeHtml(payload.logoUrl)}" alt="${escapeHtml(payload.shopName)}" style="display: block; max-width: 100%; max-height: 100%; object-fit: ${escapeHtml(fit)}; transform: translate(${x}%, ${y}%) scale(${zoom});" onerror="this.closest('.logo-wrapper').style.display='none';var b=this.closest('header').querySelector('.brand');if(b)b.style.display='block';" />
+                </div>
+              `;
+            })()
           : ""
       }
       <div class="brand"${payload.logoUrl ? ' style="display:none"' : ""}>imo<span class="mark">scan✓</span></div>
