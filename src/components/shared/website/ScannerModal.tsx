@@ -319,7 +319,9 @@ export function ScannerModal({ isOpen, onClose, onScan }: ScannerModalProps) {
   // Handle modal open/close
   useEffect(() => {
     if (isOpen) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setCapturedImage(null);
+
       setStatusMessage(
         "Position the IMEI inside the frame, then capture an image.",
       );

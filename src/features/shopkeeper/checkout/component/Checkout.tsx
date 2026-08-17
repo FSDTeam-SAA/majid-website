@@ -24,10 +24,6 @@ import {
   AlertCircle,
   PencilLine,
   Tag,
-  Sparkles,
-  Smartphone,
-  X as CloseIcon,
-  CheckCircle2,
   Banknote,
   Building2,
   Clock3,
@@ -69,11 +65,12 @@ import {
   openThermalReceiptWindow,
   printThermalReceipt,
 } from "./thermalReceipt";
+import { CheckoutRecommendationsModal } from "./CheckoutRecommendationsModal";
+import { useCheckoutRecommendations } from "../../popUps/hooks/usePopUps";
 
 // UI Components
 import {
   Dialog,
-  DialogClose,
   DialogContent,
   DialogHeader,
   DialogTitle,
@@ -184,12 +181,6 @@ export default function Checkout() {
   });
   const [manualPrices, setManualPrices] = useState<Record<string, string>>({});
   const [pulledRepairItem, setPulledRepairItem] = useState<any | null>(null);
-  const [, setDismissedRecommendationKey] = useState<string | null>(null);
-  const [selectedRecommendationState, setSelectedRecommendationState] =
-    useState<{
-      key: string;
-      ids: string[];
-    }>({ key: "", ids: [] });
 
   const searchInputRef = useRef<HTMLInputElement>(null);
 
@@ -373,117 +364,25 @@ export default function Checkout() {
     [orderCartItems],
   );
 
-  const recommendationContext = useMemo(() => {
-    const combinedText = orderCartItems
-      .map((cartItem: any) =>
-        [
-          cartItem?.itemId?.itemName,
-          cartItem?.itemId?.brand,
-          cartItem?.itemId?.categoryId?.name,
-          cartItem?.customer?.deviceModel,
-        ]
-          .filter(Boolean)
-          .join(" "),
-      )
-      .join(" ")
-      .toLowerCase();
-
-    if (
-      /(iphone|ipad|samsung|galaxy|phone|mobile|motorola|pixel|xiaomi|redmi|repair)/.test(
-        combinedText,
-      )
-    ) {
-      return {
-        detectedCategory: "Phone",
-        keywords: ["screen protector", "case", "charger"],
-      };
-    }
-
-    if (
-      /(laptop|macbook|notebook|thinkpad|dell xps|hp elitebook)/.test(
-        combinedText,
-      )
-    ) {
-      return {
-        detectedCategory: "Laptop",
-        keywords: ["bag", "mouse", "charger"],
-      };
-    }
-
-    return null;
+  const categoryIds = useMemo(() => {
+    return Array.from(
+      new Set(
+        orderCartItems
+          .map(
+            (item: any) =>
+              item?.itemId?.categoryId?._id || item?.itemId?.categoryId,
+          )
+          .filter(Boolean),
+      ),
+    ) as string[];
   }, [orderCartItems]);
 
-  const recommendedAddOns = useMemo(() => {
-    if (!recommendationContext) {
-      return [];
-    }
+  const { data: recommendationsData } = useCheckoutRecommendations(categoryIds);
+  const checkoutRecommendations = recommendationsData?.data || [];
 
-    const selectedIds = new Set<string>();
-
-    return recommendationContext.keywords
-      .map((keyword) => {
-        const match = inventoryItems.find((item: any) => {
-          if (selectedIds.has(item._id)) {
-            return false;
-          }
-
-          const haystack = [
-            item?.itemName,
-            item?.brand,
-            item?.categoryId?.name,
-            item?.productDetails,
-          ]
-            .filter(Boolean)
-            .join(" ")
-            .toLowerCase();
-
-          return haystack.includes(keyword);
-        });
-
-        if (match?._id) {
-          selectedIds.add(match._id);
-          return {
-            id: match._id,
-            keyword,
-            item: match,
-          };
-        }
-
-        return null;
-      })
-      .filter(Boolean) as Array<{
-      id: string;
-      keyword: string;
-      item: any;
-    }>;
-  }, [inventoryItems, recommendationContext]);
-
-  const recommendationKey = useMemo(() => {
-    if (!recommendationContext || recommendedAddOns.length === 0) {
-      return "";
-    }
-
-    return `${recommendationContext.detectedCategory}:${recommendedAddOns
-      .map((addon) => addon.id)
-      .join(",")}:${orderCartItems.map((item: any) => item._id).join(",")}`;
-  }, [orderCartItems, recommendedAddOns, recommendationContext]);
-
-  const selectedRecommendationIds =
-    selectedRecommendationState.key === recommendationKey
-      ? selectedRecommendationState.ids
-      : recommendedAddOns.map((addon) => addon.id);
-
-  const isRecommendationOpen = false;
-
-  const selectedRecommendationItems = recommendedAddOns.filter((addon) =>
-    selectedRecommendationIds.includes(addon.id),
-  );
-
-  const selectedRecommendationTotal = selectedRecommendationItems.reduce(
-    (sum, addon) => sum + Number(addon.item?.expectedPrice || 0),
-    0,
-  );
-
+  const [isRecommendationsModalOpen, setIsRecommendationsModalOpen] =
+    useState(false);
+  const [hasShownRecommendations, setHasShownRecommendations] = useState(false);
   // ─── Cart Action Handlers ──────────────────────────────────────────────────
   const handleAddToCart = async (
     itemId: string,
@@ -683,6 +582,17 @@ export default function Checkout() {
 
   // ─── Place Order (Payment, Receipt & Completion) ────────────────────────────
   const handlePlaceOrder = () => {
+    if (!hasShownRecommendations && checkoutRecommendations.length > 0) {
+      const shouldPopup = checkoutRecommendations.some(
+        (r: any) => r.autoPopupReminder,
+      );
+      if (shouldPopup) {
+        setIsRecommendationsModalOpen(true);
+        setHasShownRecommendations(true);
+        return;
+      }
+    }
+
     if (checkoutMode === "return") {
       setIsReturnModalOpen(true);
       return;
@@ -1050,49 +960,6 @@ export default function Checkout() {
     }
 
     setManualPrices((prev) => ({ ...prev, [cartItemId]: value }));
-  };
-
-  const handleToggleRecommendation = (id: string) => {
-    setSelectedRecommendationState((prev) => {
-      const baseIds =
-        prev.key === recommendationKey
-          ? prev.ids
-          : recommendedAddOns.map((addon) => addon.id);
-
-      const nextIds = baseIds.includes(id)
-        ? baseIds.filter((existingId) => existingId !== id)
-        : [...baseIds, id];
-
-      return {
-        key: recommendationKey,
-        ids: nextIds,
-      };
-    });
-  };
-
-  const handleDismissRecommendations = () => {
-    setDismissedRecommendationKey(recommendationKey);
-  };
-
-  const handleAddSelectedRecommendations = async () => {
-    const itemsToAdd = selectedRecommendationItems;
-
-    if (itemsToAdd.length === 0) {
-      toast.error("Select at least one recommended add-on");
-      return;
-    }
-
-    try {
-      for (const addon of itemsToAdd) {
-        await handleAddToCart(addon.id, 1);
-      }
-
-      setDismissedRecommendationKey(recommendationKey);
-      toast.success("Recommended add-ons added to checkout");
-    } catch (error) {
-      console.error(error);
-      toast.error("Failed to add recommended items");
-    }
   };
 
   return (
@@ -2402,150 +2269,29 @@ export default function Checkout() {
       </Dialog>
 
       {/* ─── CUSTOMER SELECTOR DIALOG ─── */}
-      <Dialog
-        open={isRecommendationOpen}
-        onOpenChange={(open) => {
-          if (!open) {
-            handleDismissRecommendations();
+      <CheckoutRecommendationsModal
+        isOpen={isRecommendationsModalOpen}
+        recommendations={checkoutRecommendations}
+        onDismiss={() => {
+          setIsRecommendationsModalOpen(false);
+          // Proceed to place order
+          handlePlaceOrder();
+        }}
+        onAddSelected={async (items) => {
+          try {
+            for (const item of items) {
+              await handleAddToCart(item._id, 1);
+            }
+            toast.success("Added recommended items to cart");
+            setIsRecommendationsModalOpen(false);
+            // After adding, give state time to sync, then proceed
+            setTimeout(handlePlaceOrder, 500);
+          } catch (e) {
+            console.error(e);
+            toast.error("Failed to add recommended items");
           }
         }}
-      >
-        <DialogContent
-          className="w-[min(1320px,calc(100vw-2rem))] max-w-[1320px] rounded-[32px] border border-red-600 bg-white p-0 shadow-2xl"
-          showCloseButton={false}
-        >
-          <div className="p-6 md:p-7">
-            <DialogHeader className="flex-row items-start justify-between gap-4 text-left">
-              <div>
-                <div className="flex items-center gap-2">
-                  <div className="flex h-9 w-9 items-center justify-center rounded-2xl bg-[#EEF9D7] text-[#84CC16]">
-                    <Sparkles size={18} />
-                  </div>
-                  <div>
-                    <DialogTitle className="text-[30px] font-black tracking-tight text-slate-950">
-                      Recommended Add-ons
-                    </DialogTitle>
-                    <DialogDescription className="mt-1 text-sm font-medium text-slate-500">
-                      Suggested accessories based on items in this checkout.
-                      Please offer these to the customer before charging.
-                    </DialogDescription>
-                  </div>
-                </div>
-              </div>
-
-              <DialogClose asChild>
-                <button
-                  type="button"
-                  onClick={handleDismissRecommendations}
-                  className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 text-slate-500 transition-colors hover:bg-slate-50 hover:text-slate-800"
-                >
-                  <CloseIcon size={18} />
-                </button>
-              </DialogClose>
-            </DialogHeader>
-
-            <div className="mt-5 rounded-2xl border border-[#E5F0C7] bg-[#FAFDF2] px-4 py-3">
-              <div className="flex items-center gap-2 text-sm font-bold text-slate-600">
-                <Smartphone size={16} className="text-slate-500" />
-                Detected category:
-                <span className="text-[#84CC16]">
-                  {recommendationContext?.detectedCategory}
-                </span>
-              </div>
-            </div>
-
-            <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {recommendedAddOns.map((addon) => {
-                const isSelected = selectedRecommendationIds.includes(addon.id);
-
-                return (
-                  <div
-                    key={addon.id}
-                    className={`flex h-full min-h-[350px] flex-col rounded-[28px] border p-4 transition-all ${
-                      isSelected
-                        ? "border-[#B8DF78] bg-[#FBFEF5] shadow-sm"
-                        : "border-slate-200 bg-white"
-                    }`}
-                  >
-                    <div className="relative">
-                      <div className="relative flex h-36 w-full items-center justify-center overflow-hidden rounded-2xl border border-slate-100 bg-slate-50">
-                        {addon.item?.image?.url ? (
-                          <Image
-                            src={addon.item.image.url}
-                            alt={addon.item.itemName}
-                            fill
-                            className="object-contain p-3"
-                          />
-                        ) : (
-                          <Package className="h-8 w-8 text-slate-300" />
-                        )}
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => handleToggleRecommendation(addon.id)}
-                        className={`absolute right-3 top-3 flex h-7 w-7 shrink-0 items-center justify-center rounded-md border shadow-sm ${
-                          isSelected
-                            ? "border-[#84CC16] bg-[#84CC16] text-white"
-                            : "border-slate-200 bg-white text-transparent"
-                        }`}
-                      >
-                        <CheckCircle2 size={14} />
-                      </button>
-                    </div>
-
-                    <div className="mt-4 flex flex-1 flex-col">
-                      <p className="min-h-[84px] text-[17px] font-black leading-[1.35] text-slate-950 [display:-webkit-box] [-webkit-box-orient:vertical] [-webkit-line-clamp:3] overflow-hidden">
-                        {addon.item?.itemName || addon.keyword}
-                      </p>
-                      <p className="mt-1 text-sm font-semibold text-slate-400">
-                        {addon.item?.brand ||
-                          addon.item?.categoryId?.name ||
-                          "Accessory"}
-                      </p>
-                      <p className="mt-3 text-2xl font-black text-slate-950">
-                        {formatCurrency(
-                          convertAmount(Number(addon.item?.expectedPrice || 0)),
-                        )}
-                      </p>
-                      <div className="mt-auto pt-4">
-                        <button
-                          type="button"
-                          onClick={() => handleToggleRecommendation(addon.id)}
-                          className={`flex w-full items-center justify-center rounded-2xl border px-4 py-2.5 text-sm font-black transition-all ${
-                            isSelected
-                              ? "border-[#DDECB9] bg-white text-[#84CC16]"
-                              : "border-slate-200 bg-slate-50 text-slate-600"
-                          }`}
-                        >
-                          {isSelected ? "Added" : "Add"}
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-
-            <div className="mt-6 grid gap-3 border-t border-slate-100 pt-5 sm:grid-cols-2">
-              <button
-                type="button"
-                onClick={handleDismissRecommendations}
-                className="h-12 rounded-2xl border border-slate-200 bg-white px-5 text-sm font-black text-slate-700 transition-colors hover:bg-slate-50"
-              >
-                Dismiss
-              </button>
-              <button
-                type="button"
-                onClick={handleAddSelectedRecommendations}
-                className="h-12 rounded-2xl bg-[#84CC16] px-5 text-sm font-black text-white shadow-lg shadow-lime-500/20 transition-colors hover:bg-[#74b313]"
-              >
-                Add Selected ({selectedRecommendationItems.length}) -{" "}
-                {formatCurrency(selectedRecommendationTotal)}
-              </button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
+      />
 
       <Dialog
         open={isCustomerSelectorOpen}
