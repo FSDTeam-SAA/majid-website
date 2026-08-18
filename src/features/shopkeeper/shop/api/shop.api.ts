@@ -11,6 +11,10 @@ export interface Shop {
   currency?: string;
   isDefault?: boolean;
   isActive?: boolean;
+  taxEnabled?: boolean;
+  taxName?: string;
+  taxPercentage?: number;
+  taxIncludedInPrice?: boolean;
   activatedAt?: string | null;
   createdAt?: string;
   updatedAt?: string;

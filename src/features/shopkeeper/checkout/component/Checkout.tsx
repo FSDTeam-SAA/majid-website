@@ -80,6 +80,7 @@ import { Input } from "@/components/ui/input";
 import { StructuredAddressFields } from "@/components/ui/structured-address-fields";
 import { Button } from "@/components/ui/button";
 import { useCurrency } from "@/hooks/useCurrency";
+import { useShop } from "@/features/shopkeeper/shop/store/shop.store";
 
 const getInventoryImageUrl = (item: any) =>
   item?.image?.url ||
@@ -108,8 +109,8 @@ export default function Checkout() {
   const router = useRouter();
   const { data: session } = useSession();
   const queryClient = useQueryClient();
-  const { currency, currencySymbol, formatCurrency, convertAmount } =
-    useCurrency();
+  const { currency, currencySymbol, formatCurrency } = useCurrency();
+  const { activeShop } = useShop();
   const shopkeeperId = (session?.user as { id?: string })?.id;
 
   // Data fetching queries
@@ -348,13 +349,26 @@ export default function Checkout() {
     return Math.max(0, subtotalBeforeDiscount - subtotal);
   }, [subtotalBeforeDiscount, subtotal]);
 
-  const tax = 0;
-  // Browser number inputs validate against their exact `min` value. Keep the
-  // charged amount at the same two-decimal precision displayed to the cashier.
-  const totalPayment = useMemo(
-    () => Math.round(subtotal * 100) / 100,
-    [subtotal],
-  );
+  const { tax, totalPayment } = useMemo(() => {
+    let computedTax = 0;
+    let computedTotalPayment = subtotal;
+
+    if (activeShop?.taxEnabled && activeShop?.taxPercentage) {
+      const percentage = activeShop.taxPercentage;
+      if (activeShop.taxIncludedInPrice) {
+        computedTax = subtotal - subtotal / (1 + percentage / 100);
+        computedTotalPayment = subtotal;
+      } else {
+        computedTax = subtotal * (percentage / 100);
+        computedTotalPayment = subtotal + computedTax;
+      }
+    }
+
+    return {
+      tax: computedTax,
+      totalPayment: Math.round(computedTotalPayment * 100) / 100,
+    };
+  }, [subtotal, activeShop]);
   const totalCartCount = useMemo(
     () =>
       orderCartItems.reduce(
@@ -748,6 +762,8 @@ export default function Checkout() {
           subtotal={subtotal}
           discount={totalDiscount}
           tax={tax}
+          taxName={activeShop?.taxName}
+          taxIncludedInPrice={activeShop?.taxIncludedInPrice}
           total={totalPayment}
           currency={currency}
         />
@@ -1872,11 +1888,23 @@ export default function Checkout() {
               </span>
             </div>
           )}
+          {activeShop?.taxEnabled && (
+            <div className="flex justify-between">
+              <span>
+                {activeShop.taxName || "Tax"}{" "}
+                {activeShop.taxIncludedInPrice ? "(Included)" : ""}
+              </span>
+              <span className="text-slate-900 font-black">
+                {currencySymbol}
+                {tax.toFixed(2)}
+              </span>
+            </div>
+          )}
           <div className="flex justify-between text-base font-black text-slate-900 border-t border-slate-200/60 pt-2.5 mt-2">
             <span>Total Payment</span>
             <span className="text-[#84CC16]">
               {currencySymbol}
-              {subtotal.toFixed(2)}
+              {totalPayment.toFixed(2)}
             </span>
           </div>
         </div>

@@ -1,3 +1,4 @@
+/* eslint-disable jsx-a11y/alt-text */
 import React from "react";
 import {
   Document,
@@ -243,6 +244,9 @@ export interface SalesInvoicePDFProps {
     salePrice: number;
     saleQuantity: number;
     saleMethod: string;
+    tax?: number;
+    taxName?: string;
+    taxIncludedInPrice?: boolean;
     shopName?: string;
     shopAddress?: string;
     shopPhone?: string;
@@ -380,15 +384,23 @@ const SalesInvoicePDF: React.FC<SalesInvoicePDFProps> = ({ data }) => {
                 {formatPdfCurrency(subtotal)}
               </Text>
             </View>
-            <View style={styles.totalRow}>
-              <Text style={styles.totalLabel}>Tax (0%)</Text>
-              <Text style={styles.totalValue}>{formatPdfCurrency(0)}</Text>
-            </View>
-            <Image src="/images/logo.png" style={styles.logo} />
+            {(data.tax || 0) > 0 && (
+              <View style={styles.totalRow}>
+                <Text style={styles.totalLabel}>
+                  {data.taxName || "Tax"}{" "}
+                  {data.taxIncludedInPrice ? "(Included)" : ""}
+                </Text>
+                <Text style={styles.totalValue}>
+                  {formatPdfCurrency(data.tax || 0)}
+                </Text>
+              </View>
+            )}
             <View style={styles.grandTotalRow}>
               <Text style={styles.grandTotalLabel}>Grand Total</Text>
               <Text style={styles.grandTotalAmount}>
-                {formatPdfCurrency(subtotal)}
+                {formatPdfCurrency(
+                  subtotal + (data.taxIncludedInPrice ? 0 : data.tax || 0),
+                )}
               </Text>
             </View>
           </View>

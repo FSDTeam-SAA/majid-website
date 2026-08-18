@@ -279,6 +279,8 @@ export interface CheckoutInvoicePDFProps {
   discountPercentage?: number;
   discountLabel?: string;
   tax: number;
+  taxName?: string;
+  taxIncludedInPrice?: boolean;
   total: number;
   currency?: string;
 }
@@ -312,6 +314,8 @@ export default function CheckoutInvoicePDF({
   discountPercentage,
   discountLabel,
   tax,
+  taxName,
+  taxIncludedInPrice,
   total,
   currency = "USD",
 }: CheckoutInvoicePDFProps) {
@@ -544,7 +548,9 @@ export default function CheckoutInvoicePDF({
             ) : null}
             {tax > 0 && (
               <View style={styles.totalLine}>
-                <Text>Tax</Text>
+                <Text>
+                  {taxName || "Tax"} {taxIncludedInPrice ? "(Included)" : ""}
+                </Text>
                 <Text>{formatCurrency(tax, currency)}</Text>
               </View>
             )}
