@@ -12,10 +12,12 @@ import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
+import { useCurrency } from "@/hooks/useCurrency";
 
 export default function Cart() {
   const { data: session } = useSession();
   const router = useRouter();
+  const { formatCurrency } = useCurrency();
   const shopkeeperId = (session?.user as { id?: string })?.id;
 
   const {
@@ -149,9 +151,10 @@ export default function Cart() {
                         </span>
                       </div>
                       <span className="text-lg font-black text-foreground">
-                        $
-                        {(item.itemId?.expectedPrice || 0) *
-                          (item.quantity || 1)}
+                        {formatCurrency(
+                          (item.itemId?.expectedPrice || 0) *
+                            (item.quantity || 1),
+                        )}
                       </span>
                     </div>
                   </div>
@@ -175,17 +178,17 @@ export default function Cart() {
                 <div className="space-y-3 mb-6">
                   <div className="flex justify-between text-sm font-bold text-muted-foreground">
                     <span>Subtotal ({cartItems.length} items)</span>
-                    <span>${totalAmount.toLocaleString()}</span>
+                    <span>{formatCurrency(totalAmount)}</span>
                   </div>
                   <div className="flex justify-between text-sm font-bold text-muted-foreground">
                     <span>Discount</span>
-                    <span>$0</span>
+                    <span>{formatCurrency(0)}</span>
                   </div>
                   <div className="h-px bg-border my-2"></div>
                   <div className="flex justify-between text-lg font-black text-foreground">
                     <span>Total</span>
                     <span className="text-[#84CC16]">
-                      ${totalAmount.toLocaleString()}
+                      {formatCurrency(totalAmount)}
                     </span>
                   </div>
                 </div>

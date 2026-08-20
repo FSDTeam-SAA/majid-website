@@ -45,6 +45,9 @@ export default function Transactions() {
   const { formatCurrency, currency } = useCurrency();
 
   const [isReturnModalOpen, setIsReturnModalOpen] = useState(false);
+  const [selectedReturnInvoice, setSelectedReturnInvoice] = useState<
+    any | null
+  >(null);
 
   const invoices = useMemo(() => response?.data || [], [response]);
 
@@ -346,7 +349,10 @@ export default function Transactions() {
                               size="sm"
                               variant="destructive"
                               className="h-9 px-3 font-bold text-xs flex items-center gap-1.5 rounded-xl shadow-sm"
-                              onClick={() => setIsReturnModalOpen(true)}
+                              onClick={() => {
+                                setSelectedReturnInvoice(inv);
+                                setIsReturnModalOpen(true);
+                              }}
                             >
                               <RotateCcw className="w-3.5 h-3.5" />
                               Process Refund
@@ -374,8 +380,12 @@ export default function Transactions() {
 
       <ReturnInvoiceModal
         open={isReturnModalOpen}
-        onOpenChange={setIsReturnModalOpen}
+        onOpenChange={(nextOpen) => {
+          setIsReturnModalOpen(nextOpen);
+          if (!nextOpen) setSelectedReturnInvoice(null);
+        }}
         shopkeeperId={shopkeeperId}
+        initialInvoice={selectedReturnInvoice}
       />
     </div>
   );

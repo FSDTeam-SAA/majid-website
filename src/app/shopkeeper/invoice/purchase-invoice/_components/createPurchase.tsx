@@ -43,6 +43,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { StructuredAddressFields } from "@/components/ui/structured-address-fields";
 import { Label } from "@/components/ui/label";
+import { formatCurrency as baseFormatCurrency } from "@/lib/currency";
 import { getPdfLogoStyles } from "@/lib/logoHelper";
 import {
   Select,
@@ -363,16 +364,7 @@ const PurchaseReceiptPDF = ({
   currency = "USD",
 }: any) => {
   const pdfFormatCurrency = (value: number) => {
-    try {
-      return new Intl.NumberFormat("en-US", {
-        style: "currency",
-        currency: (currency || "USD").toUpperCase(),
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
-      }).format(value);
-    } catch {
-      return `$${value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-    }
+    return baseFormatCurrency(value, currency || "GBP");
   };
 
   const receiptDate = invoiceDate ? new Date(invoiceDate) : new Date();

@@ -121,12 +121,16 @@ export default function AddFunds() {
     const maxAmount = selectedPlan?.price || 2;
 
     if (isNaN(numAmount) || numAmount < minAmount) {
-      toast.error(`Please enter a valid amount (minimum $${minAmount})`);
+      toast.error(
+        `Please enter a valid amount (minimum ${formatPaymentAmount(minAmount)})`,
+      );
       return;
     }
 
     if (numAmount > maxAmount) {
-      toast.error(`Amount cannot be greater than $${maxAmount}`);
+      toast.error(
+        `Amount cannot be greater than ${formatPaymentAmount(maxAmount)}`,
+      );
       return;
     }
 

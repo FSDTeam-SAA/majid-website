@@ -21,6 +21,8 @@ export interface StaffUser {
   weekendDays?: string[];
   idVerificationStatus?: "pending" | "verified" | "rejected";
   idNumber?: string;
+  shopId?: string | { _id: string; shopName: string; shopAddress?: string };
+  shop?: { _id: string; shopName: string; shopAddress?: string };
   createdAt?: string;
 }
 
@@ -31,6 +33,7 @@ export interface StaffCreationPayload {
   password: string;
   phone?: string;
   shopkeeperId: string;
+  shopId?: string;
   wageType?: "per-day" | "per-hour";
   wageAmount?: number;
   workingDays?: string[];

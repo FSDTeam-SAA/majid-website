@@ -154,14 +154,6 @@ export default function Inventory() {
     );
   }, [inventoryData]);
 
-  // Calculate total stock quantity
-  const totalQuantity = useMemo(() => {
-    return items.reduce(
-      (sum: number, item: InventoryItem) => sum + (item.quantity || 0),
-      0,
-    );
-  }, [items]);
-
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedItem, setSelectedItem] = useState<InventoryItem | null>(null);
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -476,8 +468,8 @@ export default function Inventory() {
                 {selectedCategory.name}
               </h1>
               <p className="text-sm font-bold text-muted-foreground">
-                {totalQuantity} Units in Stock ({items.length} Models) - $
-                {totalValue.toLocaleString()} Total Revenue Potential
+                {items.length} {items.length === 1 ? "Item" : "Items"} in Stock
+                - {formatCurrency(totalValue)} Total Revenue Potential
               </p>
             </div>
 

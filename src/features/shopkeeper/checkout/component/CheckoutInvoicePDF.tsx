@@ -13,6 +13,7 @@ import {
   getPaymentMethodLabel,
 } from "./checkoutPayment";
 import { getPdfLogoStyles } from "@/lib/logoHelper";
+import { formatCurrency as baseFormatCurrency } from "@/lib/currency";
 
 const colors = {
   teal: "#155E63",
@@ -285,17 +286,8 @@ export interface CheckoutInvoicePDFProps {
   currency?: string;
 }
 
-const formatCurrency = (value: number, currencyCode: string = "USD") => {
-  try {
-    return new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: currencyCode.toUpperCase(),
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    }).format(value);
-  } catch {
-    return `$${value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-  }
+const formatCurrency = (value: number, currencyCode: string = "GBP") => {
+  return baseFormatCurrency(value, currencyCode);
 };
 
 export default function CheckoutInvoicePDF({

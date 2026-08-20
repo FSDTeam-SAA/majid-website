@@ -43,6 +43,7 @@ import {
 import { useSession } from "next-auth/react";
 import { toast } from "sonner";
 import { useMyProfile } from "@/features/shopkeeper/settings/hooks/useSettings";
+import { formatCurrency as baseFormatCurrency } from "@/lib/currency";
 import { getPdfLogoStyles } from "@/lib/logoHelper";
 import { useCurrency } from "@/hooks/useCurrency";
 import {
@@ -482,16 +483,7 @@ export const InvoicePDF = ({
   currency = "USD",
 }: any) => {
   const pdfFormatCurrency = (value: number) => {
-    try {
-      return new Intl.NumberFormat("en-US", {
-        style: "currency",
-        currency: (currency || "USD").toUpperCase(),
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
-      }).format(value);
-    } catch {
-      return `$${value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-    }
+    return baseFormatCurrency(value, currency || "GBP");
   };
   const date = invoiceDate ? new Date(invoiceDate) : new Date();
   const balance = Number(dueAmount || 0);

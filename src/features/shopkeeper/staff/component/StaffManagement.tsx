@@ -11,9 +11,11 @@ import {
   Mail,
   Phone,
   Plus,
+  Store,
   UsersRound,
 } from "lucide-react";
 import { useSession } from "next-auth/react";
+import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -44,6 +46,8 @@ import {
 } from "@/components/ui/table";
 import { verifyStaffIdCardApi } from "../api/staff.api";
 import { useCreateStaff, useStaffList } from "../hooks/useStaff";
+import { getMyShops } from "../../shop/api/shop.api";
+import { useCurrency } from "@/hooks/useCurrency";
 
 type StaffFormState = {
   firstName: string;
@@ -51,6 +55,7 @@ type StaffFormState = {
   email: string;
   phone: string;
   password: string;
+  shopId: string;
   wageType: "per-day" | "per-hour";
   wageAmount: string;
   workingDays: string[];
@@ -65,6 +70,7 @@ const initialForm: StaffFormState = {
   email: "",
   phone: "",
   password: "",
+  shopId: "",
   wageType: "per-day",
   wageAmount: "",
   workingDays: ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday"],
@@ -117,6 +123,11 @@ export default function StaffManagement() {
   const [isVerifyingId, setIsVerifyingId] = useState(false);
   const { data: session } = useSession();
   const { data: staff = [], isLoading, isError } = useStaffList();
+  const { data: shops = [] } = useQuery({
+    queryKey: ["my-shops"],
+    queryFn: getMyShops,
+  });
+  const { formatCurrency } = useCurrency();
   const createStaff = useCreateStaff();
   const shopkeeperId = (session?.user as { id?: string })?.id;
 
@@ -194,6 +205,8 @@ export default function StaffManagement() {
       phone: form.phone.trim(),
       password: form.password,
       shopkeeperId,
+      shopId:
+        form.shopId && form.shopId !== "all_default" ? form.shopId : undefined,
       wageType: form.wageType,
       wageAmount: form.wageAmount ? Number(form.wageAmount) : undefined,
       workingDays: form.workingDays,
@@ -276,7 +289,7 @@ export default function StaffManagement() {
                     Email
                   </TableHead>
                   <TableHead className="px-6 py-4 text-xs font-black uppercase tracking-widest text-muted-foreground">
-                    Phone
+                    Assigned Store
                   </TableHead>
                   <TableHead className="px-6 py-4 text-xs font-black uppercase tracking-widest text-muted-foreground">
                     Job Role
@@ -301,7 +314,7 @@ export default function StaffManagement() {
               <TableBody>
                 {isLoading && (
                   <TableRow>
-                    <TableCell colSpan={9} className="h-40 text-center">
+                    <TableCell colSpan={10} className="h-40 text-center">
                       <div className="flex items-center justify-center gap-2 text-sm font-bold text-muted-foreground">
                         <Loader2 className="h-5 w-5 animate-spin" />
                         Loading staff...
@@ -313,7 +326,7 @@ export default function StaffManagement() {
                 {isError && (
                   <TableRow>
                     <TableCell
-                      colSpan={9}
+                      colSpan={10}
                       className="h-40 text-center text-sm font-bold text-destructive"
                     >
                       Failed to load staff members.
@@ -324,7 +337,7 @@ export default function StaffManagement() {
                 {!isLoading && !isError && staff.length === 0 && (
                   <TableRow>
                     <TableCell
-                      colSpan={9}
+                      colSpan={10}
                       className="h-44 text-center text-sm font-bold text-muted-foreground"
                     >
                       No staff members found.
@@ -336,6 +349,18 @@ export default function StaffManagement() {
                   staff.map((member) => {
                     const name = getStaffName(member);
                     const imageUrl = member.image?.url;
+                    const assignedShopName =
+                      typeof member.shopId === "object" &&
+                      member.shopId?.shopName
+                        ? member.shopId.shopName
+                        : typeof member.shop === "object" &&
+                            member.shop?.shopName
+                          ? member.shop.shopName
+                          : shops.find((s) => s._id === member.shopId)
+                              ?.shopName ||
+                            (shops.length > 0 && member.shopId
+                              ? "Custom Store"
+                              : "Main Store");
 
                     return (
                       <TableRow
@@ -379,17 +404,27 @@ export default function StaffManagement() {
                           </div>
                         </TableCell>
                         <TableCell className="px-6 py-4">
+                          <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-800">
+                            <Store className="h-3.5 w-3.5 text-[#84CC16]" />
+                            {assignedShopName}
+                          </span>
+                        </TableCell>
+                        <TableCell className="px-6 py-4">
                           <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-black text-blue-700">
                             Staff
                           </span>
                         </TableCell>
                         <TableCell className="px-6 py-4">
                           <div className="space-y-1 text-sm font-bold text-foreground">
-                            <p>{member.wageType || "Not set"}</p>
-                            <p className="text-xs text-muted-foreground">
+                            <p className="capitalize">
+                              {member.wageType
+                                ? member.wageType.replace("-", " ")
+                                : "Not set"}
+                            </p>
+                            <p className="text-xs text-muted-foreground font-semibold">
                               {member.wageAmount !== undefined &&
                               member.wageAmount !== null
-                                ? `${member.wageAmount} / ${
+                                ? `${formatCurrency(Number(member.wageAmount))} / ${
                                     member.wageType === "per-hour"
                                       ? "hour"
                                       : "day"
@@ -522,8 +557,35 @@ export default function StaffManagement() {
               </div>
             </div>
 
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-2">
+            <div className="grid gap-4 sm:grid-cols-3">
+              <div className="space-y-2 sm:col-span-1">
+                <Label htmlFor="shopId">Assigned store</Label>
+                <Select
+                  value={form.shopId}
+                  onValueChange={(value) =>
+                    setForm((current) => ({
+                      ...current,
+                      shopId: value,
+                    }))
+                  }
+                >
+                  <SelectTrigger id="shopId" className="w-full">
+                    <SelectValue placeholder="Select store" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all_default">
+                      Main / Default Store
+                    </SelectItem>
+                    {shops.map((shop) => (
+                      <SelectItem key={shop._id} value={shop._id}>
+                        {shop.shopName} {shop.isDefault ? "(Main)" : ""}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2 sm:col-span-1">
                 <Label htmlFor="wageType">Wage type</Label>
                 <Select
                   value={form.wageType}
@@ -544,7 +606,7 @@ export default function StaffManagement() {
                 </Select>
               </div>
 
-              <div className="space-y-2">
+              <div className="space-y-2 sm:col-span-1">
                 <Label htmlFor="wageAmount">Wage amount</Label>
                 <Input
                   id="wageAmount"

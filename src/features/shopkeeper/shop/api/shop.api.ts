@@ -51,6 +51,14 @@ export interface ShopPerformanceItem extends Shop {
     firstName: string;
     lastName?: string;
     image?: { url?: string };
+    workingDays?: string[];
+  }[];
+  staffWorkingToday?: {
+    _id: string;
+    firstName: string;
+    lastName?: string;
+    image?: { url?: string };
+    workingDays?: string[];
   }[];
 }
 
