@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useCallback } from "react";
 import { CheckCircle2, Zap, Brain, Shield, Diamond } from "lucide-react";
 import { motion } from "framer-motion";
 import { useCreatePaymentSession } from "../hooks/usePayments";
@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import RyftPaymentModal from "./RyftPaymentModal";
 import { Loader2 } from "lucide-react";
 
 interface SubscriptionFeature {
@@ -81,11 +82,17 @@ export default function AddFunds() {
   const [selectedPlan, setSelectedPlan] =
     React.useState<SubscriptionPlan | null>(null);
   const [amount, setAmount] = React.useState("");
+  const [ryftSession, setRyftSession] = React.useState<{
+    clientSecret: string;
+    publicKey?: string;
+    amount: number;
+  } | null>(null);
+  const [isRyftModalOpen, setIsRyftModalOpen] = React.useState(false);
 
   const { data: subscriptionData, isLoading } = useSubscriptions();
   const plans = subscriptionData?.data || [];
   const paymentCurrency = process.env.NEXT_PUBLIC_PAYMENT_CURRENCY || "EUR";
-  const formatPaymentAmount = React.useCallback(
+  const formatPaymentAmount = useCallback(
     (value: number) =>
       new Intl.NumberFormat(undefined, {
         style: "currency",
@@ -144,12 +151,23 @@ export default function AddFunds() {
         onSuccess: (res) => {
           const checkout = res?.data;
 
-          if (!checkout?.url) {
-            toast.error("Failed to get checkout URL");
+          if (checkout?.clientSecret) {
+            setIsModalOpen(false);
+            setRyftSession({
+              clientSecret: checkout.clientSecret,
+              publicKey: checkout.publicKey,
+              amount: numAmount,
+            });
+            setIsRyftModalOpen(true);
             return;
           }
 
-          window.location.href = checkout.url;
+          if (checkout?.url) {
+            window.location.href = checkout.url;
+            return;
+          }
+
+          toast.error("Failed to initialize payment session");
         },
         onError: () => {
           toast.error("An error occurred while initiating payment");
@@ -318,11 +336,27 @@ export default function AddFunds() {
               {isPending ? (
                 <Loader2 className="w-4 h-4 mr-2 animate-spin" />
               ) : null}
-              Proceed to myPOS Checkout
+              Proceed to RyftPay Checkout
             </Button>
           </div>
         </DialogContent>
       </Dialog>
+
+      {ryftSession && (
+        <RyftPaymentModal
+          isOpen={isRyftModalOpen}
+          onClose={() => {
+            setIsRyftModalOpen(false);
+            setRyftSession(null);
+          }}
+          clientSecret={ryftSession.clientSecret}
+          publicKey={ryftSession.publicKey}
+          amount={ryftSession.amount}
+          currency={paymentCurrency}
+          title={`Top Up - ${selectedPlan?.name || "Plan"}`}
+          description={`Complete your top-up of ${formatPaymentAmount(ryftSession.amount)} securely.`}
+        />
+      )}
     </div>
   );
 }

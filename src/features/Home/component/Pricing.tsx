@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import RyftPaymentModal from "@/features/shopkeeper/payment/component/RyftPaymentModal";
 
 interface Feature {
   name: string;
@@ -53,6 +54,12 @@ export default function Pricing() {
     null,
   );
   const [amount, setAmount] = useState("");
+  const [ryftSession, setRyftSession] = useState<{
+    clientSecret: string;
+    publicKey?: string;
+    amount: number;
+  } | null>(null);
+  const [isRyftModalOpen, setIsRyftModalOpen] = useState(false);
 
   const handleTopUp = () => {
     const numAmount = parseFloat(amount);
@@ -79,12 +86,23 @@ export default function Pricing() {
         onSuccess: (res) => {
           const checkout = res?.data;
 
-          if (!checkout?.url) {
-            toast.error("Failed to get checkout URL");
+          if (checkout?.clientSecret) {
+            setIsModalOpen(false);
+            setRyftSession({
+              clientSecret: checkout.clientSecret,
+              publicKey: checkout.publicKey,
+              amount: numAmount,
+            });
+            setIsRyftModalOpen(true);
             return;
           }
 
-          window.location.href = checkout.url;
+          if (checkout?.url) {
+            window.location.href = checkout.url;
+            return;
+          }
+
+          toast.error("Failed to initialize payment session");
         },
         onError: (err: unknown) => {
           const error = err as { response?: { status?: number } };
@@ -327,11 +345,27 @@ export default function Pricing() {
                 {isPending ? (
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                 ) : null}
-                Proceed to myPOS Checkout
+                Proceed to RyftPay Checkout
               </Button>
             </div>
           </DialogContent>
         </Dialog>
+
+        {ryftSession && (
+          <RyftPaymentModal
+            isOpen={isRyftModalOpen}
+            onClose={() => {
+              setIsRyftModalOpen(false);
+              setRyftSession(null);
+            }}
+            clientSecret={ryftSession.clientSecret}
+            publicKey={ryftSession.publicKey}
+            amount={ryftSession.amount}
+            currency={paymentCurrency}
+            title={`Subscribe to ${selectedPlan?.name || "Plan"}`}
+            description={`Complete your payment of ${formatPaymentAmount(ryftSession.amount)} securely.`}
+          />
+        )}
       </div>
     </section>
   );

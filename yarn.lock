@@ -348,7 +348,7 @@
     "@babel/plugin-transform-modules-commonjs" "^7.29.7"
     "@babel/plugin-transform-typescript" "^7.29.7"
 
-"@babel/runtime@^7.12.5", "@babel/runtime@^7.20.13", "@babel/runtime@^7.28.6":
+"@babel/runtime@^7.12.5", "@babel/runtime@^7.20.13", "@babel/runtime@^7.28.6", "@babel/runtime@^7.29.2":
   version "7.29.7"
   resolved "https://registry.npmjs.org/@babel/runtime/-/runtime-7.29.7.tgz"
   integrity sha512-Nq8OhGWiZIZGV6hLHoyAKLLcJihP/xFeBMGJoUrxTX2psI8dCifzLhZISFb+VWS3wFMRDmCGw5R+dOySCqPLhw==
@@ -2104,6 +2104,22 @@
   version "1.1.0"
   resolved "https://registry.npmjs.org/@rtsao/scc/-/scc-1.1.0.tgz"
   integrity sha512-zt6OdqaDoOnJ1ZYsCYGt9YmWzDXl4vQdKTyJev62gFhRGKdx7mcT54V9KIjg+d2wi9EXsPvAPKe7i7WjfVWB8g==
+
+"@ryftpay/react@^1.4.2":
+  version "1.4.2"
+  resolved "https://registry.npmjs.org/@ryftpay/react/-/react-1.4.2.tgz"
+  integrity sha512-cjwr/FygCgR8Qgy6NKmksIVFTA//93vfG5g0sxWMkGkAuvMkVxKopKYP0NT2732NR0/BJk4s3ZByHPV8N0OLPg==
+  dependencies:
+    i18next "26.0.4"
+    libphonenumber-js "1.12.41"
+
+"@ryftpay/web@^1.4.2":
+  version "1.4.2"
+  resolved "https://registry.npmjs.org/@ryftpay/web/-/web-1.4.2.tgz"
+  integrity sha512-77vCx7RttWCRuu5sDcrKPeYJqRcWSlPlkZTjkBy0K+rNQKJafFKecWUM/d7ERARbbzZkkY0bHkvovDxPTCdtKg==
+  dependencies:
+    i18next "26.0.4"
+    libphonenumber-js "1.12.41"
 
 "@sec-ant/readable-stream@^0.4.1":
   version "0.4.1"
@@ -5584,6 +5600,13 @@ hyphen@^1.6.4:
   resolved "https://registry.npmjs.org/hyphen/-/hyphen-1.14.1.tgz"
   integrity sha512-kvL8xYl5QMTh+LwohVN72ciOxC0OEV79IPdJSTwEXok9y9QHebXGdFgrED4sWfiax/ODx++CAMk3hMy4XPJPOw==
 
+i18next@26.0.4:
+  version "26.0.4"
+  resolved "https://registry.npmjs.org/i18next/-/i18next-26.0.4.tgz"
+  integrity sha512-gXF7U9bfioXPLv7mw8Qt2nfO7vij5MyINvPgVv99pX3fL1Y01pw2mKBFrlYpRxRCl2wz3ISenj6VsMJT2isfuA==
+  dependencies:
+    "@babel/runtime" "^7.29.2"
+
 iconv-lite@^0.7.0, iconv-lite@^0.7.2, iconv-lite@~0.7.0:
   version "0.7.3"
   resolved "https://registry.npmjs.org/iconv-lite/-/iconv-lite-0.7.3.tgz"
@@ -6731,6 +6754,11 @@ levn@^0.4.1:
   dependencies:
     prelude-ls "^1.2.1"
     type-check "~0.4.0"
+
+libphonenumber-js@1.12.41:
+  version "1.12.41"
+  resolved "https://registry.npmjs.org/libphonenumber-js/-/libphonenumber-js-1.12.41.tgz"
+  integrity sha512-lsmMmGXBxXIK/VMLEj0kL6MtUs1kBGj1nTCzi6zgQoG1DEwqwt2DQyHxcLykceIxAnfE3hya7NuIh6PpC6S3fA==
 
 lightningcss-linux-x64-gnu@1.32.0:
   version "1.32.0"
@@ -9389,7 +9417,7 @@ typescript-eslint@^8.46.0:
     "@typescript-eslint/typescript-estree" "8.65.0"
     "@typescript-eslint/utils" "8.65.0"
 
-typescript@^5, "typescript@>= 4.8.x", typescript@>=2.7, typescript@>=3.3.1, "typescript@>=4.3 <7", typescript@>=4.8.4, "typescript@>=4.8.4 <6.1.0", typescript@>=4.9.5, typescript@>=5:
+typescript@^5, "typescript@^5 || ^6", "typescript@>= 4.8.x", typescript@>=2.7, typescript@>=3.3.1, "typescript@>=4.3 <7", typescript@>=4.8.4, "typescript@>=4.8.4 <6.1.0", typescript@>=4.9.5, typescript@>=5:
   version "5.9.3"
   resolved "https://registry.npmjs.org/typescript/-/typescript-5.9.3.tgz"
   integrity sha512-jl1vZzPDinLr9eUt3J/t7V6FgNEw9QjvBPdysz9KfQDD41fQrC2Y4vKQdiaUpFT4bXlb1RHhLpp8wtm6M5TgSw==

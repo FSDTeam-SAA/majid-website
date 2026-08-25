@@ -156,14 +156,16 @@ export default function Transactions() {
   };
 
   const getPaymentIcon = (method: string) => {
-    if (method === "card" || method === "stripe") {
+    const m = (method || "").toLowerCase();
+    if (m === "card" || m === "stripe" || m.includes("ryft")) {
       return <CreditCard className="w-5 h-5 text-indigo-500" />;
     }
     return <Banknote className="w-5 h-5 text-emerald-500" />;
   };
 
   const getPaymentText = (method: string) => {
-    if (method === "card" || method === "stripe") {
+    const m = (method || "").toLowerCase();
+    if (m === "card" || m === "stripe" || m.includes("ryft")) {
       return "Card";
     }
     return "Cash";
