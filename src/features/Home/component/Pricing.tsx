@@ -156,6 +156,7 @@ export default function Pricing() {
             "bg-primary hover:opacity-90 text-primary-foreground shadow-lg shadow-primary/20",
           iconColor: "text-primary",
         };
+      case "IMOSCAN EPOS":
       case "DIAMOND":
         return {
           container: "bg-[#e6eefb] dark:bg-purple-500/5 border-purple-500/10",
@@ -242,9 +243,10 @@ export default function Pricing() {
                   </h3>
                   <div className="flex items-baseline gap-1">
                     <span className={`text-3xl font-black  text-foreground`}>
-                      {plan.price > 0
-                        ? formatPaymentAmount(plan.price)
-                        : plan.priceLabel}
+                      {plan.priceLabel ||
+                        (plan.price > 0
+                          ? formatPaymentAmount(plan.price)
+                          : "Free")}
                     </span>
                   </div>
                   <p className={`text-sm text-foreground mt-2`}>

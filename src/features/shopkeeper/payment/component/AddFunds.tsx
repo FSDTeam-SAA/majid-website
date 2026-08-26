@@ -222,7 +222,7 @@ export default function AddFunds() {
                     </h2>
                     <div className="flex items-baseline gap-1">
                       <span className="text-3xl font-black text-slate-950 dark:text-white">
-                        {formatPaymentAmount(plan.price)}
+                        {plan.priceLabel || formatPaymentAmount(plan.price)}
                       </span>
                     </div>
                     <p className="h-8 text-xs font-medium text-slate-600 dark:text-slate-300">
