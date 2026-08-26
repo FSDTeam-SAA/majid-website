@@ -14,6 +14,7 @@ import {
   PanelLeftOpen,
   Store,
   FileText,
+  CreditCard,
 } from "lucide-react";
 
 const tabs = [
@@ -23,6 +24,11 @@ const tabs = [
     icon: QrCode,
   },
   { label: "Profile", href: "/shopkeeper/settings/profile", icon: User },
+  {
+    label: "Payment Setup",
+    href: "/shopkeeper/settings/payment-setup",
+    icon: CreditCard,
+  },
   {
     label: "Invoice & Logo",
     href: "/shopkeeper/settings/invoice",
