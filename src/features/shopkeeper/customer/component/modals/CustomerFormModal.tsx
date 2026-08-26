@@ -11,14 +11,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { StructuredAddressFields } from "@/components/ui/structured-address-fields";
 import { Label } from "@/components/ui/label";
-import {
-  Loader2,
-  User,
-  Mail,
-  Phone,
-  CreditCard,
-  DollarSign,
-} from "lucide-react";
+import { Loader2, User, Mail, Phone } from "lucide-react";
 import { toast } from "sonner";
 import {
   useCreateCustomer,
@@ -26,7 +19,6 @@ import {
 } from "@/features/shopkeeper/inventory/hooks/useInventory";
 import { useSession } from "next-auth/react";
 import type { Customer } from "../../../inventory/types";
-import { useCurrency } from "@/hooks/useCurrency";
 
 interface CustomerFormValues {
   firstName: string;
@@ -34,8 +26,6 @@ interface CustomerFormValues {
   email: string;
   phone: string;
   address: string;
-  paymentType?: string;
-  alreadyPaid?: number;
 }
 
 interface CustomerFormModalProps {
@@ -49,7 +39,6 @@ export function CustomerFormModal({
   onClose,
   customer,
 }: CustomerFormModalProps) {
-  const { currency } = useCurrency();
   const { data: session } = useSession();
   const shopkeeperId = (session?.user as { id?: string })?.id || "";
   const userId = (session?.user as { id?: string })?.id || "";
@@ -74,8 +63,6 @@ export function CustomerFormModal({
       email: "",
       phone: "",
       address: "",
-      paymentType: "cash",
-      alreadyPaid: 0,
     },
   });
   const address = useWatch({ control, name: "address" });
@@ -87,8 +74,6 @@ export function CustomerFormModal({
       setValue("email", customer.email || "");
       setValue("phone", customer.phone || "");
       setValue("address", customer.address || "");
-      setValue("paymentType", customer.paymentType || "cash");
-      setValue("alreadyPaid", customer.alreadyPaid || 0);
     } else {
       reset({
         firstName: "",
@@ -96,8 +81,6 @@ export function CustomerFormModal({
         email: "",
         phone: "",
         address: "",
-        paymentType: "cash",
-        alreadyPaid: 0,
       });
     }
   }, [customer, setValue, reset, isOpen]);
@@ -112,7 +95,6 @@ export function CustomerFormModal({
       // Update
       const payload = {
         ...data,
-        alreadyPaid: Number(data.alreadyPaid) || 0,
       };
       await updateCustomerMutation.mutateAsync(
         {
@@ -139,7 +121,6 @@ export function CustomerFormModal({
         ...data,
         shopkeeperId,
         addedBy: userId,
-        alreadyPaid: Number(data.alreadyPaid) || 0,
       };
       await createCustomerMutation.mutateAsync(payload, {
         onSuccess: () => {
@@ -281,40 +262,6 @@ export function CustomerFormModal({
                 {errors.address.message}
               </span>
             )}
-          </div>
-
-          {/* Payment Type */}
-          <div className="space-y-1.5">
-            <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">
-              Payment Type
-            </Label>
-            <div className="relative">
-              <CreditCard className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-              <select
-                {...register("paymentType")}
-                className="flex h-12 w-full rounded-xl border border-border bg-background px-3 pl-11 text-sm font-bold ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#84CC16] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                <option value="cash">Cash</option>
-                <option value="card">Card</option>
-                <option value="cash on delivery">Cash on Delivery</option>
-              </select>
-            </div>
-          </div>
-
-          {/* Already Paid */}
-          <div className="space-y-1.5">
-            <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">
-              Already Paid Amount ({currency})
-            </Label>
-            <div className="relative">
-              <DollarSign className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-              <Input
-                type="number"
-                {...register("alreadyPaid")}
-                placeholder="0"
-                className="h-12 rounded-xl border-border pl-11 font-bold focus-visible:ring-[#84CC16]"
-              />
-            </div>
           </div>
 
           <div className="flex gap-3 pt-4">
