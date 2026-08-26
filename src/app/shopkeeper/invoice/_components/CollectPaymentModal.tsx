@@ -15,6 +15,8 @@ import {
   CheckoutPaymentForm,
   getPaymentMethodLabel,
 } from "@/features/shopkeeper/checkout/component/checkoutPayment";
+import { useSession } from "next-auth/react";
+import { useCashDrawerMetrics } from "@/features/shopkeeper/dashboardOverview/hooks/useCashDrawerMetrics";
 
 interface CollectPaymentModalProps {
   open: boolean;
@@ -45,6 +47,11 @@ export function CollectPaymentModal({
   confirmButtonText = "Confirm & Print Receipt",
   descriptionText,
 }: CollectPaymentModalProps) {
+  const { data: session } = useSession();
+  const shopkeeperId = (session?.user as { id?: string })?.id;
+  const { availableCashToday, yesterdayMetrics, lastWeekMetrics } =
+    useCashDrawerMetrics(shopkeeperId);
+
   return (
     <Dialog
       open={open}
@@ -164,38 +171,88 @@ export function CollectPaymentModal({
               </div>
 
               {paymentForm.method === "cash" && (
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <label className="space-y-1.5">
-                    <span className="text-[10px] font-black uppercase tracking-wider text-slate-500">
-                      Cash Received
-                    </span>
-                    <Input
-                      type="number"
-                      min={totalAmount}
-                      step="0.01"
-                      value={paymentForm.amountReceived}
-                      onChange={(event) =>
-                        setPaymentForm((current) => ({
-                          ...current,
-                          amountReceived: event.target.value,
-                        }))
-                      }
-                      className="h-11 rounded-xl border-slate-200 bg-white text-sm font-black focus-visible:ring-[#84CC16]"
-                    />
-                  </label>
-                  <div className="rounded-xl border border-lime-100 bg-lime-50 px-4 py-3">
-                    <span className="text-[10px] font-black uppercase tracking-wider text-lime-700">
-                      Change
-                    </span>
-                    <p className="mt-1 text-lg font-black text-lime-700">
-                      {formatCurrency(
-                        Math.max(
-                          0,
-                          Number(paymentForm.amountReceived || 0) - totalAmount,
-                        ),
-                        currency,
-                      )}
-                    </p>
+                <div className="space-y-4">
+                  {/* Available Cash Balance Widget */}
+                  <div className="rounded-2xl border border-emerald-200/80 bg-emerald-50/70 p-4 dark:border-emerald-900/40 dark:bg-emerald-950/20">
+                    <div className="flex items-center justify-between">
+                      <span className="flex items-center gap-1.5 text-xs font-black text-emerald-950 dark:text-emerald-300">
+                        <Banknote className="h-4 w-4 text-emerald-600" />{" "}
+                        Available Cash Balance in Register
+                      </span>
+                      <span className="text-[10px] font-black uppercase text-emerald-700 bg-emerald-100 dark:bg-emerald-900/60 px-2.5 py-0.5 rounded-full">
+                        Live Register
+                      </span>
+                    </div>
+                    <div className="mt-3 grid grid-cols-3 gap-2 text-center">
+                      <div className="rounded-xl bg-white p-2.5 shadow-sm dark:bg-slate-900 border border-emerald-100 dark:border-slate-800">
+                        <span className="text-[9px] font-black uppercase tracking-wider text-slate-400 block">
+                          Today
+                        </span>
+                        <span className="text-sm font-black text-emerald-600 dark:text-emerald-400">
+                          {formatCurrency(availableCashToday, currency)}
+                        </span>
+                      </div>
+                      <div className="rounded-xl bg-white p-2.5 shadow-sm dark:bg-slate-900 border border-emerald-100 dark:border-slate-800">
+                        <span className="text-[9px] font-black uppercase tracking-wider text-slate-400 block">
+                          Yesterday
+                        </span>
+                        <span className="text-sm font-black text-slate-700 dark:text-slate-200">
+                          {formatCurrency(
+                            yesterdayMetrics.cashSales -
+                              yesterdayMetrics.cashExpenses,
+                            currency,
+                          )}
+                        </span>
+                      </div>
+                      <div className="rounded-xl bg-white p-2.5 shadow-sm dark:bg-slate-900 border border-emerald-100 dark:border-slate-800">
+                        <span className="text-[9px] font-black uppercase tracking-wider text-slate-400 block">
+                          Last 7 Days
+                        </span>
+                        <span className="text-sm font-black text-slate-700 dark:text-slate-200">
+                          {formatCurrency(
+                            lastWeekMetrics.cashSales -
+                              lastWeekMetrics.cashExpenses,
+                            currency,
+                          )}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <label className="space-y-1.5">
+                      <span className="text-[10px] font-black uppercase tracking-wider text-slate-500">
+                        Cash Received
+                      </span>
+                      <Input
+                        type="number"
+                        min={totalAmount}
+                        step="0.01"
+                        value={paymentForm.amountReceived}
+                        onChange={(event) =>
+                          setPaymentForm((current) => ({
+                            ...current,
+                            amountReceived: event.target.value,
+                          }))
+                        }
+                        className="h-11 rounded-xl border-slate-200 bg-white text-sm font-black focus-visible:ring-[#84CC16]"
+                      />
+                    </label>
+                    <div className="rounded-xl border border-lime-100 bg-lime-50 px-4 py-3">
+                      <span className="text-[10px] font-black uppercase tracking-wider text-lime-700">
+                        Change
+                      </span>
+                      <p className="mt-1 text-lg font-black text-lime-700">
+                        {formatCurrency(
+                          Math.max(
+                            0,
+                            Number(paymentForm.amountReceived || 0) -
+                              totalAmount,
+                          ),
+                          currency,
+                        )}
+                      </p>
+                    </div>
                   </div>
                 </div>
               )}

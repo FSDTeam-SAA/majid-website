@@ -2,7 +2,6 @@
 
 import React, { useMemo, useState } from "react";
 import { useSession } from "next-auth/react";
-import { toast } from "sonner";
 import {
   BadgeDollarSign,
   Package,
@@ -29,6 +28,7 @@ import { useDashboardOverview } from "../hooks/useDashboardOverview";
 import { useShop } from "@/features/shopkeeper/shop/store/shop.store";
 import { useCurrency } from "@/hooks/useCurrency";
 import { useMyProfile } from "@/features/shopkeeper/settings/hooks/useSettings";
+import { CashManagementCard } from "./CashManagementCard";
 import type {
   DashboardFilter,
   DashboardMetric,
@@ -83,7 +83,9 @@ const getGrowthClass = (value = 0) =>
 
 const previousFromGrowth = (current: number, growth: number) => {
   if (!current || growth <= -100) return 0;
-  return current / (1 + growth / 100);
+  const denominator = 1 + growth / 100;
+  if (!denominator) return 0;
+  return current / denominator;
 };
 
 const periodLabel: Record<DashboardFilter, string> = {
@@ -94,7 +96,6 @@ const periodLabel: Record<DashboardFilter, string> = {
 
 export default function DashboardOverview() {
   const [period, setPeriod] = useState<DashboardFilter>("monthly");
-  const [startingCash, setStartingCash] = useState("");
   const { formatCurrency } = useCurrency();
   const { data: session, status } = useSession();
   const shopkeeperId = (session?.user as { id?: string })?.id;
@@ -109,54 +110,11 @@ export default function DashboardOverview() {
   const firstName =
     profileData?.data?.firstName || sessionUser?.name?.split(" ")[0] || "User";
 
-  const {
-    stats,
-    cashManagement,
-    isLoading,
-    isFetching,
-    error,
-    saveCashManagement,
-    isSavingCashManagement,
-  } = useDashboardOverview(shopkeeperId, period, activeShopId);
-
-  const handleStartingCashSubmit = async (
-    event: React.FormEvent<HTMLFormElement>,
-  ) => {
-    event.preventDefault();
-
-    const cashValue = Number(startingCash);
-
-    if (!shopkeeperId) {
-      toast.error("Session not found");
-      return;
-    }
-
-    if (!startingCash || Number.isNaN(cashValue) || cashValue < 0) {
-      toast.error("Enter a valid starting cash amount");
-      return;
-    }
-
-    try {
-      await saveCashManagement({
-        shopkeeperId,
-        startingDayCash: cashValue,
-        banked: cashManagement?.banked || 0,
-        cashInDrawer: cashManagement?.cashInDrawer || 0,
-      });
-      setStartingCash("");
-      toast.success("Starting day cash updated");
-    } catch (err: unknown) {
-      const errorObj = err as {
-        response?: { data?: { message?: string } };
-        message?: string;
-      };
-      const message =
-        errorObj.response?.data?.message ||
-        errorObj.message ||
-        "Failed to update cash management";
-      toast.error(message);
-    }
-  };
+  const { stats, isLoading, isFetching, error } = useDashboardOverview(
+    shopkeeperId,
+    period,
+    activeShopId,
+  );
 
   const pageIsLoading = status === "loading" || isLoading;
   const errorObj = error as {
@@ -325,67 +283,6 @@ export default function DashboardOverview() {
                       From Last {periodLabel[period]}
                     </span>
                   </div>
-                </div>
-
-                {/* Card 4: Cash Management (replacing Sales in design) */}
-                <div className="bg-white dark:bg-slate-900/80 rounded-3xl p-6 shadow-sm border border-slate-100 dark:border-slate-800">
-                  <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-5">
-                    Cash Management
-                  </h3>
-                  <div className="grid grid-cols-3 gap-2">
-                    <div className="flex flex-col gap-1">
-                      <p className="text-[11px] text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider">
-                        In Drawer
-                      </p>
-                      <p className="text-[17px] font-black text-slate-800 dark:text-white">
-                        {formatCurrency(cashManagement?.cashInDrawer || 0)}
-                      </p>
-                    </div>
-                    <div className="flex flex-col gap-1">
-                      <p className="text-[11px] text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider">
-                        Banked
-                      </p>
-                      <p className="text-[17px] font-black text-slate-800 dark:text-white">
-                        {formatCurrency(cashManagement?.banked || 0)}
-                      </p>
-                    </div>
-                    <div className="flex flex-col gap-1">
-                      <p className="text-[11px] text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider">
-                        Starting
-                      </p>
-                      <p className="text-[17px] font-black text-slate-800 dark:text-white">
-                        {formatCurrency(cashManagement?.startingDayCash || 0)}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-1 text-[13px] font-bold mt-5">
-                    <span className="text-emerald-500 flex items-center gap-1.5">
-                      <TrendingUp className="w-4 h-4" /> Score{" "}
-                      {cashManagement?.cashManagementScore || 0}/100
-                    </span>
-                  </div>
-
-                  <form
-                    onSubmit={handleStartingCashSubmit}
-                    className="mt-5 flex gap-2"
-                  >
-                    <input
-                      type="number"
-                      min="0"
-                      value={startingCash}
-                      onChange={(e) => setStartingCash(e.target.value)}
-                      placeholder="Add starting cash..."
-                      className="w-full text-[13px] font-semibold rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 px-4 py-2.5 outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20 transition-all placeholder:text-slate-400"
-                    />
-                    <button
-                      type="submit"
-                      disabled={isSavingCashManagement}
-                      className="bg-slate-900 hover:bg-slate-800 dark:bg-white dark:hover:bg-slate-200 text-white dark:text-slate-900 text-[13px] font-bold px-5 py-2.5 rounded-xl transition-colors disabled:opacity-70 disabled:cursor-not-allowed"
-                    >
-                      Save
-                    </button>
-                  </form>
                 </div>
               </div>
             </div>
@@ -624,6 +521,14 @@ export default function DashboardOverview() {
                   </div>
                 </div>
               </div>
+            </div>
+
+            {/* Prominent Full-Width Cash Management Section */}
+            <div className="xl:col-span-12">
+              <CashManagementCard
+                shopkeeperId={shopkeeperId}
+                activeShopId={activeShopId}
+              />
             </div>
           </div>
         )}

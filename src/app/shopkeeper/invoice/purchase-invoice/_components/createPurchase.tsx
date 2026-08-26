@@ -1,13 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
-import React, {
-  useMemo,
-  useState,
-  useRef,
-  useEffect,
-  useSyncExternalStore,
-} from "react";
+import React, { useMemo, useState, useRef, useEffect } from "react";
 import {
   User,
   Package,
@@ -39,7 +33,6 @@ import { BrowserMultiFormatReader } from "@zxing/library";
 import { createWorker } from "tesseract.js";
 
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { StructuredAddressFields } from "@/components/ui/structured-address-fields";
 import { Label } from "@/components/ui/label";
@@ -604,16 +597,6 @@ export default function CreatePurchaseReceipt() {
     };
   }, [inventoryData]);
 
-  const emptyInventoryItem = {
-    name: "",
-    storage: "",
-    color: "",
-    condition: "",
-    quantity: 1,
-    expectedPrice: 0,
-    serials: [],
-  };
-
   const { isPending: isCreatingInvoice } = useCreateInvoice();
   const { isPending: isCreatingInventory } = useCreateInventory();
 
@@ -1159,6 +1142,13 @@ export default function CreatePurchaseReceipt() {
         shopkeeperId: shopkeeperId || "",
         type: "Purchase Invoice",
         invoice: file,
+        totalAmount: total,
+        amountPaid: payment?.amountPaid ?? total,
+        dueAmount: payment?.dueAmount ?? 0,
+        paymentMethod: payment?.method || "cash",
+        paymentStatus: payment?.status || "paid",
+        paymentDetails: payment?.details,
+        currency,
       });
 
       setIsPaymentModalOpen(false);
