@@ -43,7 +43,7 @@ export default function Pricing() {
   const plans = subscriptionData?.data || [];
 
   const { mutate: createPayment, isPending } = useCreatePaymentSession();
-  const paymentCurrency = process.env.NEXT_PUBLIC_PAYMENT_CURRENCY || "EUR";
+  const paymentCurrency = process.env.NEXT_PUBLIC_PAYMENT_CURRENCY || "GBP";
   const formatPaymentAmount = (value: number) =>
     new Intl.NumberFormat(undefined, {
       style: "currency",

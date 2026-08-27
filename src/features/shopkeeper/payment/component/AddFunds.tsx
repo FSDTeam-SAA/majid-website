@@ -91,7 +91,7 @@ export default function AddFunds() {
 
   const { data: subscriptionData, isLoading } = useSubscriptions();
   const plans = subscriptionData?.data || [];
-  const paymentCurrency = process.env.NEXT_PUBLIC_PAYMENT_CURRENCY || "EUR";
+  const paymentCurrency = process.env.NEXT_PUBLIC_PAYMENT_CURRENCY || "GBP";
   const formatPaymentAmount = useCallback(
     (value: number) =>
       new Intl.NumberFormat(undefined, {
