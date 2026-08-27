@@ -687,10 +687,10 @@ export default function Sidebar() {
 
         {/* User Section */}
         <div className="p-4 pt-0">
-          <div className="bg-surface border border-border rounded-[28px] p-4 flex flex-col gap-4 shadow-sm">
+          <div className="bg-surface border border-border rounded-[28px] p-4 flex flex-col gap-3.5 shadow-sm">
             {user && (
-              <div className="flex items-center gap-3 px-1">
-                <div className="relative w-11 h-11 rounded-2xl overflow-hidden border-2 border-white/10">
+              <div className="flex flex-col items-center text-center gap-2 px-1">
+                <div className="relative w-12 h-12 rounded-2xl overflow-hidden border-2 border-white/10 shadow-sm flex-shrink-0">
                   <Image
                     src={profileImage}
                     alt={profileName}
@@ -699,12 +699,12 @@ export default function Sidebar() {
                   />
                 </div>
 
-                <div className="flex min-w-0 flex-col">
-                  <span className="truncate text-[14px] font-black text-foreground leading-tight">
+                <div className="flex min-w-0 flex-col items-center w-full">
+                  <span className="truncate text-[14px] font-black text-foreground leading-tight text-center w-full">
                     {profileName}
                   </span>
 
-                  <span className="truncate text-[11px] font-bold text-muted-foreground uppercase tracking-widest">
+                  <span className="truncate text-[11px] font-bold text-muted-foreground uppercase tracking-widest text-center w-full mt-0.5">
                     {profileSubtitle}
                   </span>
                 </div>

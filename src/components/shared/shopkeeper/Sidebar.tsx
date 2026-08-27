@@ -324,13 +324,13 @@ export default function Sidebar({
 
         {/* User Section */}
         <div className="p-4 pt-0">
-          <div className="bg-surface border border-border rounded-[28px] p-4 flex flex-col gap-4 shadow-sm">
+          <div className="bg-surface border border-border rounded-[28px] p-4 flex flex-col gap-3.5 shadow-sm">
             {user && (
               <Link
                 href="/shopkeeper/settings"
-                className={`flex items-center ${collapsed ? "justify-center" : "gap-3"} px-1 hover:bg-slate-100/50 dark:hover:bg-slate-800/40 p-1.5 rounded-2xl transition-all cursor-pointer min-w-0`}
+                className={`flex flex-col items-center ${collapsed ? "justify-center" : "text-center gap-2"} px-1 hover:bg-slate-100/50 dark:hover:bg-slate-800/40 p-2 rounded-2xl transition-all cursor-pointer min-w-0`}
               >
-                <div className="relative w-11 h-11 rounded-2xl overflow-hidden border-2 border-white/10 flex-shrink-0">
+                <div className="relative w-12 h-12 rounded-2xl overflow-hidden border-2 border-white/10 flex-shrink-0 shadow-sm">
                   <Image
                     src={profileImage}
                     alt={profileName}
@@ -339,11 +339,11 @@ export default function Sidebar({
                   />
                 </div>
                 {!collapsed && (
-                  <div className="flex min-w-0 flex-col">
-                    <span className="truncate text-[14px] font-black text-foreground leading-tight">
+                  <div className="flex min-w-0 flex-col items-center w-full">
+                    <span className="truncate text-[14px] font-black text-foreground leading-tight text-center w-full">
                       {profileName}
                     </span>
-                    <span className="truncate text-[11px] font-bold text-muted-foreground uppercase tracking-widest">
+                    <span className="truncate text-[11px] font-bold text-muted-foreground uppercase tracking-widest text-center w-full mt-0.5">
                       {profileSubtitle}
                     </span>
                   </div>

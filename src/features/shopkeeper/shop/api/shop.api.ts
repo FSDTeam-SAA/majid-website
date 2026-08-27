@@ -37,15 +37,29 @@ export const getShopEntitlement = async (): Promise<ShopEntitlement> => {
   return response.data.data;
 };
 
+export interface CashAvailableMetrics {
+  yesterday: number;
+  lastWeek: number;
+  lastMonth: number;
+}
+
+export interface BusinessHealthInfo {
+  overall: number;
+  rating: string;
+}
+
 export interface ShopStats {
   totalSales: number;
   cashSales: number;
   cardSales: number;
   customersCount: number;
+  businessHealthScore?: BusinessHealthInfo;
 }
 
 export interface ShopPerformanceItem extends Shop {
   stats: ShopStats;
+  businessHealthScore?: BusinessHealthInfo;
+  cashAvailable?: CashAvailableMetrics;
   staff: {
     _id: string;
     firstName: string;
@@ -69,6 +83,7 @@ export interface ShopPerformanceData {
     totalSales: number;
     totalCustomers: number;
     totalStaff: number;
+    cashAvailable?: CashAvailableMetrics;
   };
 }
 
