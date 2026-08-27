@@ -14,6 +14,7 @@ import {
   ImageIcon,
   Loader2,
   Printer,
+  Download,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import Image from "next/image";
@@ -38,6 +39,7 @@ import { PrintLabelModal } from "./modals/PrintLabelModal";
 import { ImportCsvTab } from "./ImportCsvTab";
 import { ImageGalleryModal } from "./modals/ImageGalleryModal";
 import type { Category, InventoryItem } from "../types";
+import { exportInventoryToCsv } from "../utils/csvUtils";
 import { toast } from "sonner";
 import {
   DropdownMenu,
@@ -500,13 +502,31 @@ export default function Inventory() {
                     className="h-12 w-full rounded-xl border border-border bg-card pl-12 pr-4 text-sm font-bold text-foreground outline-none transition placeholder:text-muted-foreground focus:border-[#84CC16] focus:ring-[#84CC16]"
                   />
                 </div>
+                {stockItems.length > 0 && (
+                  <button
+                    onClick={() => {
+                      exportInventoryToCsv(
+                        stockItems,
+                        `inventory-${new Date().toISOString().slice(0, 10)}.csv`,
+                      );
+                      toast.success(
+                        `Exported ${stockItems.length} items to CSV`,
+                      );
+                    }}
+                    className="flex shrink-0 items-center gap-2 px-4 py-3 bg-card border border-border text-foreground font-black rounded-xl hover:bg-accent transition shadow-sm active:scale-95 cursor-pointer text-xs"
+                    title="Export currently filtered inventory as CSV"
+                  >
+                    <Download size={15} className="text-[#84CC16]" />
+                    <span className="hidden sm:inline">Export CSV</span>
+                  </button>
+                )}
                 <button
                   onClick={() => {
                     setEditingItem(null);
                     setFormForceType("inventory");
                     setIsFormOpen(true);
                   }}
-                  className="flex shrink-0 items-center gap-2 px-6 py-3 bg-[#84CC16] text-white font-black rounded-xl hover:bg-[#76b813] transition shadow-lg shadow-lime-500/20 active:scale-95 cursor-pointer"
+                  className="flex shrink-0 items-center gap-2 px-6 py-3 bg-[#84CC16] text-white font-black rounded-xl hover:bg-[#76b813] transition shadow-lg shadow-lime-500/20 active:scale-95 cursor-pointer text-xs sm:text-sm"
                 >
                   <Plus size={18} strokeWidth={3} />
                   <span className="hidden sm:inline">Add Item</span>

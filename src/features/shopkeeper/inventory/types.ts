@@ -390,6 +390,7 @@ export interface ScanResultData {
 
 export interface BulkBarcodeItem {
   code: string;
+  imeiNumber?: string;
   purchasePrice: number;
   expectedPrice: number;
   supplierId: string;
@@ -398,7 +399,11 @@ export interface BulkBarcodeItem {
   color: string;
   storage: string;
   image?: File | null;
+  sourceImageUrl?: string;
   categoryId?: string;
+  searchQuery?: string;
+  previewImageUrl?: string;
+  productName?: string;
 }
 
 export interface CreateFromBarcodeBulkInput {

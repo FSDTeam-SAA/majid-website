@@ -57,6 +57,9 @@ import {
   ShoppingCart,
   Phone,
   Truck,
+  Trash2,
+  Download,
+  Info,
 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
@@ -92,10 +95,12 @@ import {
   useBarcodeProductSearch,
 } from "../../hooks/useInventory";
 import { Category } from "../../types";
+import { CSV_COLUMNS_SPEC, downloadCsvTemplate } from "../../utils/csvUtils";
 import {
   useSuppliers,
   useCreateSupplier,
 } from "../../../supplier/hooks/useSuppliers";
+import type { Supplier } from "../../../supplier/types";
 import { SupplierFormModal } from "../../../supplier/component/modals/SupplierFormModal";
 import { ScanResultModal } from "./ScanResultModal";
 import { ImageGalleryModal } from "./ImageGalleryModal";
@@ -128,6 +133,8 @@ function ImportCsvModalContent({
   const { data: session } = useSession();
   const userId = (session?.user as { id?: string })?.id ?? "";
   const { mutateAsync: importCsv, isPending } = useImportCsvInventory();
+  const { data: categoriesData } = useCategories();
+  const categories = categoriesData?.data || [];
 
   const [file, setFile] = useState<File | null>(null);
   const [dragOver, setDragOver] = useState(false);
@@ -135,6 +142,7 @@ function ImportCsvModalContent({
     "idle" | "success" | "error"
   >("idle");
   const [errorMsg, setErrorMsg] = useState("");
+  const [showGuide, setShowGuide] = useState(false);
   const csvInputRef = useRef<HTMLInputElement>(null);
 
   const ACCEPTED_EXTS = [".csv", ".xls", ".xlsx"];
@@ -200,7 +208,31 @@ function ImportCsvModalContent({
     : "";
 
   return (
-    <div className="flex flex-col gap-6 py-4">
+    <div className="flex flex-col gap-6 py-2">
+      {/* Top Banner with Download Template Action */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 rounded-2xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
+        <div className="space-y-1">
+          <div className="flex items-center gap-2">
+            <Info className="w-4 h-4 text-[#84CC16]" />
+            <h4 className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-wider">
+              Consistent CSV Format
+            </h4>
+          </div>
+          <p className="text-[11px] font-medium text-slate-500 dark:text-slate-400">
+            Download our formatted CSV template with pre-configured headers and
+            example rows.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => downloadCsvTemplate(categories)}
+          className="flex items-center justify-center gap-2 px-4 h-10 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-900 dark:text-white border border-slate-200 dark:border-slate-700 text-xs font-bold rounded-xl transition shrink-0 cursor-pointer shadow-sm active:scale-95"
+        >
+          <Download size={14} className="text-[#84CC16]" />
+          Download Sample CSV
+        </button>
+      </div>
+
       {/* Drop zone */}
       <div
         onDragOver={(e) => {
@@ -215,7 +247,7 @@ function ImportCsvModalContent({
           if (dropped) pickFile(dropped);
         }}
         onClick={() => !file && csvInputRef.current?.click()}
-        className={`flex flex-col items-center justify-center gap-4 rounded-[28px] border-2 border-dashed p-10 cursor-pointer transition-all min-h-[220px]
+        className={`flex flex-col items-center justify-center gap-4 rounded-[28px] border-2 border-dashed p-8 cursor-pointer transition-all min-h-[190px]
           ${
             dragOver
               ? "border-[#84CC16] bg-[#84CC16]/6"
@@ -234,32 +266,31 @@ function ImportCsvModalContent({
 
         {!file ? (
           <div className="flex flex-col items-center gap-3 text-center">
-            <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#84CC16]/10 text-[#84CC16]">
-              <Upload className="w-7 h-7" strokeWidth={2.2} />
+            <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#84CC16]/10 text-[#84CC16]">
+              <Upload className="w-6 h-6" strokeWidth={2.2} />
             </span>
             <div>
               <p className="text-sm font-black text-slate-900 dark:text-white">
-                Drag & drop your file here
+                Drag &amp; drop your CSV file here
               </p>
-              <p className="text-xs font-bold text-slate-400 mt-1">
+              <p className="text-xs font-bold text-slate-400 mt-0.5">
                 or{" "}
                 <span className="text-[#84CC16] underline underline-offset-2">
-                  browse
-                </span>{" "}
-                to choose
+                  browse from device
+                </span>
               </p>
             </div>
-            <p className="text-[10px] font-bold text-slate-300 dark:text-slate-600 uppercase tracking-widest">
+            <p className="text-[10px] font-bold text-slate-400 dark:text-slate-600 uppercase tracking-wider">
               Supports .CSV · .XLS · .XLSX
             </p>
           </div>
         ) : (
           <div
-            className="flex flex-col items-center gap-3"
+            className="flex flex-col items-center gap-2"
             onClick={(e) => e.stopPropagation()}
           >
-            <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#84CC16]/15 text-[#84CC16]">
-              <FileText className="w-7 h-7" strokeWidth={2} />
+            <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#84CC16]/15 text-[#84CC16]">
+              <FileText className="w-6 h-6" strokeWidth={2} />
             </span>
             <div className="text-center">
               <p className="text-sm font-black text-slate-900 dark:text-white break-all max-w-xs">
@@ -308,7 +339,7 @@ function ImportCsvModalContent({
         type="button"
         onClick={handleCsvSubmit}
         disabled={!file || isPending}
-        className="w-full h-14 rounded-2xl bg-[#84CC16] hover:bg-[#76b813] text-white font-black text-sm uppercase tracking-widest shadow-lg shadow-lime-500/25 transition active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+        className="w-full h-13 rounded-2xl bg-[#84CC16] hover:bg-[#76b813] text-white font-black text-sm uppercase tracking-widest shadow-lg shadow-lime-500/25 transition active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
       >
         {isPending ? (
           <>
@@ -323,11 +354,52 @@ function ImportCsvModalContent({
         )}
       </Button>
 
-      <p className="mx-auto max-w-[800px] text-center text-[10px] font-bold uppercase tracking-widest text-slate-300 dark:text-slate-600">
-        Upload a CSV file with inventory rows. The file should use the same
-        columns as the template endpoint. Each row is imported individually and
-        the response includes per-row success or failure results.
-      </p>
+      {/* Column Guide toggle */}
+      <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 overflow-hidden">
+        <button
+          type="button"
+          onClick={() => setShowGuide(!showGuide)}
+          className="w-full p-3.5 flex items-center justify-between text-xs font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/60 transition"
+        >
+          <span className="flex items-center gap-2 font-black uppercase text-[10px] tracking-wider text-slate-500">
+            <Info className="w-3.5 h-3.5 text-[#84CC16]" />
+            Supported CSV Column Specifications
+          </span>
+          <span className="text-[#84CC16] font-bold text-xs">
+            {showGuide ? "Hide columns" : "Show all columns"}
+          </span>
+        </button>
+
+        {showGuide && (
+          <div className="p-3 border-t border-slate-100 dark:border-slate-800 max-h-48 overflow-y-auto">
+            <table className="w-full text-left text-[11px]">
+              <thead className="text-[9px] uppercase font-black tracking-wider text-slate-400 bg-slate-50 dark:bg-slate-800/50">
+                <tr>
+                  <th className="p-2">Header</th>
+                  <th className="p-2">Type</th>
+                  <th className="p-2">Example</th>
+                  <th className="p-2">Notes</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                {CSV_COLUMNS_SPEC.map((col) => (
+                  <tr key={col.name}>
+                    <td className="p-2 font-mono font-bold text-slate-900 dark:text-white">
+                      {col.name}{" "}
+                      {col.required && <span className="text-rose-500">*</span>}
+                    </td>
+                    <td className="p-2 text-slate-500">{col.type}</td>
+                    <td className="p-2 font-mono text-slate-600 dark:text-slate-400">
+                      {col.example}
+                    </td>
+                    <td className="p-2 text-slate-500">{col.description}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -594,6 +666,733 @@ const getSuggestionTitle = (product?: BarcodeSearchItem) => {
   return product?.brand?.trim() || "Unnamed Product";
 };
 
+const EXTRACT_STORAGE_REGEX =
+  /\b(16|32|64|128|256|512)\s*(?:GB|gb|Gb)\b|\b(1|2)\s*(?:TB|tb|Tb)\b/i;
+
+const COMMON_COLORS = [
+  "Space Gray",
+  "Space Grey",
+  "Space Black",
+  "Natural Titanium",
+  "Desert Titanium",
+  "Black Titanium",
+  "White Titanium",
+  "Midnight",
+  "Starlight",
+  "Deep Purple",
+  "Alpine Green",
+  "Sierra Blue",
+  "Pacific Blue",
+  "Graphite",
+  "Rose Gold",
+  "Product Red",
+  "Titanium Gray",
+  "Titanium Black",
+  "Titanium Violet",
+  "Titanium Yellow",
+  "Phantom Black",
+  "Phantom Silver",
+  "Cream",
+  "Lavender",
+  "Mint",
+  "Coral",
+  "Silver",
+  "Gold",
+  "Black",
+  "White",
+  "Blue",
+  "Red",
+  "Green",
+  "Yellow",
+  "Purple",
+  "Pink",
+  "Orange",
+  "Gray",
+  "Grey",
+];
+
+const extractColorFromProduct = (product: BarcodeSearchItem): string => {
+  if (typeof product.color === "string" && product.color.trim()) {
+    return product.color.trim();
+  }
+  const rawData = product.rawData as Record<string, unknown> | undefined;
+  if (typeof rawData?.color === "string" && rawData.color.trim()) {
+    return rawData.color.trim();
+  }
+  if (typeof rawData?.color_name === "string" && rawData.color_name.trim()) {
+    return rawData.color_name.trim();
+  }
+
+  const title = getSuggestionTitle(product);
+  for (const color of COMMON_COLORS) {
+    const regex = new RegExp(`\\b${color}\\b`, "i");
+    if (regex.test(title)) {
+      return color;
+    }
+  }
+  return "";
+};
+
+const extractStorageFromProduct = (product: BarcodeSearchItem): string => {
+  if (typeof product.size === "string" && product.size.trim()) {
+    const directMatch = product.size.match(EXTRACT_STORAGE_REGEX);
+    if (directMatch) return directMatch[0].toUpperCase().replace(/\s+/g, "");
+  }
+  const rawData = product.rawData as Record<string, unknown> | undefined;
+  const rawStorage = rawData?.storage || rawData?.size || rawData?.capacity;
+  if (typeof rawStorage === "string" && rawStorage.trim()) {
+    const match = String(rawStorage).match(EXTRACT_STORAGE_REGEX);
+    if (match) return match[0].toUpperCase().replace(/\s+/g, "");
+  }
+
+  const title = getSuggestionTitle(product);
+  const match = title.match(EXTRACT_STORAGE_REGEX);
+  if (match) {
+    return match[0].toUpperCase().replace(/\s+/g, "");
+  }
+  return "";
+};
+
+interface BulkItemRowProps {
+  item: BulkBarcodeItem;
+  index: number;
+  totalRows: number;
+  currencySymbol: string;
+  suppliers: Supplier[];
+  onUpdate: <K extends keyof BulkBarcodeItem>(
+    field: K,
+    value: BulkBarcodeItem[K],
+  ) => void;
+  onPopulateFromProduct: (product: BarcodeSearchItem) => void;
+  onFetchBarcode: (code: string) => Promise<void>;
+  onRemove: () => void;
+  onAdd: () => void;
+  onOpenSupplierModal: () => void;
+  onOpenGallery: () => void;
+}
+
+function BulkItemRow({
+  item,
+  index,
+  totalRows,
+  currencySymbol,
+  suppliers,
+  onUpdate,
+  onPopulateFromProduct,
+  onFetchBarcode,
+  onRemove,
+  onAdd,
+  onOpenSupplierModal,
+  onOpenGallery,
+}: BulkItemRowProps) {
+  const [searchQuery, setSearchQuery] = useState(
+    item.searchQuery || item.productName || item.code || "",
+  );
+  const [debouncedQuery, setDebouncedQuery] = useState("");
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [showSupplierDropdown, setShowSupplierDropdown] = useState(false);
+  const [supplierSearch, setSupplierSearch] = useState("");
+  const [isLookingUp, setIsLookingUp] = useState(false);
+
+  const searchContainerRef = useRef<HTMLDivElement>(null);
+  const supplierDropdownRef = useRef<HTMLDivElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
+
+  // Debounce search query
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedQuery(searchQuery.trim());
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  // Barcode Product Search Hook for this row
+  const { data: barcodeSearchResponse, isFetching: isSearchingProducts } =
+    useBarcodeProductSearch(debouncedQuery);
+  const barcodeSearchResults =
+    ((barcodeSearchResponse?.data || []) as BarcodeSearchItem[]) || [];
+
+  // Close dropdowns on outside click
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (
+        searchContainerRef.current &&
+        !searchContainerRef.current.contains(e.target as Node)
+      ) {
+        setShowSuggestions(false);
+      }
+      if (
+        supplierDropdownRef.current &&
+        !supplierDropdownRef.current.contains(e.target as Node)
+      ) {
+        setShowSupplierDropdown(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const handleSelectProduct = (product: BarcodeSearchItem) => {
+    setSearchQuery(
+      getSuggestionTitle(product) || product.name || product.barcode || "",
+    );
+    onPopulateFromProduct(product);
+    setShowSuggestions(false);
+  };
+
+  const handleLookup = async () => {
+    const code = searchQuery.trim() || item.code.trim();
+    if (!code) {
+      toast.error("Please enter a device name, barcode or IMEI to search");
+      return;
+    }
+    try {
+      setIsLookingUp(true);
+      await onFetchBarcode(code);
+    } finally {
+      setIsLookingUp(false);
+    }
+  };
+
+  const handleCameraScan = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const html5QrCode = new Html5Qrcode("barcode-reader-hidden");
+    try {
+      const decodedText = await html5QrCode.scanFile(file, true);
+      setSearchQuery(decodedText);
+      onUpdate("code", decodedText);
+      onUpdate("searchQuery", decodedText);
+      toast.success("Barcode extracted from photo");
+      setIsLookingUp(true);
+      await onFetchBarcode(decodedText);
+    } catch (err) {
+      console.error("Scan error", err);
+      toast.error("No barcode found in image. Please try a clearer photo.");
+    } finally {
+      html5QrCode.clear();
+      setIsLookingUp(false);
+      if (cameraInputRef.current) cameraInputRef.current.value = "";
+    }
+  };
+
+  const filteredSuppliers = suppliers.filter((s) =>
+    s.name?.toLowerCase().includes(supplierSearch.toLowerCase().trim()),
+  );
+
+  return (
+    <div className="relative group animate-in fade-in slide-in-from-top-4 duration-300">
+      {/* Row Number Badge */}
+      <div className="absolute -left-3 top-6 w-7 h-7 rounded-full bg-slate-900 dark:bg-white text-white dark:text-slate-900 flex items-center justify-center text-xs font-black z-20 shadow-md border-2 border-white dark:border-slate-950">
+        {index + 1}
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-0 bg-white dark:bg-slate-900 rounded-[28px] border border-slate-200/80 dark:border-slate-800 shadow-sm hover:shadow-md hover:border-[#84CC16]/40 transition-all">
+        {/* Section 1: Search & Specs (cols 5) */}
+        <div className="lg:col-span-5 p-5 grid grid-cols-2 gap-3.5 border-b lg:border-b-0 lg:border-r border-slate-100 dark:border-slate-800">
+          {/* Main Product Search Bar */}
+          <div className="col-span-2 space-y-1.5" ref={searchContainerRef}>
+            <label className="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center justify-between">
+              <span className="flex items-center gap-1.5">
+                <Smartphone className="w-3.5 h-3.5 text-[#84CC16]" />
+                Device / Barcode / Model <span className="text-red-500">*</span>
+              </span>
+              {item.code && (
+                <span className="text-[9px] font-bold text-slate-400 truncate max-w-[150px]">
+                  ID: {item.code}
+                </span>
+              )}
+            </label>
+            <div className="relative">
+              <div className="absolute left-3 top-1/2 -translate-y-1/2 w-7 h-7 bg-slate-100 dark:bg-slate-800 rounded-lg flex items-center justify-center pointer-events-none text-slate-400">
+                <Search className="w-3.5 h-3.5" />
+              </div>
+              <input
+                type="text"
+                placeholder="Search device (e.g. iPhone 17, S24) or barcode..."
+                className="w-full pl-12 pr-24 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-[16px] h-[48px] font-bold text-xs text-slate-900 dark:text-white placeholder:text-slate-400 outline-none focus:ring-2 focus:ring-[#84CC16]/20 focus:border-[#84CC16] transition-all"
+                value={searchQuery}
+                onChange={(e) => {
+                  setSearchQuery(e.target.value);
+                  onUpdate("code", e.target.value);
+                  onUpdate("searchQuery", e.target.value);
+                  setShowSuggestions(true);
+                }}
+                onFocus={() => {
+                  if (debouncedQuery.length >= 2) {
+                    setShowSuggestions(true);
+                  }
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    if (barcodeSearchResults.length > 0) {
+                      handleSelectProduct(barcodeSearchResults[0]);
+                    } else {
+                      handleLookup();
+                    }
+                  }
+                }}
+              />
+
+              {/* Action buttons inside search bar */}
+              <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
+                {searchQuery && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSearchQuery("");
+                      onUpdate("code", "");
+                      onUpdate("searchQuery", "");
+                      onUpdate("productName", "");
+                      onUpdate("color", "");
+                      onUpdate("storage", "");
+                      onUpdate("previewImageUrl", "");
+                      onUpdate("image", null);
+                    }}
+                    className="p-1 rounded-md text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+                    title="Clear search"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => cameraInputRef.current?.click()}
+                  className="p-1.5 rounded-lg text-slate-400 hover:text-[#84CC16] hover:bg-[#84CC16]/10 transition-all"
+                  title="Scan barcode from photo"
+                >
+                  <Camera className="w-4 h-4" />
+                </button>
+                <button
+                  type="button"
+                  onClick={handleLookup}
+                  disabled={isLookingUp}
+                  className="p-1.5 rounded-lg text-slate-400 hover:text-[#84CC16] hover:bg-[#84CC16]/10 transition-all"
+                  title="Lookup device info"
+                >
+                  {isLookingUp ? (
+                    <Loader2 className="w-4 h-4 animate-spin text-[#84CC16]" />
+                  ) : (
+                    <Scan className="w-4 h-4" />
+                  )}
+                </button>
+              </div>
+
+              <input
+                type="file"
+                ref={cameraInputRef}
+                onChange={handleCameraScan}
+                accept="image/*"
+                className="hidden"
+              />
+
+              {/* Autocomplete Suggestions Dropdown */}
+              {showSuggestions && debouncedQuery.length >= 2 && (
+                <div className="absolute left-0 right-0 top-full mt-1.5 z-50 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-2xl overflow-hidden max-h-72 overflow-y-auto">
+                  {isSearchingProducts ? (
+                    <div className="flex items-center gap-2 px-4 py-4 text-xs font-bold text-slate-500">
+                      <Loader2 className="w-4 h-4 animate-spin text-[#84CC16]" />
+                      Searching products for &ldquo;{debouncedQuery}&rdquo;...
+                    </div>
+                  ) : barcodeSearchResults.length > 0 ? (
+                    <div className="p-1.5 space-y-1">
+                      {barcodeSearchResults.map((product, pIdx) => {
+                        const title = getSuggestionTitle(product);
+                        const barcode =
+                          getSuggestionBarcode(product) ||
+                          product.barcode ||
+                          "";
+                        const color = extractColorFromProduct(product);
+                        const storage = extractStorageFromProduct(product);
+                        const img =
+                          product.image ||
+                          (product.images && product.images[0]);
+
+                        return (
+                          <button
+                            key={`${barcode || title}-${pIdx}`}
+                            type="button"
+                            onClick={() => handleSelectProduct(product)}
+                            className="flex w-full items-center gap-3 rounded-xl p-2 text-left hover:bg-slate-50 dark:hover:bg-slate-800/80 transition-colors group/item"
+                          >
+                            <div className="relative h-12 w-12 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 overflow-hidden shrink-0 flex items-center justify-center">
+                              {img ? (
+                                <NextImage
+                                  src={img}
+                                  alt={title}
+                                  fill
+                                  className="object-contain p-1"
+                                  unoptimized
+                                />
+                              ) : (
+                                <Package className="w-5 h-5 text-slate-400" />
+                              )}
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <p className="truncate text-xs font-black text-slate-900 dark:text-white group-hover/item:text-[#84CC16] transition-colors">
+                                {title}
+                              </p>
+                              <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                                {product.brand && (
+                                  <span className="text-[10px] font-bold text-slate-500 bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded">
+                                    {product.brand}
+                                  </span>
+                                )}
+                                {color && (
+                                  <span className="text-[10px] font-bold text-slate-500 bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded">
+                                    {color}
+                                  </span>
+                                )}
+                                {storage && (
+                                  <span className="text-[10px] font-bold text-[#84CC16] bg-[#84CC16]/10 px-1.5 py-0.5 rounded">
+                                    {storage}
+                                  </span>
+                                )}
+                                {barcode && (
+                                  <span className="text-[10px] font-medium text-slate-400">
+                                    #{barcode}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div className="px-4 py-4 text-center text-xs font-bold text-slate-400">
+                      No matching products found. Press Enter to use manual
+                      code.
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* IMEI / Serial Number section */}
+          <div className="col-span-2 space-y-1">
+            <label className="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center justify-between">
+              <span className="flex items-center gap-1.5">
+                <Hash className="w-3 h-3 text-[#84CC16]" />
+                IMEI / Serial Number
+              </span>
+              {item.imeiNumber && (
+                <span className="text-[9px] font-bold text-slate-400">
+                  {item.imeiNumber.length} chars
+                </span>
+              )}
+            </label>
+            <input
+              type="text"
+              placeholder="e.g. 356789012345678 or Serial #"
+              className="w-full px-3.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-[14px] h-[44px] font-bold text-xs outline-none focus:ring-2 focus:ring-[#84CC16]/20 focus:border-[#84CC16] transition-all dark:text-white"
+              value={item.imeiNumber || ""}
+              onChange={(e) => onUpdate("imeiNumber", e.target.value)}
+            />
+          </div>
+
+          {/* Color field */}
+          <div className="space-y-1">
+            <label className="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
+              <Palette className="w-3 h-3 text-[#84CC16]" />
+              Color
+            </label>
+            <input
+              type="text"
+              placeholder="e.g. Natural Titanium"
+              className="w-full px-3.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-[14px] h-[44px] font-bold text-xs outline-none focus:ring-2 focus:ring-[#84CC16]/20 focus:border-[#84CC16] transition-all dark:text-white"
+              value={item.color}
+              onChange={(e) => onUpdate("color", e.target.value)}
+            />
+          </div>
+
+          {/* Storage / Memory field */}
+          <div className="space-y-1">
+            <label className="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
+              <HardDrive className="w-3 h-3 text-[#84CC16]" />
+              Storage / Memory
+            </label>
+            <input
+              type="text"
+              placeholder="e.g. 256GB"
+              className="w-full px-3.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-[14px] h-[44px] font-bold text-xs outline-none focus:ring-2 focus:ring-[#84CC16]/20 focus:border-[#84CC16] transition-all dark:text-white"
+              value={item.storage}
+              onChange={(e) => onUpdate("storage", e.target.value)}
+            />
+          </div>
+        </div>
+
+        {/* Section 2: Supplier, Condition & Image (cols 4) */}
+        <div className="lg:col-span-4 p-5 grid grid-cols-1 gap-3.5 bg-slate-50/30 dark:bg-slate-800/10 border-b lg:border-b-0 lg:border-r border-slate-100 dark:border-slate-800">
+          {/* Supplier */}
+          <div className="space-y-1 relative" ref={supplierDropdownRef}>
+            <label className="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
+              <Truck className="w-3 h-3 text-[#84CC16]" />
+              Supplier
+            </label>
+            <div className="relative">
+              <input
+                type="text"
+                placeholder="Search or select supplier..."
+                className="w-full px-3.5 pr-8 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-[14px] h-[44px] font-bold text-xs outline-none focus:ring-2 focus:ring-[#84CC16]/20 focus:border-[#84CC16] transition-all dark:text-white"
+                value={
+                  item.supplierId
+                    ? suppliers.find((s) => s._id === item.supplierId)?.name ||
+                      ""
+                    : supplierSearch
+                }
+                onFocus={() => setShowSupplierDropdown(true)}
+                onChange={(e) => {
+                  setSupplierSearch(e.target.value);
+                  setShowSupplierDropdown(true);
+                  if (item.supplierId) {
+                    onUpdate("supplierId", "");
+                  }
+                }}
+              />
+              {item.supplierId && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    onUpdate("supplierId", "");
+                    setSupplierSearch("");
+                  }}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+
+            {showSupplierDropdown && (
+              <div className="absolute top-full left-0 right-0 mt-1 bg-white dark:bg-slate-900 rounded-xl shadow-2xl border border-slate-100 dark:border-slate-800 z-50 max-h-44 overflow-y-auto animate-in fade-in">
+                <div className="p-1">
+                  {filteredSuppliers.length > 0 ? (
+                    filteredSuppliers.map((supplier) => (
+                      <div
+                        key={supplier._id}
+                        className={`flex items-center gap-2 p-2 cursor-pointer rounded-lg transition-all text-xs font-bold ${
+                          item.supplierId === supplier._id
+                            ? "bg-[#84CC16]/10 text-[#84CC16]"
+                            : "text-slate-800 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800"
+                        }`}
+                        onClick={() => {
+                          onUpdate("supplierId", supplier._id);
+                          setSupplierSearch("");
+                          setShowSupplierDropdown(false);
+                        }}
+                      >
+                        <Truck className="w-3.5 h-3.5 text-[#84CC16] shrink-0" />
+                        <span className="truncate">{supplier.name}</span>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="p-2 text-center text-xs text-slate-400">
+                      No suppliers found
+                    </div>
+                  )}
+                  <button
+                    type="button"
+                    className="flex w-full items-center gap-2 p-2 cursor-pointer hover:bg-[#84CC16]/5 rounded-lg transition-all border-t border-slate-100 dark:border-slate-800 mt-1 text-xs font-bold text-[#84CC16]"
+                    onClick={() => {
+                      setShowSupplierDropdown(false);
+                      onOpenSupplierModal();
+                    }}
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    New Supplier
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Condition & Device Image with Gallery Picker */}
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1">
+              <label className="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
+                <Tag className="w-3 h-3 text-[#84CC16]" />
+                Condition
+              </label>
+              <select
+                value={item.currentState || "new"}
+                onChange={(e) => onUpdate("currentState", e.target.value)}
+                className="w-full px-3 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-[14px] h-[44px] font-bold text-xs outline-none focus:ring-2 focus:ring-[#84CC16]/20 focus:border-[#84CC16] transition-all dark:text-white cursor-pointer"
+              >
+                <option value="new">New / Mint</option>
+                <option value="good condition">Good Condition</option>
+                <option value="fair">Fair / Used</option>
+                <option value="refurbished">Refurbished</option>
+                <option value="for parts">For Parts</option>
+              </select>
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center justify-between">
+                <span className="flex items-center gap-1.5">
+                  <Camera className="w-3 h-3 text-[#84CC16]" />
+                  Photo
+                </span>
+              </label>
+              <div className="flex items-center gap-1.5">
+                {item.previewImageUrl || item.image ? (
+                  <div className="relative w-11 h-11 rounded-[12px] bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 overflow-hidden shrink-0 group/img">
+                    {item.previewImageUrl ? (
+                      <NextImage
+                        src={item.previewImageUrl}
+                        alt="Device"
+                        fill
+                        className="object-contain p-0.5"
+                        unoptimized
+                      />
+                    ) : (
+                      <Package className="w-5 h-5 text-slate-400 m-auto mt-3" />
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onUpdate("previewImageUrl", "");
+                        onUpdate("sourceImageUrl", "");
+                        onUpdate("image", null);
+                      }}
+                      className="absolute inset-0 bg-black/50 text-white flex items-center justify-center opacity-0 group-hover/img:opacity-100 transition-opacity"
+                      title="Remove photo"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                ) : null}
+
+                <label
+                  className="flex-1 flex items-center justify-center gap-1 px-2 bg-white dark:bg-slate-950 border border-dashed border-slate-200 dark:border-slate-800 hover:border-[#84CC16] rounded-[14px] h-[44px] font-bold text-[10px] text-slate-600 dark:text-slate-300 cursor-pointer transition-all truncate"
+                  title="Upload local photo"
+                >
+                  <Upload className="w-3 h-3 text-slate-400" />
+                  <span className="truncate">
+                    {item.image ? "Change" : "Upload"}
+                  </span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0] || null;
+                      if (file) {
+                        onUpdate("image", file);
+                        const reader = new FileReader();
+                        reader.onload = () => {
+                          onUpdate("previewImageUrl", reader.result as string);
+                        };
+                        reader.readAsDataURL(file);
+                      }
+                    }}
+                  />
+                </label>
+
+                <button
+                  type="button"
+                  onClick={onOpenGallery}
+                  className="flex items-center justify-center gap-1 px-2.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-[14px] h-[44px] font-bold text-[10px] transition-all shrink-0 cursor-pointer"
+                  title="Pick from saved gallery photos"
+                >
+                  <FolderOpen className="w-3.5 h-3.5 text-[#84CC16]" />
+                  <span>Gallery</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Section 3: Pricing, Qty & Action Buttons (cols 3) */}
+        <div className="lg:col-span-3 p-5 grid grid-cols-2 gap-3 items-center">
+          <div className="space-y-1">
+            <label className="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">
+              Buy Price
+            </label>
+            <div className="relative">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 font-bold text-xs text-slate-400">
+                {currencySymbol}
+              </span>
+              <input
+                type="number"
+                placeholder="0"
+                className="w-full pl-8 pr-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-[14px] h-[44px] font-bold text-xs outline-none focus:ring-2 focus:ring-[#84CC16]/20 focus:border-[#84CC16] transition-all dark:text-white"
+                value={item.purchasePrice || ""}
+                onChange={(e) =>
+                  onUpdate("purchasePrice", Number(e.target.value))
+                }
+              />
+            </div>
+          </div>
+
+          <div className="space-y-1">
+            <label className="text-[10px] font-black uppercase tracking-wider text-[#84CC16]">
+              Sell Price
+            </label>
+            <div className="relative">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 font-black text-xs text-[#84CC16]">
+                {currencySymbol}
+              </span>
+              <input
+                type="number"
+                placeholder="0"
+                className="w-full pl-8 pr-2 bg-[#84CC16]/5 dark:bg-[#84CC16]/10 border border-[#84CC16]/30 rounded-[14px] h-[44px] font-black text-xs text-[#84CC16] outline-none focus:ring-2 focus:ring-[#84CC16]/20 focus:border-[#84CC16] transition-all"
+                value={item.expectedPrice || ""}
+                onChange={(e) =>
+                  onUpdate("expectedPrice", Number(e.target.value))
+                }
+              />
+            </div>
+          </div>
+
+          <div className="space-y-1">
+            <label className="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-1">
+              <Hash className="w-3 h-3 text-[#84CC16]" />
+              Quantity
+            </label>
+            <input
+              type="number"
+              placeholder="1"
+              min={1}
+              className="w-full px-3 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-[14px] h-[44px] font-bold text-xs outline-none focus:ring-2 focus:ring-[#84CC16]/20 focus:border-[#84CC16] transition-all dark:text-white"
+              value={item.quantity || 1}
+              onChange={(e) =>
+                onUpdate("quantity", Math.max(1, Number(e.target.value)))
+              }
+            />
+          </div>
+
+          <div className="flex items-end gap-1.5 pt-4">
+            {totalRows > 1 && (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={onRemove}
+                title="Remove this row"
+                className="h-[44px] px-3 rounded-[14px] border-red-200 hover:bg-red-50 text-red-500 dark:border-red-950 dark:hover:bg-red-950/30 shrink-0"
+              >
+                <Trash2 className="w-4 h-4" />
+              </Button>
+            )}
+            <Button
+              type="button"
+              variant="outline"
+              onClick={onAdd}
+              title="Add another device row"
+              className="h-[44px] flex-1 rounded-[14px] border-dashed border-[#84CC16]/50 text-[#84CC16] hover:bg-[#84CC16]/10 font-black text-xs uppercase tracking-wider"
+            >
+              <Plus className="w-3.5 h-3.5 mr-1" /> Add
+            </Button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 interface InventoryFormModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -609,17 +1408,16 @@ export function InventoryFormModal({
   forceType,
   categoryId,
 }: InventoryFormModalProps) {
-  const { currency, currencySymbol, formatCurrency, convertAmount } =
-    useCurrency();
+  const { currency, currencySymbol, formatCurrency } = useCurrency();
   const { data: profileData } = useMyProfile();
   const isEditMode = !!item;
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [imageGallery, setImageGallery] = useState<string[]>([]);
   const [isGalleryOpen, setIsGalleryOpen] = useState(false);
-  const [galleryTarget, setGalleryTarget] = useState<"main" | "variant" | null>(
-    null,
-  );
+  const [galleryTarget, setGalleryTarget] = useState<
+    "main" | "variant" | number | null
+  >(null);
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [isCameraActive, setIsCameraActive] = useState(false);
   const html5QrCodeRef = useRef<Html5Qrcode | null>(null);
@@ -752,6 +1550,109 @@ export function InventoryFormModal({
     setBulkItems(updated);
   };
 
+  const handlePopulateBulkRowFromProduct = async (
+    index: number,
+    product: BarcodeSearchItem,
+  ) => {
+    const resolvedBarcode =
+      getSuggestionBarcode(product) || product.barcode || "";
+    const title = getSuggestionTitle(product);
+    const color = extractColorFromProduct(product);
+    const storage = extractStorageFromProduct(product);
+    const imageUrl =
+      product.image || (product.images && product.images[0]) || "";
+
+    updateBulkItem(index, "code", resolvedBarcode || title);
+    updateBulkItem(index, "searchQuery", title);
+    updateBulkItem(index, "productName", title);
+    if (color) updateBulkItem(index, "color", color);
+    if (storage) updateBulkItem(index, "storage", storage);
+    if (imageUrl) {
+      updateBulkItem(index, "previewImageUrl", imageUrl);
+      try {
+        const res = await fetch(
+          `/api/image-proxy?url=${encodeURIComponent(imageUrl)}`,
+        );
+        const blob = await res.blob();
+        const file = new File([blob], `bulk-device-${index + 1}.jpg`, {
+          type: blob.type,
+        });
+        updateBulkItem(index, "image", file);
+      } catch {
+        // Image proxy fetch fallback
+      }
+    }
+    toast.success(`Auto-filled specs for ${title}`);
+  };
+
+  const handleFetchBulkRowBarcode = async (index: number, code: string) => {
+    if (!session?.user?.id) {
+      toast.error("User session not found");
+      return;
+    }
+    try {
+      const res = await handleCreateFromBarcodeAsync({
+        code,
+        userId: session.user.id,
+      });
+      const responseData = (res?.data || res) as Record<string, unknown>;
+      const deviceData = (responseData?.result || responseData) as Record<
+        string,
+        unknown
+      >;
+      const barcodeResult = responseData?.barcodeResult as
+        Record<string, unknown> | undefined;
+      const aiInsight = responseData?.aiInsight as
+        Record<string, unknown> | undefined;
+
+      const resolvedTitle = getPreferredBarcodeItemName(
+        (deviceData.itemName as string) || (deviceData.name as string) || code,
+        barcodeResult,
+        aiInsight,
+      );
+      const resolvedColor =
+        (deviceData.color as string) ||
+        getBarcodeMetadataValue(barcodeResult, "color") ||
+        extractColorFromProduct({
+          name: resolvedTitle,
+          rawData: barcodeResult,
+        });
+      const resolvedStorage =
+        (deviceData.storage as string) ||
+        getBarcodeMetadataValue(barcodeResult, "storage", "size", "capacity") ||
+        extractStorageFromProduct({
+          name: resolvedTitle,
+          rawData: barcodeResult,
+        });
+      const resolvedImage =
+        getBarcodeImageUrl(barcodeResult) ||
+        (deviceData.sourceImageUrl as string);
+
+      updateBulkItem(index, "code", code);
+      updateBulkItem(index, "searchQuery", resolvedTitle);
+      updateBulkItem(index, "productName", resolvedTitle);
+      if (resolvedColor) updateBulkItem(index, "color", resolvedColor);
+      if (resolvedStorage) updateBulkItem(index, "storage", resolvedStorage);
+      if (resolvedImage) {
+        updateBulkItem(index, "previewImageUrl", resolvedImage);
+        try {
+          const imgRes = await fetch(
+            `/api/image-proxy?url=${encodeURIComponent(resolvedImage)}`,
+          );
+          const blob = await imgRes.blob();
+          const file = new File([blob], `bulk-device-${index + 1}.jpg`, {
+            type: blob.type,
+          });
+          updateBulkItem(index, "image", file);
+        } catch {}
+      }
+      toast.success(`Fetched info for ${resolvedTitle || code}`);
+    } catch (error) {
+      console.error("Barcode lookup failed", error);
+      toast.error("Could not fetch product information for this code");
+    }
+  };
+
   const handleBulkSubmit = () => {
     const validItems = bulkItems.filter((i) => i.code.trim());
     if (validItems.length === 0) {
@@ -808,6 +1709,11 @@ export function InventoryFormModal({
           ...previous,
           imageFile: file,
         }));
+      } else if (typeof galleryTarget === "number") {
+        updateBulkItem(galleryTarget, "previewImageUrl", url);
+        updateBulkItem(galleryTarget, "sourceImageUrl", url);
+        updateBulkItem(galleryTarget, "image", file);
+        toast.success("Gallery photo selected for device");
       }
     } catch (error) {
       console.error("Gallery select error", error);
@@ -824,8 +1730,11 @@ export function InventoryFormModal({
     isPending: isCreatingFromBarcodeBulk,
   } = useCreateFromBarcodeBulk();
   const { mutate: updateItem, isPending: isUpdating } = useUpdateInventory();
-  const { mutate: handleCreateFromBarcode, isPending: isCreatingFromBarcode } =
-    useCreateFromBarcode();
+  const {
+    mutate: handleCreateFromBarcode,
+    mutateAsync: handleCreateFromBarcodeAsync,
+    isPending: isCreatingFromBarcode,
+  } = useCreateFromBarcode();
   const { mutate: createCustomerMutate, isPending: isCreatingCustomer } =
     useCreateCustomer();
   const { mutate: createInvoiceMutate } = useCreateInvoice();
@@ -1049,16 +1958,30 @@ export function InventoryFormModal({
         imeiNumber: item.imeiNumber ?? "",
         modelNumber: item.modelNumber ?? "",
         quantity: item.quantity ?? 1,
-        purchasePrice: item.purchasePrice,
-        expectedPrice: item.expectedPrice,
+        purchasePrice:
+          typeof item.purchasePrice === "number"
+            ? item.purchasePrice
+            : undefined,
+        expectedPrice:
+          typeof item.expectedPrice === "number"
+            ? item.expectedPrice
+            : typeof item.salePrice === "number"
+              ? item.salePrice
+              : 0,
         productDetails: item.productDetails ?? "",
         aiDescription: item.aiDescription ?? "",
         supplierId:
-          typeof item.supplierId === "object"
-            ? (item.supplierId as unknown as { _id: string })?._id
-            : (item.supplierId ?? ""),
+          typeof item.supplierId === "object" && item.supplierId !== null
+            ? String(
+                (item.supplierId as { _id?: string; id?: string })._id ||
+                  (item.supplierId as { _id?: string; id?: string }).id ||
+                  "",
+              )
+            : item.supplierId
+              ? String(item.supplierId)
+              : "",
         storeId:
-          typeof item.storeId === "object"
+          typeof item.storeId === "object" && item.storeId !== null
             ? (item.storeId as unknown as { _id: string })?._id
             : (item.storeId ?? ""),
         groupKey: item.groupKey ?? "",
@@ -1067,18 +1990,32 @@ export function InventoryFormModal({
         status: forceType ?? item.status ?? "inventory",
         currentState: item.currentState,
         userId:
-          typeof item.userId === "object"
+          typeof item.userId === "object" && item.userId !== null
             ? (item.userId as unknown as { _id: string })?._id
             : (item.userId ?? ""),
         customerName: item.customerName ?? "",
         customerEmail: item.customerEmail ?? "",
         customerPhone: item.customerPhone ?? "",
         customerAddress: item.customerAddress ?? "",
-        salePrice: item.salePrice,
+        salePrice:
+          forceType === "sold"
+            ? (item.salePrice ?? item.expectedPrice)
+            : typeof item.expectedPrice === "number"
+              ? item.expectedPrice
+              : item.salePrice,
         saleQuantity: item.saleQuantity ?? 1,
         saleMethod: item.saleMethod ?? "In-store",
         image: undefined, // Reset image on edit
-        categoryId: item.categoryId ?? categoryId ?? "",
+        categoryId:
+          typeof item.categoryId === "object" && item.categoryId !== null
+            ? String(
+                (item.categoryId as { _id?: string; id?: string })._id ||
+                  (item.categoryId as { _id?: string; id?: string }).id ||
+                  "",
+              )
+            : item.categoryId
+              ? String(item.categoryId)
+              : (categoryId ?? ""),
         variants: item.variants ?? [],
       });
 
@@ -1326,20 +2263,84 @@ export function InventoryFormModal({
   };
 
   const onSubmit = (values: CreateInventoryInput) => {
-    const inventoryPayload = {
-      ...values,
-      purchasePrice:
-        typeof values.purchasePrice === "number"
-          ? values.purchasePrice
-          : undefined,
-      expectedPrice:
-        typeof values.expectedPrice === "number" ? values.expectedPrice : 0,
-      salePrice:
-        typeof values.salePrice === "number"
+    const numericExpectedPrice =
+      typeof values.expectedPrice === "number" && !isNaN(values.expectedPrice)
+        ? values.expectedPrice
+        : Number(values.expectedPrice) || 0;
+
+    const numericPurchasePrice =
+      values.purchasePrice !== undefined &&
+      values.purchasePrice !== null &&
+      String(values.purchasePrice) !== ""
+        ? Number(values.purchasePrice)
+        : undefined;
+
+    const numericSalePrice =
+      forceType === "sold"
+        ? typeof values.salePrice === "number" && !isNaN(values.salePrice)
           ? values.salePrice
-          : typeof values.expectedPrice === "number"
-            ? values.expectedPrice
-            : undefined,
+          : Number(values.salePrice) || numericExpectedPrice
+        : numericExpectedPrice;
+
+    // Resolve Category ID string
+    const rawValCat = values.categoryId;
+    const formCatId =
+      typeof rawValCat === "object" && rawValCat !== null
+        ? String(
+            (rawValCat as { _id?: string; id?: string })._id ||
+              (rawValCat as { _id?: string; id?: string }).id ||
+              "",
+          )
+        : String(rawValCat ?? "").trim();
+
+    const existingItemCatId =
+      item && typeof item.categoryId === "object" && item.categoryId !== null
+        ? String(
+            (item.categoryId as { _id?: string; id?: string })._id ||
+              (item.categoryId as { _id?: string; id?: string }).id ||
+              "",
+          )
+        : item && item.categoryId
+          ? String(item.categoryId)
+          : "";
+
+    const finalCategoryId =
+      formCatId || (isEditMode ? existingItemCatId : categoryId) || undefined;
+
+    // Resolve Supplier ID string
+    const rawValSupplier = values.supplierId;
+    const formSupplierId =
+      typeof rawValSupplier === "object" && rawValSupplier !== null
+        ? String(
+            (rawValSupplier as { _id?: string; id?: string })._id ||
+              (rawValSupplier as { _id?: string; id?: string }).id ||
+              "",
+          )
+        : String(rawValSupplier ?? "").trim();
+
+    const existingItemSupplierId =
+      item && typeof item.supplierId === "object" && item.supplierId !== null
+        ? String(
+            (item.supplierId as { _id?: string; id?: string })._id ||
+              (item.supplierId as { _id?: string; id?: string }).id ||
+              "",
+          )
+        : item && item.supplierId
+          ? String(item.supplierId)
+          : "";
+
+    const finalSupplierId =
+      formSupplierId ||
+      (isEditMode ? existingItemSupplierId : undefined) ||
+      undefined;
+
+    const inventoryPayload: CreateInventoryInput = {
+      ...values,
+      purchasePrice: numericPurchasePrice,
+      expectedPrice: numericExpectedPrice,
+      salePrice: numericSalePrice,
+      categoryId: finalCategoryId,
+      supplierId: finalSupplierId,
       variants: values.variants?.map((v) => ({
         ...v,
         purchasePrice:
@@ -1355,7 +2356,6 @@ export function InventoryFormModal({
         values.sourceImageUrls && values.sourceImageUrls.length
           ? values.sourceImageUrls
           : imageGallery,
-      categoryId: values.categoryId || categoryId,
     };
 
     if (forceType === "sold") {
@@ -3588,297 +4588,34 @@ export function InventoryFormModal({
                         </Button>
                       </div>
 
-                      <div className="space-y-4 max-h-[500px] overflow-y-auto pr-2 custom-scrollbar">
+                      <div className="space-y-4 max-h-[520px] overflow-y-auto pr-2 custom-scrollbar">
                         {bulkItems.map((item, index) => (
-                          <div
+                          <BulkItemRow
                             key={index}
-                            className="relative group animate-in fade-in slide-in-from-top-4 duration-500"
-                          >
-                            {/* Row Indicator */}
-                            <div className="absolute -left-3 top-6 w-6 h-6 rounded-full bg-slate-900 dark:bg-white text-white dark:text-slate-900 flex items-center justify-center text-[10px] font-black z-10 shadow-lg border-4 border-white dark:border-slate-950">
-                              {index + 1}
-                            </div>
-
-                            <div className="grid grid-cols-1 lg:grid-cols-12 gap-0 overflow-hidden bg-white dark:bg-slate-900 rounded-[28px] border border-slate-100 dark:border-slate-800 shadow-sm hover:shadow-md hover:border-[#84CC16]/30 transition-all">
-                              {/* Primary Section: ID & Specs */}
-                              <div className="lg:col-span-5 p-6 grid grid-cols-2 gap-4 border-b lg:border-b-0 lg:border-r border-slate-50 dark:border-slate-800/50">
-                                <div className="col-span-2 space-y-1.5">
-                                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 flex items-center gap-2">
-                                    <Barcode className="w-3 h-3" />
-                                    Barcode / Code{" "}
-                                    <span className="text-red-500">*</span>
-                                  </label>
-                                  <input
-                                    type="text"
-                                    placeholder="Scan or type device ID..."
-                                    className="w-full px-4 bg-slate-50/50 dark:bg-slate-950/50 border border-slate-200 dark:border-slate-800 rounded-[18px] h-[52px] font-bold text-sm outline-none focus:ring-4 focus:ring-[#84CC16]/10 focus:border-[#84CC16] transition-all dark:text-white"
-                                    value={item.code}
-                                    onChange={(e) =>
-                                      updateBulkItem(
-                                        index,
-                                        "code",
-                                        e.target.value,
-                                      )
-                                    }
-                                  />
-                                </div>
-                                <div className="space-y-1.5">
-                                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">
-                                    Color
-                                  </label>
-                                  <input
-                                    type="text"
-                                    placeholder="e.g. Black"
-                                    className="w-full px-4 bg-slate-50/50 dark:bg-slate-950/50 border border-slate-200 dark:border-slate-800 rounded-[18px] h-[52px] font-bold text-sm outline-none focus:ring-4 focus:ring-[#84CC16]/10 focus:border-[#84CC16] transition-all dark:text-white"
-                                    value={item.color}
-                                    onChange={(e) =>
-                                      updateBulkItem(
-                                        index,
-                                        "color",
-                                        e.target.value,
-                                      )
-                                    }
-                                  />
-                                </div>
-                                <div className="space-y-1.5">
-                                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">
-                                    Storage/Size
-                                  </label>
-                                  <input
-                                    type="text"
-                                    placeholder="e.g. 128GB"
-                                    className="w-full px-4 bg-slate-50/50 dark:bg-slate-950/50 border border-slate-200 dark:border-slate-800 rounded-[18px] h-[52px] font-bold text-sm outline-none focus:ring-4 focus:ring-[#84CC16]/10 focus:border-[#84CC16] transition-all dark:text-white"
-                                    value={item.storage}
-                                    onChange={(e) =>
-                                      updateBulkItem(
-                                        index,
-                                        "storage",
-                                        e.target.value,
-                                      )
-                                    }
-                                  />
-                                </div>
-                              </div>
-
-                              {/* Secondary Section: Source & Condition */}
-                              <div className="lg:col-span-4 p-6 grid grid-cols-1 gap-4 bg-slate-50/30 dark:bg-slate-800/10 border-b lg:border-b-0 lg:border-r border-slate-50 dark:border-slate-800/50">
-                                <div
-                                  className="space-y-1.5 relative"
-                                  ref={
-                                    index === 0
-                                      ? supplierDropdownRef
-                                      : undefined
-                                  }
-                                >
-                                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">
-                                    Supplier
-                                  </label>
-                                  <input
-                                    type="text"
-                                    placeholder="Search supplier..."
-                                    className="w-full px-4 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-[18px] h-[52px] font-bold text-sm outline-none focus:ring-4 focus:ring-[#84CC16]/10 focus:border-[#84CC16] transition-all dark:text-white"
-                                    value={
-                                      item.supplierId
-                                        ? suppliers.find(
-                                            (s) => s._id === item.supplierId,
-                                          )?.name || ""
-                                        : ""
-                                    }
-                                    onFocus={() =>
-                                      setShowSupplierDropdown(true)
-                                    }
-                                    onChange={(e) => {
-                                      setSupplierSearch(e.target.value);
-                                      setShowSupplierDropdown(true);
-                                      if (item.supplierId) {
-                                        updateBulkItem(index, "supplierId", "");
-                                      }
-                                    }}
-                                  />
-                                  {item.supplierId && (
-                                    <button
-                                      type="button"
-                                      onClick={() =>
-                                        updateBulkItem(index, "supplierId", "")
-                                      }
-                                      className="absolute right-3 top-[34px] text-slate-400 hover:text-slate-600 transition"
-                                    >
-                                      <X className="w-3.5 h-3.5" />
-                                    </button>
-                                  )}
-                                  {showSupplierDropdown && (
-                                    <div className="absolute top-full left-0 right-0 mt-1 bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-100 dark:border-slate-800 z-50 max-h-48 overflow-y-auto animate-in fade-in">
-                                      <div className="p-1.5">
-                                        {suppliers.length > 0 ? (
-                                          suppliers.map((supplier) => (
-                                            <div
-                                              key={supplier._id}
-                                              className={`flex items-center gap-2 p-2.5 cursor-pointer rounded-xl transition-all text-sm ${
-                                                item.supplierId === supplier._id
-                                                  ? "bg-[#84CC16]/10"
-                                                  : "hover:bg-slate-50 dark:hover:bg-slate-800"
-                                              }`}
-                                              onClick={() => {
-                                                updateBulkItem(
-                                                  index,
-                                                  "supplierId",
-                                                  supplier._id,
-                                                );
-                                                setSupplierSearch("");
-                                                setShowSupplierDropdown(false);
-                                              }}
-                                            >
-                                              <Truck className="w-3.5 h-3.5 text-[#84CC16] shrink-0" />
-                                              <span className="font-bold text-slate-900 dark:text-white truncate">
-                                                {supplier.name}
-                                              </span>
-                                            </div>
-                                          ))
-                                        ) : (
-                                          <div className="p-2 text-center text-xs text-slate-400">
-                                            No suppliers found
-                                          </div>
-                                        )}
-                                        <button
-                                          type="button"
-                                          className="flex w-full items-center gap-2 p-2.5 cursor-pointer hover:bg-[#84CC16]/5 rounded-xl transition-all border-t border-slate-100 dark:border-slate-800 mt-1"
-                                          onClick={() => {
-                                            setShowSupplierDropdown(false);
-                                            setIsSupplierFormOpen(true);
-                                          }}
-                                        >
-                                          <Plus className="w-3.5 h-3.5 text-[#84CC16]" />
-                                          <span className="text-xs font-bold text-[#84CC16]">
-                                            New Supplier
-                                          </span>
-                                        </button>
-                                      </div>
-                                    </div>
-                                  )}
-                                </div>
-                                <div className="space-y-1.5">
-                                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">
-                                    Current State
-                                  </label>
-                                  <input
-                                    type="text"
-                                    placeholder="e.g. Mint Condition"
-                                    className="w-full px-4 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-[18px] h-[52px] font-bold text-sm outline-none focus:ring-4 focus:ring-[#84CC16]/10 focus:border-[#84CC16] transition-all dark:text-white"
-                                    value={item.currentState}
-                                    onChange={(e) =>
-                                      updateBulkItem(
-                                        index,
-                                        "currentState",
-                                        e.target.value,
-                                      )
-                                    }
-                                  />
-                                </div>
-                                <div className="space-y-1.5">
-                                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">
-                                    Device Image
-                                  </label>
-                                  <input
-                                    type="file"
-                                    accept="image/*"
-                                    className="w-full px-4 py-3 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-[18px] h-[52px] font-bold text-sm outline-none focus:ring-4 focus:ring-[#84CC16]/10 focus:border-[#84CC16] transition-all dark:text-white file:mr-4 file:py-1 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-[#84CC16]/10 file:text-[#84CC16] hover:file:bg-[#84CC16]/20"
-                                    onChange={(e) => {
-                                      const file = e.target.files?.[0] || null;
-                                      updateBulkItem(index, "image", file);
-                                    }}
-                                  />
-                                </div>
-                              </div>
-
-                              {/* Tertiary Section: Pricing & Qty */}
-                              <div className="lg:col-span-3 p-6 grid grid-cols-2 gap-4">
-                                <div className="space-y-1.5">
-                                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">
-                                    Buy Price
-                                  </label>
-                                  <div className="relative">
-                                    <span className="absolute left-3.5 top-1/2 -translate-y-1/2 font-bold text-xs text-slate-400">
-                                      {currencySymbol}
-                                    </span>
-                                    <input
-                                      type="number"
-                                      placeholder="0"
-                                      className="w-full pl-9 pr-3 bg-slate-50/50 dark:bg-slate-950/50 border border-slate-200 dark:border-slate-800 rounded-[18px] h-[52px] font-bold text-sm outline-none focus:ring-4 focus:ring-[#84CC16]/10 focus:border-[#84CC16] transition-all dark:text-white"
-                                      value={item.purchasePrice || ""}
-                                      onChange={(e) =>
-                                        updateBulkItem(
-                                          index,
-                                          "purchasePrice",
-                                          Number(e.target.value),
-                                        )
-                                      }
-                                    />
-                                  </div>
-                                </div>
-                                <div className="space-y-1.5">
-                                  <label className="text-[10px] font-black uppercase tracking-widest text-[#84CC16]">
-                                    Sell Price
-                                  </label>
-                                  <div className="relative">
-                                    <span className="absolute left-3.5 top-1/2 -translate-y-1/2 font-black text-xs text-[#84CC16]">
-                                      {currencySymbol}
-                                    </span>
-                                    <input
-                                      type="number"
-                                      placeholder="0"
-                                      className="w-full pl-9 pr-3 bg-[#84CC16]/5 dark:bg-[#84CC16]/10 border-[#84CC16]/20 dark:border-[#84CC16]/30 rounded-[18px] h-[52px] font-black text-sm text-[#84CC16] outline-none focus:ring-4 focus:ring-[#84CC16]/10 focus:border-[#84CC16] transition-all"
-                                      value={item.expectedPrice || ""}
-                                      onChange={(e) =>
-                                        updateBulkItem(
-                                          index,
-                                          "expectedPrice",
-                                          Number(e.target.value),
-                                        )
-                                      }
-                                    />
-                                  </div>
-                                </div>
-                                <div className="space-y-1.5">
-                                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">
-                                    Qty
-                                  </label>
-                                  <input
-                                    type="number"
-                                    placeholder="1"
-                                    className="w-full px-4 bg-slate-50/50 dark:bg-slate-950/50 border border-slate-200 dark:border-slate-800 rounded-[18px] h-[52px] font-bold text-sm outline-none focus:ring-2 focus:ring-[#84CC16]/20 transition-all dark:text-white"
-                                    value={item.quantity || ""}
-                                    onChange={(e) =>
-                                      updateBulkItem(
-                                        index,
-                                        "quantity",
-                                        Number(e.target.value),
-                                      )
-                                    }
-                                  />
-                                </div>
-                                <div className="flex items-end pb-1 gap-2">
-                                  {bulkItems.length > 1 && (
-                                    <Button
-                                      type="button"
-                                      variant="ghost"
-                                      onClick={() => removeBulkRow(index)}
-                                      className="w-1/2 h-[52px] rounded-[18px] text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all flex items-center justify-center p-0"
-                                    >
-                                      <X className="w-4 h-4" />
-                                    </Button>
-                                  )}
-                                  <Button
-                                    type="button"
-                                    variant="ghost"
-                                    onClick={addBulkRow}
-                                    className="w-1/2 h-[52px] rounded-[18px] text-[#84CC16] hover:bg-[#84CC16]/10 transition-all flex items-center justify-center p-0"
-                                  >
-                                    <Plus className="w-4 h-4" />
-                                  </Button>
-                                </div>
-                              </div>
-                            </div>
-                          </div>
+                            item={item}
+                            index={index}
+                            totalRows={bulkItems.length}
+                            currencySymbol={currencySymbol}
+                            suppliers={suppliers}
+                            onUpdate={(field, value) =>
+                              updateBulkItem(index, field, value)
+                            }
+                            onPopulateFromProduct={(product) =>
+                              handlePopulateBulkRowFromProduct(index, product)
+                            }
+                            onFetchBarcode={(code) =>
+                              handleFetchBulkRowBarcode(index, code)
+                            }
+                            onRemove={() => removeBulkRow(index)}
+                            onAdd={addBulkRow}
+                            onOpenSupplierModal={() =>
+                              setIsSupplierFormOpen(true)
+                            }
+                            onOpenGallery={() => {
+                              setGalleryTarget(index);
+                              setIsGalleryOpen(true);
+                            }}
+                          />
                         ))}
                       </div>
 

@@ -8,12 +8,26 @@ import {
   CheckCircle2,
   AlertCircle,
   Loader2,
+  Download,
+  FileText,
+  Info,
+  HelpCircle,
+  FolderOpen,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useSession } from "next-auth/react";
 import { toast } from "sonner";
-import { useImportCsvInventory, useCategories } from "../hooks/useInventory";
-import { Category } from "../types";
+import {
+  useImportCsvInventory,
+  useCategories,
+  useMyInventory,
+} from "../hooks/useInventory";
+import { Category, InventoryItem } from "../types";
+import {
+  CSV_COLUMNS_SPEC,
+  downloadCsvTemplate,
+  exportInventoryToCsv,
+} from "../utils/csvUtils";
 
 const ACCEPTED_TYPES = [
   "text/csv",
@@ -29,6 +43,10 @@ export function ImportCsvTab() {
   const { mutateAsync: importCsv, isPending } = useImportCsvInventory();
   const { data: categoriesData } = useCategories();
   const categories = categoriesData?.data || [];
+  const { data: myInventoryData } = useMyInventory();
+  const allInventoryItems: InventoryItem[] = (
+    myInventoryData?.data || []
+  ).filter((item: InventoryItem) => item.type === "inventory");
 
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>("");
   const [file, setFile] = useState<File | null>(null);
@@ -37,6 +55,7 @@ export function ImportCsvTab() {
     "idle" | "success" | "error"
   >("idle");
   const [errorMsg, setErrorMsg] = useState("");
+  const [showSpecDetails, setShowSpecDetails] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const isValidFile = (f: File) =>
@@ -103,6 +122,20 @@ export function ImportCsvTab() {
     }
   };
 
+  const handleExportCurrent = () => {
+    if (!allInventoryItems.length) {
+      toast.error("No inventory items found to export");
+      return;
+    }
+    exportInventoryToCsv(
+      allInventoryItems,
+      `inventory-export-${new Date().toISOString().slice(0, 10)}.csv`,
+    );
+    toast.success(
+      `Exported ${allInventoryItems.length} inventory items to CSV`,
+    );
+  };
+
   const fileSize = file
     ? file.size < 1024 * 1024
       ? `${(file.size / 1024).toFixed(1)} KB`
@@ -110,29 +143,69 @@ export function ImportCsvTab() {
     : "";
 
   return (
-    <div className="max-w-2xl mx-auto py-10 space-y-8">
-      {/* Header */}
-      <div className="space-y-1">
-        <h2 className="text-2xl font-black text-[#0F172A] dark:text-white tracking-tight">
-          Import Inventory
-        </h2>
-        <p className="text-sm font-bold text-[#64748B] dark:text-slate-400">
-          Upload a CSV or Excel file to bulk-import devices into your inventory.
-        </p>
+    <div className="max-w-4xl mx-auto py-8 space-y-8">
+      {/* Header & Quick Action Buttons */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white dark:bg-slate-900 p-6 rounded-[28px] border border-slate-200 dark:border-slate-800 shadow-sm">
+        <div className="space-y-1">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-xl bg-[#84CC16]/10 flex items-center justify-center text-[#84CC16]">
+              <FileSpreadsheet className="w-4 h-4" />
+            </div>
+            <h2 className="text-xl font-black text-slate-900 dark:text-white tracking-tight">
+              CSV Import &amp; Export
+            </h2>
+          </div>
+          <p className="text-xs font-bold text-slate-500 dark:text-slate-400 pl-10.5">
+            Bulk-import or export devices with consistent column formats &amp;
+            category structures.
+          </p>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2.5 pl-10.5 md:pl-0">
+          <button
+            type="button"
+            onClick={() => downloadCsvTemplate(categories)}
+            className="flex items-center gap-2 px-4 h-11 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-white text-xs font-black rounded-xl transition cursor-pointer active:scale-95"
+            title="Download formatted sample template CSV"
+          >
+            <Download size={14} className="text-[#84CC16]" />
+            Download Sample CSV
+          </button>
+          {allInventoryItems.length > 0 && (
+            <button
+              type="button"
+              onClick={handleExportCurrent}
+              className="flex items-center gap-2 px-4 h-11 bg-[#84CC16]/10 hover:bg-[#84CC16]/20 text-[#84CC16] text-xs font-black rounded-xl transition cursor-pointer active:scale-95"
+              title="Export current inventory list matching the CSV format"
+            >
+              <FileText size={14} />
+              Export Current ({allInventoryItems.length})
+            </button>
+          )}
+        </div>
       </div>
 
-      {/* Category Select */}
+      {/* Target Category Select */}
       {categories.length > 0 && (
-        <div className="space-y-2">
-          <label className="text-xs font-black uppercase tracking-wider text-slate-700 dark:text-slate-300 block">
-            Target Category (Optional)
+        <div className="bg-white dark:bg-slate-900 p-6 rounded-[28px] border border-slate-200 dark:border-slate-800 shadow-sm space-y-2">
+          <label className="text-xs font-black uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-2">
+            <FolderOpen className="w-3.5 h-3.5 text-[#84CC16]" />
+            Default Target Category (Optional)
           </label>
+          <p className="text-[11px] font-medium text-slate-500 dark:text-slate-400">
+            If a row in your CSV does not specify a category in its{" "}
+            <code>category</code> column, it will automatically be placed in
+            this category.
+          </p>
           <select
             value={selectedCategoryId}
             onChange={(e) => setSelectedCategoryId(e.target.value)}
-            className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl h-12 px-4 font-bold text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#84CC16]"
+            className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl h-12 px-4 font-bold text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#84CC16]/20 focus:border-[#84CC16] transition"
           >
-            <option value="">-- Select Category --</option>
+            <option value="">
+              -- No default category (use row &ldquo;category&rdquo; column or
+              uncategorized) --
+            </option>
             {categories.map((cat: Category) => (
               <option key={cat._id} value={cat._id}>
                 {cat.name}
@@ -157,12 +230,12 @@ export function ImportCsvTab() {
             ? "rgba(132,204,22,0.06)"
             : file
               ? "rgba(132,204,22,0.04)"
-              : "#F8FAFC",
+              : "#FFFFFF",
           scale: dragOver ? 1.01 : 1,
         }}
         transition={{ duration: 0.15 }}
-        className="relative flex flex-col items-center justify-center gap-4 rounded-[28px] border-2 border-dashed p-12 cursor-pointer transition-all dark:bg-slate-800/50 dark:border-slate-700"
-        style={{ minHeight: 260 }}
+        className="relative flex flex-col items-center justify-center gap-4 rounded-[28px] border-2 border-dashed p-10 cursor-pointer transition-all dark:bg-slate-900/60 dark:border-slate-800 shadow-sm"
+        style={{ minHeight: 220 }}
       >
         <input
           ref={inputRef}
@@ -181,23 +254,22 @@ export function ImportCsvTab() {
               exit={{ opacity: 0, y: -8 }}
               className="flex flex-col items-center gap-3 text-center"
             >
-              <span className="flex h-16 w-16 items-center justify-center rounded-2xl bg-[#84CC16]/10 text-[#84CC16]">
-                <Upload size={32} strokeWidth={2.2} />
+              <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#84CC16]/10 text-[#84CC16]">
+                <Upload size={28} strokeWidth={2.2} />
               </span>
               <div>
-                <p className="text-base font-black text-[#0F172A] dark:text-white">
-                  Drag & drop your file here
+                <p className="text-sm font-black text-[#0F172A] dark:text-white">
+                  Drag &amp; drop your CSV or Excel file here
                 </p>
-                <p className="text-sm font-bold text-[#94A3B8] mt-1">
+                <p className="text-xs font-bold text-[#94A3B8] mt-1">
                   or{" "}
                   <span className="text-[#84CC16] underline underline-offset-2 cursor-pointer">
-                    browse
-                  </span>{" "}
-                  to choose
+                    browse from device
+                  </span>
                 </p>
               </div>
-              <p className="text-xs font-bold text-[#CBD5E1] dark:text-slate-500">
-                Supports .CSV, .XLS, .XLSX
+              <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">
+                Supports .CSV · .XLS · .XLSX
               </p>
             </motion.div>
           ) : (
@@ -209,11 +281,11 @@ export function ImportCsvTab() {
               className="flex flex-col items-center gap-3 w-full"
               onClick={(e) => e.stopPropagation()}
             >
-              <span className="flex h-16 w-16 items-center justify-center rounded-2xl bg-[#84CC16]/15 text-[#84CC16]">
-                <FileSpreadsheet size={32} strokeWidth={2} />
+              <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#84CC16]/15 text-[#84CC16]">
+                <FileSpreadsheet size={28} strokeWidth={2} />
               </span>
               <div className="text-center">
-                <p className="text-base font-black text-[#0F172A] dark:text-white break-all max-w-xs mx-auto">
+                <p className="text-sm font-black text-[#0F172A] dark:text-white break-all max-w-xs mx-auto">
                   {file.name}
                 </p>
                 <p className="text-xs font-bold text-[#94A3B8] mt-0.5">
@@ -221,6 +293,7 @@ export function ImportCsvTab() {
                 </p>
               </div>
               <button
+                type="button"
                 onClick={removeFile}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition cursor-pointer"
               >
@@ -262,29 +335,134 @@ export function ImportCsvTab() {
         )}
       </AnimatePresence>
 
-      {/* Submit */}
+      {/* Submit Button */}
       <button
+        type="button"
         onClick={handleSubmit}
         disabled={!file || isPending}
-        className="flex items-center justify-center gap-2 w-full py-4 bg-[#84CC16] text-white font-black rounded-2xl text-base hover:bg-[#76b813] transition shadow-lg shadow-lime-500/25 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100 cursor-pointer"
+        className="flex items-center justify-center gap-2 w-full py-4 bg-[#84CC16] text-white font-black rounded-2xl text-sm uppercase tracking-wider hover:bg-[#76b813] transition shadow-lg shadow-lime-500/25 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100 cursor-pointer"
       >
         {isPending ? (
           <>
-            <Loader2 size={20} className="animate-spin" />
-            Importing...
+            <Loader2 size={18} className="animate-spin" />
+            Processing &amp; Importing Inventory...
           </>
         ) : (
           <>
-            <Upload size={20} strokeWidth={2.5} />
-            Submit &amp; Import
+            <Upload size={18} strokeWidth={2.5} />
+            Submit &amp; Import Devices
           </>
         )}
       </button>
 
-      {/* Hint */}
-      <p className="text-center text-xs font-bold text-[#CBD5E1] dark:text-slate-600">
-        Make sure your file follows the required column format before uploading.
-      </p>
+      {/* ── Documented CSV Column & Structure Guide ── */}
+      <div className="bg-white dark:bg-slate-900 rounded-[28px] border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm">
+        <div className="p-6 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            <Info className="w-4 h-4 text-[#84CC16]" />
+            <h3 className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-wider">
+              Required CSV Column &amp; Category Structure Guide
+            </h3>
+          </div>
+          <button
+            type="button"
+            onClick={() => setShowSpecDetails(!showSpecDetails)}
+            className="text-xs font-bold text-[#84CC16] hover:underline cursor-pointer flex items-center gap-1"
+          >
+            <HelpCircle size={14} />
+            {showSpecDetails ? "Hide full table" : "Show full specifications"}
+          </button>
+        </div>
+
+        {/* Quick Format Summary Cards */}
+        <div className="p-6 grid grid-cols-1 md:grid-cols-3 gap-4 bg-slate-50/50 dark:bg-slate-950/40 border-b border-slate-100 dark:border-slate-800">
+          <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 space-y-1">
+            <p className="text-[11px] font-black uppercase text-[#84CC16] tracking-wider">
+              1. Mandatory Columns
+            </p>
+            <p className="text-xs font-bold text-slate-700 dark:text-slate-300">
+              <code>itemName</code> and <code>imeiNumber</code> (or barcode ID).
+            </p>
+          </div>
+          <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 space-y-1">
+            <p className="text-[11px] font-black uppercase text-[#84CC16] tracking-wider">
+              2. Category Matching
+            </p>
+            <p className="text-xs font-bold text-slate-700 dark:text-slate-300">
+              Provide category name (e.g. <code>Smartphones</code>) in the{" "}
+              <code>category</code> column or select target above.
+            </p>
+          </div>
+          <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 space-y-1">
+            <p className="text-[11px] font-black uppercase text-[#84CC16] tracking-wider">
+              3. Condition Values
+            </p>
+            <p className="text-xs font-bold text-slate-700 dark:text-slate-300">
+              <code>new</code>, <code>good condition</code>, <code>fair</code>,{" "}
+              <code>refurbished</code>, <code>for parts</code>.
+            </p>
+          </div>
+        </div>
+
+        {/* Detailed Schema Table */}
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-xs">
+            <thead className="bg-slate-100 dark:bg-slate-800/80 text-slate-500 dark:text-slate-400 uppercase text-[10px] font-black tracking-wider">
+              <tr>
+                <th className="px-5 py-3.5">Column Name</th>
+                <th className="px-3 py-3.5">Status</th>
+                <th className="px-4 py-3.5">Example Value</th>
+                <th className="px-5 py-3.5">Description</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-slate-700 dark:text-slate-300 font-medium">
+              {(showSpecDetails
+                ? CSV_COLUMNS_SPEC
+                : CSV_COLUMNS_SPEC.slice(0, 7)
+              ).map((col) => (
+                <tr
+                  key={col.name}
+                  className="hover:bg-slate-50/80 dark:hover:bg-slate-800/40"
+                >
+                  <td className="px-5 py-3 font-mono font-bold text-slate-900 dark:text-white">
+                    {col.name}
+                  </td>
+                  <td className="px-3 py-3">
+                    {col.required ? (
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-rose-100 dark:bg-rose-900/30 text-rose-600 dark:text-rose-400">
+                        Required
+                      </span>
+                    ) : (
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-500">
+                        Optional
+                      </span>
+                    )}
+                  </td>
+                  <td className="px-4 py-3 font-mono text-[11px] text-slate-600 dark:text-slate-400">
+                    {col.example}
+                  </td>
+                  <td className="px-5 py-3 text-slate-600 dark:text-slate-400 text-xs">
+                    {col.description}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        {!showSpecDetails && (
+          <div className="p-3 text-center bg-slate-50 dark:bg-slate-950 border-t border-slate-100 dark:border-slate-800">
+            <button
+              type="button"
+              onClick={() => setShowSpecDetails(true)}
+              className="text-xs font-bold text-[#84CC16] hover:underline"
+            >
+              + View all {CSV_COLUMNS_SPEC.length} supported columns (Quantity,
+              Pricing, Condition, Notes, etc.)
+            </button>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

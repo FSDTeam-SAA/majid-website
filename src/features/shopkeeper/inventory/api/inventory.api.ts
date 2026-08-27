@@ -256,8 +256,17 @@ export const createFromBarcodeBulk = async (
       formData.append(`barcodes[${index}][color]`, barcode.color);
     if (barcode.storage)
       formData.append(`barcodes[${index}][storage]`, barcode.storage);
+    if (barcode.imeiNumber) {
+      formData.append(`barcodes[${index}][imeiNumber]`, barcode.imeiNumber);
+    }
     if (barcode.image)
       formData.append(`barcodes[${index}][image]`, barcode.image);
+    if (barcode.sourceImageUrl || barcode.previewImageUrl) {
+      formData.append(
+        `barcodes[${index}][sourceImageUrl]`,
+        barcode.sourceImageUrl || barcode.previewImageUrl || "",
+      );
+    }
     const catId = barcode.categoryId || input.categoryId;
     if (catId) {
       formData.append(`barcodes[${index}][categoryId]`, catId);

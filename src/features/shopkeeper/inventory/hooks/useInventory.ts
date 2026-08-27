@@ -144,6 +144,7 @@ export function useCreateInventory() {
     mutationFn: (input: CreateInventoryInput) => createInventory(input),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: INVENTORY_KEYS.all });
+      queryClient.invalidateQueries({ queryKey: CATEGORY_KEYS.all });
     },
   });
 }
@@ -155,6 +156,7 @@ export function useUpdateInventory() {
       updateInventory({ id, input }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: INVENTORY_KEYS.all });
+      queryClient.invalidateQueries({ queryKey: CATEGORY_KEYS.all });
     },
   });
 }
@@ -165,6 +167,7 @@ export function useDeleteInventory() {
     mutationFn: (id: string) => deleteInventory(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: INVENTORY_KEYS.all });
+      queryClient.invalidateQueries({ queryKey: CATEGORY_KEYS.all });
     },
   });
 }
@@ -186,6 +189,7 @@ export function useCreateFromBarcode() {
     }) => createFromBarcode(input),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: INVENTORY_KEYS.all });
+      queryClient.invalidateQueries({ queryKey: CATEGORY_KEYS.all });
     },
   });
 }
@@ -196,6 +200,7 @@ export const useCreateFromBarcodeBulk = () => {
       createFromBarcodeBulk(input),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: INVENTORY_KEYS.all });
+      queryClient.invalidateQueries({ queryKey: CATEGORY_KEYS.all });
     },
   });
 };
@@ -483,6 +488,7 @@ export function useImportCsvInventory() {
       importCsvInventory(input),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: INVENTORY_KEYS.all });
+      queryClient.invalidateQueries({ queryKey: CATEGORY_KEYS.all });
     },
   });
 }

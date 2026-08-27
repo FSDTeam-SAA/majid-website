@@ -17,6 +17,7 @@ import {
   Trash2,
   ChevronRight,
   ChevronLeft,
+  ChevronDown,
   Check,
   X,
   Loader2,
@@ -163,9 +164,12 @@ export default function Checkout() {
     createCheckoutPaymentForm(0),
   );
 
-  // Local item quantities (for Browse Inventory cards)
+  // Local item quantities & selected variant (for Browse Inventory cards)
   const [localQuantities, setLocalQuantities] = useState<
     Record<string, number>
+  >({});
+  const [selectedVariants, setSelectedVariants] = useState<
+    Record<string, string>
   >({});
   const [addingItemId, setAddingItemId] = useState<string | null>(null);
 
@@ -956,6 +960,11 @@ export default function Checkout() {
     });
   };
 
+  // Helper to select variant for browse card
+  const handleVariantChange = (itemId: string, variantId: string) => {
+    setSelectedVariants((prev) => ({ ...prev, [itemId]: variantId }));
+  };
+
   // Helper buttons for Services/Products
   const handleAddProductClick = () => {
     handleBrowseCategoryChange(null);
@@ -1150,7 +1159,28 @@ export default function Checkout() {
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 2xl:grid-cols-3 gap-6 pt-2">
               {pagedInventory.map((item: any) => {
                 const qty = localQuantities[item._id] || 1;
-                const itemImageUrl = getInventoryImageUrl(item);
+                const hasVariants = (item.variants || []).length > 0;
+                const selectedVariantId =
+                  selectedVariants[item._id] ||
+                  (hasVariants ? item.variants[0]?._id : undefined);
+                const selectedVariant = hasVariants
+                  ? item.variants.find(
+                      (v: any) => v._id === selectedVariantId,
+                    ) || item.variants[0]
+                  : null;
+
+                const displayPrice = selectedVariant
+                  ? (selectedVariant.expectedPrice ?? item.expectedPrice)
+                  : item.expectedPrice;
+
+                const isOutOfStock = hasVariants
+                  ? selectedVariant
+                    ? selectedVariant.quantity < 1
+                    : true
+                  : false;
+
+                const itemImageUrl =
+                  selectedVariant?.image?.url || getInventoryImageUrl(item);
 
                 return (
                   <motion.div
@@ -1186,44 +1216,66 @@ export default function Checkout() {
                       </p>
                     </div>
 
-                    {(item.variants || []).length > 0 && (
-                      <div className="mt-3 space-y-2 rounded-xl bg-slate-50 p-2">
-                        <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">
-                          Choose a variant
-                        </p>
-                        {item.variants.map((variant: any) => (
-                          <button
-                            key={variant._id}
-                            onClick={() =>
-                              handleAddToCart(item._id, 1, variant._id)
+                    {/* Compact Variant Selector Dropdown */}
+                    {hasVariants && (
+                      <div className="mt-3 space-y-1">
+                        <div className="flex items-center justify-between text-[10px] font-bold">
+                          <span className="uppercase tracking-widest text-slate-400">
+                            Variant ({item.variants.length})
+                          </span>
+                          {selectedVariant && (
+                            <span
+                              className={
+                                selectedVariant.quantity > 0
+                                  ? "text-slate-400"
+                                  : "text-rose-500 font-black"
+                              }
+                            >
+                              {selectedVariant.quantity > 0
+                                ? `${selectedVariant.quantity} left`
+                                : "Out of stock"}
+                            </span>
+                          )}
+                        </div>
+                        <div className="relative">
+                          <select
+                            value={selectedVariant?._id || ""}
+                            onChange={(e) =>
+                              handleVariantChange(item._id, e.target.value)
                             }
-                            disabled={
-                              addingItemId === item._id || variant.quantity < 1
-                            }
-                            className="flex w-full items-center justify-between rounded-lg bg-white px-2 py-1.5 text-left text-[10px] font-bold text-slate-700 shadow-sm disabled:opacity-50"
+                            className="w-full text-xs font-bold bg-slate-50 hover:bg-slate-100/80 border border-slate-200 focus:border-[#84CC16] focus:ring-2 focus:ring-[#84CC16]/20 rounded-xl px-3 py-2 pr-8 text-slate-700 appearance-none outline-none transition-all cursor-pointer truncate"
                           >
-                            <span className="truncate min-w-0 flex-1">
-                              {variant.color || "Variant"}
-                              {variant.storage
-                                ? ` · ${variant.storage}`
-                                : ""}{" "}
-                              <span className="text-slate-400">
-                                ({variant.quantity} left)
-                              </span>
-                            </span>
-                            <span className="text-[#65a30d] shrink-0 whitespace-nowrap ml-2">
-                              {formatCurrency(variant.expectedPrice || 0)} +
-                            </span>
-                          </button>
-                        ))}
+                            {item.variants.map((v: any) => (
+                              <option key={v._id} value={v._id}>
+                                {v.color || "Variant"}
+                                {v.storage ? ` · ${v.storage}` : ""} —{" "}
+                                {formatCurrency(v.expectedPrice || 0)}{" "}
+                                {v.quantity < 1
+                                  ? "(Out of stock)"
+                                  : `(${v.quantity} left)`}
+                              </option>
+                            ))}
+                          </select>
+                          <ChevronDown className="w-4 h-4 text-slate-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                        </div>
                       </div>
                     )}
 
                     {/* Price and Add Row */}
-                    <div className="flex flex-wrap items-center justify-between mt-4 gap-2">
-                      <p className="text-[15px] font-black text-slate-900 truncate flex-1 min-w-[80px]">
-                        {formatCurrency(item.expectedPrice)}
-                      </p>
+                    <div className="flex flex-wrap items-center justify-between mt-4 gap-2 pt-2 border-t border-slate-50">
+                      <div className="flex-1 min-w-[80px]">
+                        <p className="text-[15px] font-black text-slate-900 truncate">
+                          {formatCurrency(displayPrice)}
+                        </p>
+                        {hasVariants && selectedVariant && (
+                          <p className="text-[9px] font-bold text-slate-400 truncate">
+                            {selectedVariant.color || "Variant"}
+                            {selectedVariant.storage
+                              ? ` · ${selectedVariant.storage}`
+                              : ""}
+                          </p>
+                        )}
+                      </div>
 
                       {/* Quantity select & Add */}
                       <div className="flex items-center gap-2 shrink-0">
@@ -1248,11 +1300,22 @@ export default function Checkout() {
 
                         {/* Add Circle button */}
                         <button
-                          onClick={() => handleAddToCart(item._id, qty)}
-                          disabled={addingItemId === item._id}
-                          className="w-8 h-8 rounded-full bg-[#84CC16] text-white flex items-center justify-center hover:bg-[#74b313] active:scale-95 shadow shadow-lime-500/25 transition-all"
+                          onClick={() =>
+                            handleAddToCart(
+                              item._id,
+                              qty,
+                              hasVariants ? selectedVariant?._id : undefined,
+                            )
+                          }
+                          disabled={addingItemId === item._id || isOutOfStock}
+                          title={isOutOfStock ? "Out of stock" : "Add to cart"}
+                          className="w-8 h-8 rounded-full bg-[#84CC16] text-white flex items-center justify-center hover:bg-[#74b313] active:scale-95 shadow shadow-lime-500/25 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                         >
-                          <Plus size={16} strokeWidth={3} />
+                          {addingItemId === item._id ? (
+                            <Loader2 size={14} className="animate-spin" />
+                          ) : (
+                            <Plus size={16} strokeWidth={3} />
+                          )}
                         </button>
                       </div>
                     </div>
