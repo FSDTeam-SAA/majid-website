@@ -686,25 +686,27 @@ export default function Sidebar() {
         </div>
 
         {/* User Section */}
-        <div className="p-4 pt-0">
-          <div className="bg-surface border border-border rounded-[28px] p-4 flex flex-col gap-3.5 shadow-sm">
+        <div className="p-3 pt-0">
+          <div className="bg-surface border border-border rounded-[22px] p-3 flex flex-col gap-2.5 shadow-sm">
             {user && (
-              <div className="flex flex-col items-center text-center gap-2 px-1">
-                <div className="relative w-12 h-12 rounded-2xl overflow-hidden border-2 border-white/10 shadow-sm flex-shrink-0">
-                  <Image
-                    src={profileImage}
-                    alt={profileName}
-                    fill
-                    className="object-cover"
-                  />
+              <div className="flex flex-col items-center text-center gap-1.5 px-1">
+                <div className="relative w-full max-w-[160px] h-13 sm:h-14 rounded-xl overflow-hidden border border-border bg-card p-1.5 flex-shrink-0 shadow-sm flex items-center justify-center transition-all">
+                  <div className="relative w-full h-full rounded-lg overflow-hidden">
+                    <Image
+                      src={profileImage}
+                      alt={profileName}
+                      fill
+                      className="object-contain"
+                    />
+                  </div>
                 </div>
 
-                <div className="flex min-w-0 flex-col items-center w-full">
-                  <span className="truncate text-[14px] font-black text-foreground leading-tight text-center w-full">
+                <div className="flex min-w-0 flex-col items-center w-full mt-0.5">
+                  <span className="truncate text-[13.5px] font-black text-foreground leading-tight text-center w-full">
                     {profileName}
                   </span>
 
-                  <span className="truncate text-[11px] font-bold text-muted-foreground uppercase tracking-widest text-center w-full mt-0.5">
+                  <span className="truncate text-[10.5px] font-bold text-muted-foreground uppercase tracking-widest text-center w-full mt-0.5">
                     {profileSubtitle}
                   </span>
                 </div>
@@ -713,10 +715,10 @@ export default function Sidebar() {
 
             <button
               onClick={() => setShowLogoutModal(true)}
-              className="flex items-center justify-center gap-2 w-full py-3 px-4 rounded-xl bg-card border border-border text-muted-foreground font-black text-xs hover:bg-destructive/10 hover:text-destructive hover:border-destructive/20 transition-all group uppercase tracking-widest"
+              className="flex items-center justify-center gap-2 w-full py-2.5 px-3 rounded-xl bg-card border border-border text-muted-foreground font-black text-[11px] hover:bg-destructive/10 hover:text-destructive hover:border-destructive/20 transition-all group uppercase tracking-widest"
             >
               <LogOut
-                size={16}
+                size={14}
                 className="group-hover:-translate-x-1 transition-transform"
               />
 
