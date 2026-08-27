@@ -110,11 +110,11 @@ export function CheckoutRecommendationsModal({
             </div>
             <div>
               <h2 className="text-2xl font-black text-slate-900 tracking-tight">
-                Recommended Add-ons
+                Recommended Accessories & Add-ons
               </h2>
               <p className="text-sm font-bold text-slate-500 mt-1">
-                Suggested accessories based on items in this checkout. Please
-                offer these to the customer.
+                Suggested accessories (cases, chargers, screen protectors,
+                cables) for items in this order.
               </p>
             </div>
           </div>
@@ -126,10 +126,13 @@ export function CheckoutRecommendationsModal({
           </button>
         </div>
 
-        <div className="bg-[#84CC16]/10 border border-[#84CC16]/20 text-[#65a30d] px-4 py-3 rounded-2xl text-sm font-bold flex items-center gap-2">
-          <span>Detected category:</span>
-          <span className="text-[#4d7c0f] font-black">
-            {triggerCategoryName}
+        <div className="bg-lime-50 dark:bg-lime-950/30 border border-lime-200/80 dark:border-lime-900/40 text-lime-800 dark:text-lime-300 px-4 py-2.5 rounded-2xl text-xs font-bold flex items-center justify-between">
+          <span className="flex items-center gap-1.5">
+            <span className="w-2 h-2 rounded-full bg-[#84CC16]" />
+            Targeted Accessories: Cases, Chargers, Screen Protectors & Cables
+          </span>
+          <span className="text-[#4d7c0f] dark:text-lime-400 font-black">
+            {allSuggestedItems.length} items available
           </span>
         </div>
 

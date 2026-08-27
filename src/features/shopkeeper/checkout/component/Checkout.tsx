@@ -41,6 +41,7 @@ import {
   useMyInventory,
   useShopkeeperCart,
   useAddToShopkeeperCart,
+  useUpdateShopkeeperCartItem,
   useDeleteCartItem,
   useDeleteAllShopkeeperCartItems,
   useCreateInvoice,
@@ -131,6 +132,8 @@ export default function Checkout() {
     useDeleteAllShopkeeperCartItems(shopkeeperId);
   const { mutateAsync: addToShopkeeperCart } =
     useAddToShopkeeperCart(shopkeeperId);
+  const { mutateAsync: updateShopkeeperCartQty } =
+    useUpdateShopkeeperCartItem(shopkeeperId);
   const { mutateAsync: createInvoice } = useCreateInvoice();
   const createCustomerMutation = useCreateCustomer();
 
@@ -435,13 +438,14 @@ export default function Checkout() {
 
   const handleUpdateCartQty = async (
     cartItemId: string,
-    itemId: string,
     currentQty: number,
     delta: number,
   ) => {
     if (!shopkeeperId) return;
 
-    if (currentQty + delta <= 0) {
+    const targetQty = currentQty + delta;
+
+    if (targetQty <= 0) {
       // Delete item
       try {
         await deleteCartItem(cartItemId);
@@ -453,23 +457,35 @@ export default function Checkout() {
     }
 
     try {
-      const item = inventoryItems.find(
-        (inventoryItem: any) => inventoryItem._id === itemId,
-      );
-      if (!item) {
-        toast.error("This inventory item is no longer available");
-        return;
-      }
-
-      await addToShopkeeperCart({
-        item,
-        quantity: delta,
-        variantId: cartItems.find(
-          (cartItem: any) => cartItem._id === cartItemId,
-        )?.variantId,
+      await updateShopkeeperCartQty({
+        cartId: cartItemId,
+        quantity: targetQty,
       });
     } catch {
       toast.error("Failed to adjust quantity");
+    }
+  };
+
+  const handleSetCartQty = async (cartItemId: string, exactQty: number) => {
+    if (!shopkeeperId) return;
+
+    if (exactQty <= 0) {
+      try {
+        await deleteCartItem(cartItemId);
+        toast.success("Item removed from cart");
+      } catch {
+        toast.error("Failed to remove item");
+      }
+      return;
+    }
+
+    try {
+      await updateShopkeeperCartQty({
+        cartId: cartItemId,
+        quantity: exactQty,
+      });
+    } catch {
+      toast.error("Failed to update quantity");
     }
   };
 
@@ -1516,33 +1532,43 @@ export default function Checkout() {
 
                       <div className="flex items-center bg-slate-50 rounded-lg p-0.5 border border-slate-200">
                         <button
+                          type="button"
                           disabled={cartItem.type === "repair"}
                           onClick={() =>
                             handleUpdateCartQty(
                               cartItem._id,
-                              item?._id,
                               cartItem.quantity,
                               -1,
                             )
                           }
-                          className="w-5.5 h-5.5 flex items-center justify-center text-slate-500 hover:text-slate-800 disabled:opacity-40"
+                          className="w-5.5 h-5.5 flex items-center justify-center text-slate-500 hover:text-slate-800 disabled:opacity-40 cursor-pointer"
                         >
                           <Minus size={11} />
                         </button>
-                        <span className="w-6 text-center text-xs font-black">
-                          {cartItem.quantity}
-                        </span>
+                        <input
+                          type="number"
+                          min="1"
+                          disabled={cartItem.type === "repair"}
+                          value={cartItem.quantity}
+                          onChange={(e) => {
+                            const val = parseInt(e.target.value, 10);
+                            if (!isNaN(val) && val > 0) {
+                              handleSetCartQty(cartItem._id, val);
+                            }
+                          }}
+                          className="w-7 text-center text-xs font-black bg-transparent border-0 p-0 focus:outline-none focus:ring-0 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                        />
                         <button
+                          type="button"
                           disabled={cartItem.type === "repair"}
                           onClick={() =>
                             handleUpdateCartQty(
                               cartItem._id,
-                              item?._id,
                               cartItem.quantity,
                               1,
                             )
                           }
-                          className="w-5.5 h-5.5 flex items-center justify-center text-slate-500 hover:text-slate-800 disabled:opacity-40"
+                          className="w-5.5 h-5.5 flex items-center justify-center text-slate-500 hover:text-slate-800 disabled:opacity-40 cursor-pointer"
                         >
                           <Plus size={11} />
                         </button>

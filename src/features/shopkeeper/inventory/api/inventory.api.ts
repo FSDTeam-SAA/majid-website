@@ -419,6 +419,17 @@ export const addToShopkeeperCart = async (input: {
   return response.data.data;
 };
 
+export const updateShopkeeperCartItem = async ({
+  cartId,
+  quantity,
+}: {
+  cartId: string;
+  quantity: number;
+}): Promise<CartItem> => {
+  const response = await api.put(`/add-to-cart/update/${cartId}`, { quantity });
+  return response.data.data;
+};
+
 export const deleteCartItem = async (cartId: string) => {
   const response = await api.delete(`/add-to-cart/delete/${cartId}`);
   return response.data;

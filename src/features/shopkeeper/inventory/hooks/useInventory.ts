@@ -21,6 +21,7 @@ import {
   getCustomersByShopkeeper,
   getShopkeeperCart,
   addToShopkeeperCart,
+  updateShopkeeperCartItem,
   deleteCartItem,
   deleteAllShopkeeperCartItems,
   importCsvInventory,
@@ -410,6 +411,38 @@ export function useAddToShopkeeperCart(shopkeeperId?: string) {
             : [savedCartItem, ...currentCart.data],
         };
       });
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey });
+    },
+  });
+}
+
+export function useUpdateShopkeeperCartItem(shopkeeperId?: string) {
+  const queryClient = useQueryClient();
+  const queryKey = INVENTORY_KEYS.shopkeeperCart(shopkeeperId || "");
+
+  return useMutation({
+    mutationFn: ({ cartId, quantity }: { cartId: string; quantity: number }) =>
+      updateShopkeeperCartItem({ cartId, quantity }),
+    onMutate: async ({ cartId, quantity }) => {
+      await queryClient.cancelQueries({ queryKey });
+      const previousCart = queryClient.getQueryData<CartListResponse>(queryKey);
+
+      queryClient.setQueryData<CartListResponse>(queryKey, (currentCart) => {
+        if (!currentCart) return currentCart;
+        return {
+          ...currentCart,
+          data: currentCart.data.map((item) =>
+            item._id === cartId ? { ...item, quantity } : item,
+          ),
+        };
+      });
+
+      return { previousCart };
+    },
+    onError: (_error, _variables, context) => {
+      queryClient.setQueryData(queryKey, context?.previousCart);
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey });

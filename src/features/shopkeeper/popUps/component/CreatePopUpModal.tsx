@@ -110,33 +110,111 @@ function CreatePopUpForm({ onClose, ruleToEdit }: FormProps) {
     }
   };
 
-  const toggleItem = (itemType: "category" | "inventory", itemId: string) => {
+  const [searchFilter, setSearchFilter] = useState("");
+  const [activeAccessoryTab, setActiveAccessoryTab] = useState<string>("all");
+
+  const ACCESSORY_TABS = [
+    { id: "all", label: "All Accessories" },
+    { id: "cases", label: "Phone Cases", match: /case|cover/i },
+    {
+      id: "chargers",
+      label: "Chargers & Adapters",
+      match: /charger|adapter|power\s*bank/i,
+    },
+    {
+      id: "protectors",
+      label: "Screen Protectors",
+      match: /protector|screen|glass/i,
+    },
+    { id: "cables", label: "Aux & Cables", match: /cable|aux|wire/i },
+    {
+      id: "audio",
+      label: "Earphones / Audio",
+      match: /earphone|headphone|audio|earbud|airpod/i,
+    },
+  ];
+
+  // Helper to test if item matches accessory tab
+  const filteredAccessories = inventory.filter((item) => {
+    const itemName = item.itemName || "";
+    const catName =
+      item.categoryId &&
+      typeof item.categoryId === "object" &&
+      "name" in item.categoryId
+        ? String((item.categoryId as { name: string }).name)
+        : "";
+    const combined = `${itemName} ${catName}`.toLowerCase();
+
+    // Tab filter
+    if (activeAccessoryTab !== "all") {
+      const tabObj = ACCESSORY_TABS.find((t) => t.id === activeAccessoryTab);
+      if (tabObj?.match && !tabObj.match.test(combined)) {
+        return false;
+      }
+    }
+
+    // Text search filter
+    if (searchFilter.trim()) {
+      const q = searchFilter.toLowerCase().trim();
+      return combined.includes(q) || item.sku?.toLowerCase().includes(q);
+    }
+
+    return true;
+  });
+
+  const toggleInventoryItem = (itemId: string) => {
     setSelectedItems((prev) => {
       const exists = prev.find(
-        (i) => i.itemType === itemType && i.itemId === itemId,
+        (i) => i.itemType === "inventory" && i.itemId === itemId,
       );
       if (exists) {
         return prev.filter(
-          (i) => !(i.itemType === itemType && i.itemId === itemId),
+          (i) => !(i.itemType === "inventory" && i.itemId === itemId),
         );
       } else {
-        return [...prev, { itemType, itemId }];
+        return [...prev, { itemType: "inventory", itemId }];
       }
     });
   };
 
+  const handleSelectAllFiltered = () => {
+    const filteredIds = new Set(filteredAccessories.map((i) => i._id));
+    setSelectedItems((prev) => {
+      const others = prev.filter(
+        (i) => !(i.itemType === "inventory" && filteredIds.has(i.itemId)),
+      );
+      const newItems: RecommendedItem[] = filteredAccessories.map((i) => ({
+        itemType: "inventory",
+        itemId: i._id,
+      }));
+      return [...others, ...newItems];
+    });
+  };
+
+  const handleClearFiltered = () => {
+    const filteredIds = new Set(filteredAccessories.map((i) => i._id));
+    setSelectedItems((prev) =>
+      prev.filter(
+        (i) => !(i.itemType === "inventory" && filteredIds.has(i.itemId)),
+      ),
+    );
+  };
+
   return (
-    <form onSubmit={handleSubmit} className="space-y-6 mt-4">
-      <div className="space-y-3">
-        <Label>Select Category</Label>
+    <form onSubmit={handleSubmit} className="space-y-6 mt-4 font-sans">
+      {/* 1. Trigger Category */}
+      <div className="space-y-2">
+        <Label className="text-sm font-bold text-slate-800">
+          Trigger Category (When customer buys...)
+        </Label>
         <select
           value={categoryId}
           onChange={(e) => setCategoryId(e.target.value)}
-          className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+          className="flex h-11 w-full rounded-xl border border-input bg-background px-3 py-2 text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#84CC16]"
           required
         >
           <option value="" disabled>
-            Select a category
+            Select a trigger category (e.g. Phones, Laptops, Devices)
           </option>
           {categories.map((c) => (
             <option key={c._id} value={c._id}>
@@ -144,77 +222,135 @@ function CreatePopUpForm({ onClose, ruleToEdit }: FormProps) {
             </option>
           ))}
         </select>
-        <p className="text-xs text-muted-foreground">
-          When an item from this category is added to the cart, the pop-up will
-          trigger.
+        <p className="text-xs font-semibold text-slate-400">
+          When an item from this category is placed in checkout, the accessory
+          add-on pop-up will appear.
         </p>
       </div>
 
-      <div className="space-y-3">
-        <Label>Select Products / Recommended Items</Label>
-        <div className="border rounded-md p-4 space-y-4 max-h-[300px] overflow-y-auto">
-          <div>
-            <h4 className="font-semibold text-sm mb-2 text-slate-500">
-              Categories (Recommends random items from category)
-            </h4>
-            <div className="grid grid-cols-2 gap-2">
-              {categories.map((c) => (
-                <label key={c._id} className="flex items-center space-x-2">
-                  <Checkbox
-                    checked={selectedItems.some(
-                      (i) => i.itemType === "category" && i.itemId === c._id,
-                    )}
-                    onCheckedChange={() => toggleItem("category", c._id)}
-                  />
-                  <span className="text-sm">{c.name}</span>
-                </label>
-              ))}
-            </div>
+      {/* 2. Target Recommended Accessories */}
+      <div className="space-y-3 pt-2">
+        <div className="flex items-center justify-between">
+          <Label className="text-sm font-bold text-slate-800">
+            Target Recommended Accessories ({selectedItems.length} selected)
+          </Label>
+          <div className="flex items-center gap-2 text-xs font-bold">
+            <button
+              type="button"
+              onClick={handleSelectAllFiltered}
+              className="text-[#84CC16] hover:underline cursor-pointer"
+            >
+              Select All
+            </button>
+            <span className="text-slate-300">|</span>
+            <button
+              type="button"
+              onClick={handleClearFiltered}
+              className="text-slate-400 hover:text-slate-600 cursor-pointer"
+            >
+              Clear
+            </button>
           </div>
-          <div className="border-t pt-4">
-            <h4 className="font-semibold text-sm mb-2 text-slate-500">
-              Specific Products
-            </h4>
-            <div className="grid grid-cols-2 gap-2">
-              {inventory.map((i) => (
-                <label key={i._id} className="flex items-center space-x-2">
-                  <Checkbox
-                    checked={selectedItems.some(
-                      (item) =>
-                        item.itemType === "inventory" && item.itemId === i._id,
-                    )}
-                    onCheckedChange={() => toggleItem("inventory", i._id)}
-                  />
-                  <span className="text-sm truncate" title={i.itemName}>
-                    {i.itemName}
-                  </span>
-                </label>
-              ))}
+        </div>
+
+        {/* Quick Accessory Filter Tags */}
+        <div className="flex flex-wrap gap-1.5">
+          {ACCESSORY_TABS.map((tab) => (
+            <button
+              key={tab.id}
+              type="button"
+              onClick={() => setActiveAccessoryTab(tab.id)}
+              className={`px-3 py-1.5 rounded-full text-xs font-bold transition cursor-pointer ${
+                activeAccessoryTab === tab.id
+                  ? "bg-slate-900 text-white dark:bg-white dark:text-slate-900 shadow-sm"
+                  : "bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300"
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Search Accessories */}
+        <Input
+          placeholder="Filter accessories by name or SKU..."
+          value={searchFilter}
+          onChange={(e) => setSearchFilter(e.target.value)}
+          className="rounded-xl h-10 text-xs bg-slate-50 border-slate-200"
+        />
+
+        {/* Accessories Selection List */}
+        <div className="border border-slate-200 dark:border-slate-800 rounded-2xl p-3 max-h-[260px] overflow-y-auto space-y-2 bg-slate-50/50">
+          {filteredAccessories.length > 0 ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              {filteredAccessories.map((item) => {
+                const isSelected = selectedItems.some(
+                  (i) => i.itemType === "inventory" && i.itemId === item._id,
+                );
+                const price = item.expectedPrice ?? item.salePrice ?? 0;
+                const catName =
+                  item.categoryId &&
+                  typeof item.categoryId === "object" &&
+                  "name" in item.categoryId
+                    ? String((item.categoryId as { name: string }).name)
+                    : "Accessory";
+
+                return (
+                  <label
+                    key={item._id}
+                    className={`flex items-start gap-2.5 p-2.5 rounded-xl border transition cursor-pointer ${
+                      isSelected
+                        ? "bg-[#84CC16]/10 border-[#84CC16] text-slate-900"
+                        : "bg-white dark:bg-slate-900 border-slate-200/80 hover:border-slate-300 text-slate-700"
+                    }`}
+                  >
+                    <Checkbox
+                      checked={isSelected}
+                      onCheckedChange={() => toggleInventoryItem(item._id)}
+                      className="mt-0.5"
+                    />
+                    <div className="min-w-0 flex-1">
+                      <p
+                        className="text-xs font-bold truncate leading-tight"
+                        title={item.itemName}
+                      >
+                        {item.itemName}
+                      </p>
+                      <div className="flex items-center gap-2 mt-1">
+                        <span className="text-[10px] font-semibold text-slate-400 truncate">
+                          {catName}
+                        </span>
+                        <span className="text-[11px] font-black text-slate-900 dark:text-white">
+                          ${price.toFixed(2)}
+                        </span>
+                      </div>
+                    </div>
+                  </label>
+                );
+              })}
             </div>
-          </div>
+          ) : (
+            <div className="py-8 text-center text-xs font-semibold text-slate-400">
+              No matching accessory products found in inventory.
+            </div>
+          )}
         </div>
       </div>
 
-      <div className="space-y-3">
-        <Label>Trigger</Label>
-        <Input
-          value={trigger}
-          onChange={(e) => setTrigger(e.target.value)}
-          disabled
-          placeholder="Show on checkout"
-        />
-      </div>
-
-      <div className="flex items-center space-x-2">
+      <div className="flex items-center space-x-2 pt-1">
         <Checkbox
           id="autoPopup"
           checked={autoPopupReminder}
           onCheckedChange={(checked) => setAutoPopupReminder(checked === true)}
         />
-        <Label htmlFor="autoPopup" className="font-normal cursor-pointer">
+        <Label
+          htmlFor="autoPopup"
+          className="font-bold text-xs text-slate-700 cursor-pointer"
+        >
           Auto pop-up reminder
-          <p className="text-xs text-muted-foreground">
-            Automatically show pop-up to staff on checkout
+          <p className="text-[11px] font-medium text-slate-400">
+            Automatically prompt cashier to offer these accessories during
+            checkout
           </p>
         </Label>
       </div>
@@ -225,15 +361,16 @@ function CreatePopUpForm({ onClose, ruleToEdit }: FormProps) {
           variant="outline"
           onClick={onClose}
           disabled={isPending}
+          className="rounded-xl"
         >
           Cancel
         </Button>
         <Button
           type="submit"
-          className="bg-[#84CC16] hover:bg-[#76b813] text-white"
+          className="bg-[#84CC16] hover:bg-[#76b813] text-white rounded-xl font-bold px-6"
           disabled={isPending}
         >
-          {isPending ? "Saving..." : "Save Rule"}
+          {isPending ? "Saving..." : "Save Accessory Rule"}
         </Button>
       </div>
     </form>

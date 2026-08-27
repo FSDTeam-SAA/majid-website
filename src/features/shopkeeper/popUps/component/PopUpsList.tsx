@@ -54,11 +54,12 @@ export function PopUpsList() {
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
           <div className="space-y-1">
             <h1 className="text-3xl font-black text-foreground tracking-tight">
-              Checkout Pop Ups
+              Checkout Accessory Pop-ups
             </h1>
             <p className="text-sm font-bold text-muted-foreground">
-              Create rules for what products should be suggested on checkout for
-              each category.
+              Configure targeted accessories (phone cases, chargers, screen
+              protectors, cables) to recommend on checkout when devices or
+              products are purchased.
             </p>
           </div>
 
@@ -84,7 +85,7 @@ export function PopUpsList() {
           <div className="bg-card border rounded-2xl overflow-hidden shadow-sm">
             <div className="flex items-center justify-between p-4 border-b bg-slate-50/50">
               <h3 className="font-bold">
-                Pop-Up Rules{" "}
+                Accessory Pop-up Rules{" "}
                 <span className="ml-2 text-xs bg-slate-200 px-2 py-1 rounded-full">
                   {rules.length} rules
                 </span>
@@ -95,8 +96,8 @@ export function PopUpsList() {
               <table className="w-full text-sm text-left">
                 <thead className="text-xs text-muted-foreground uppercase bg-slate-50 border-b">
                   <tr>
-                    <th className="px-6 py-4">Category</th>
-                    <th className="px-6 py-4">Recommended Items</th>
+                    <th className="px-6 py-4">Trigger Category</th>
+                    <th className="px-6 py-4">Recommended Accessories</th>
                     <th className="px-6 py-4">Trigger</th>
                     <th className="px-6 py-4">Status</th>
                     <th className="px-6 py-4 text-right">Actions</th>
