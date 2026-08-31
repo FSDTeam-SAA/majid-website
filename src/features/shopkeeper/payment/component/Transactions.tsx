@@ -23,6 +23,8 @@ import {
   Calendar,
   CreditCard,
   Banknote,
+  Package,
+  ArrowDownRight,
 } from "lucide-react";
 import ReturnInvoiceModal from "@/features/shopkeeper/checkout/component/ReturnInvoiceModal";
 import { pdf } from "@react-pdf/renderer";
@@ -295,6 +297,14 @@ export default function Transactions() {
                       minute: "2-digit",
                     });
 
+                    const isPurchase =
+                      String(inv.type || "")
+                        .trim()
+                        .toLowerCase() === "purchase invoice" ||
+                      String(inv.type || "")
+                        .trim()
+                        .toLowerCase() === "purchase";
+
                     return (
                       <TableRow
                         key={inv._id}
@@ -304,11 +314,22 @@ export default function Transactions() {
                         <TableCell className="px-6 py-5 whitespace-nowrap">
                           <div className="flex items-center gap-2">
                             <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-50 border border-slate-100 shadow-sm shrink-0">
-                              {getPaymentIcon(inv.paymentMethod)}
+                              {isPurchase ? (
+                                <Package className="w-5 h-5 text-amber-600" />
+                              ) : (
+                                getPaymentIcon(inv.paymentMethod)
+                              )}
                             </div>
-                            <span className="text-sm font-bold text-foreground">
-                              {getPaymentText(inv.paymentMethod)}
-                            </span>
+                            <div className="flex flex-col">
+                              <span className="text-sm font-bold text-foreground">
+                                {getPaymentText(inv.paymentMethod)}
+                              </span>
+                              {isPurchase && (
+                                <span className="text-[10px] font-bold text-amber-600 dark:text-amber-400 uppercase tracking-wider">
+                                  Stock Purchase
+                                </span>
+                              )}
+                            </div>
                           </div>
                         </TableCell>
 
@@ -317,12 +338,14 @@ export default function Transactions() {
                           #INV-{inv._id.slice(-8).toUpperCase()}
                         </TableCell>
 
-                        {/* Customer */}
+                        {/* Customer / Supplier */}
                         <TableCell className="px-6 py-5 whitespace-nowrap">
                           <div className="text-sm font-bold text-foreground">
                             {inv.customerInfo?.firstName
                               ? `${inv.customerInfo.firstName} ${inv.customerInfo.lastName}`
-                              : "Walk-in"}
+                              : isPurchase
+                                ? "Stock Seller"
+                                : "Walk-in"}
                           </div>
                         </TableCell>
 
@@ -336,7 +359,14 @@ export default function Transactions() {
 
                         {/* Amount */}
                         <TableCell className="px-6 py-5 whitespace-nowrap">
-                          <span className="text-[16px] font-black text-slate-900 tracking-tight">
+                          <span
+                            className={`text-[16px] font-black tracking-tight ${
+                              isPurchase
+                                ? "text-rose-600 dark:text-rose-400"
+                                : "text-emerald-600 dark:text-emerald-400"
+                            }`}
+                          >
+                            {isPurchase ? "-" : "+"}
                             {formatCurrency(
                               inv.totalAmount || 0,
                               inv.currency || currency,

@@ -27,7 +27,7 @@ const emptyAddress: AddressParts = {
   buildingNumber: "",
   street: "",
   postcode: "",
-  country: "",
+  country: "United Kingdom",
 };
 
 function toAddressValue({
@@ -37,7 +37,9 @@ function toAddressValue({
   country,
 }: AddressParts) {
   const streetLine = [buildingNumber, street].filter(Boolean).join(" ");
-  return [streetLine, postcode, country].filter(Boolean).join(", ");
+  return [streetLine, postcode, country || "United Kingdom"]
+    .filter(Boolean)
+    .join(", ");
 }
 
 function splitAddress(value: string): AddressParts {
@@ -54,7 +56,8 @@ function splitAddress(value: string): AddressParts {
     buildingNumber: buildingMatch?.[1] || "",
     street: buildingMatch?.[2] || firstLine,
     postcode: parts.length > 2 ? parts[parts.length - 2] : "",
-    country: parts.length > 1 ? parts[parts.length - 1] : "",
+    country:
+      (parts.length > 1 ? parts[parts.length - 1] : "") || "United Kingdom",
   };
 }
 
@@ -93,7 +96,7 @@ export function StructuredAddressFields({
       buildingNumber: place.housenumber || "",
       street: streetFromPlace(place) || "",
       postcode: place.postcode || "",
-      country: place.country || "",
+      country: place.country || "United Kingdom",
     });
     setSearchQuery(place.formatted || "");
   };
@@ -163,7 +166,7 @@ export function StructuredAddressFields({
             id={`${fieldId}-postcode`}
             value={address.postcode}
             onChange={(event) => updateField("postcode", event.target.value)}
-            placeholder="1207"
+            placeholder="RM13 8RL"
             disabled={disabled}
             required={required}
           />
@@ -178,9 +181,9 @@ export function StructuredAddressFields({
           </Label>
           <Input
             id={`${fieldId}-country`}
-            value={address.country}
+            value={address.country || "United Kingdom"}
             onChange={(event) => updateField("country", event.target.value)}
-            placeholder="Bangladesh"
+            placeholder="United Kingdom"
             disabled={disabled}
             required={required}
           />

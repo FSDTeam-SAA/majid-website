@@ -55,12 +55,14 @@ export function CashManagementCard({
     cashExpensesList,
     handleBankCash,
     handleSetStartingCash,
+    handleAddCash,
     handleAllocateCash,
   } = useCashDrawerMetrics(shopkeeperId, activeShopId);
 
   const [selectedPeriod, setSelectedPeriod] = useState<PeriodTab>("today");
   const [showBankModal, setShowBankModal] = useState(false);
   const [showFloatModal, setShowFloatModal] = useState(false);
+  const [floatMode, setFloatMode] = useState<"add" | "set">("add");
   const [showAllocateModal, setShowAllocateModal] = useState(false);
   const [showExpensesList, setShowExpensesList] = useState(false);
 
@@ -103,8 +105,17 @@ export function CashManagementCard({
   const onFloatSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const val = Number(floatAmount);
-    if (!isNaN(val) && val >= 0) {
-      const ok = await handleSetStartingCash(val);
+    if (!isNaN(val) && val > 0) {
+      const ok =
+        floatMode === "add"
+          ? await handleAddCash(val)
+          : await handleSetStartingCash(val);
+      if (ok) {
+        setFloatAmount("");
+        setShowFloatModal(false);
+      }
+    } else if (floatMode === "set" && val === 0) {
+      const ok = await handleSetStartingCash(0);
       if (ok) {
         setFloatAmount("");
         setShowFloatModal(false);
@@ -154,12 +165,24 @@ export function CashManagementCard({
         <div className="flex flex-wrap items-center gap-2">
           <button
             onClick={() => {
+              setFloatMode("add");
+              setFloatAmount("");
+              setShowFloatModal(true);
+            }}
+            className="flex items-center gap-1.5 rounded-xl bg-[#84CC16] px-3.5 py-2 text-xs font-black text-white hover:bg-[#76b813] transition active:scale-95 shadow-sm shadow-lime-500/20 cursor-pointer"
+          >
+            <PlusCircle className="h-3.5 w-3.5" />+ Add Cash
+          </button>
+
+          <button
+            onClick={() => {
+              setFloatMode("set");
               setFloatAmount(startingDayCash ? String(startingDayCash) : "");
               setShowFloatModal(true);
             }}
             className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2 text-xs font-black text-slate-700 hover:bg-slate-100 transition active:scale-95 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700 cursor-pointer"
           >
-            <PlusCircle className="h-3.5 w-3.5 text-slate-500" />
+            <Banknote className="h-3.5 w-3.5 text-slate-500" />
             Starting Float
           </button>
 
@@ -563,37 +586,99 @@ export function CashManagementCard({
         </DialogContent>
       </Dialog>
 
-      {/* ─── MODAL 2: SET STARTING FLOAT ─── */}
+      {/* ─── MODAL 2: CASH MANAGEMENT (ADD CASH OR SET FLOAT) ─── */}
       <Dialog open={showFloatModal} onOpenChange={setShowFloatModal}>
         <DialogContent className="max-w-md rounded-3xl p-6 font-poppins">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-lg font-black text-slate-950 dark:text-white">
-              <PlusCircle className="h-5 w-5 text-lime-600" /> Today&apos;s
-              Starting Float
+              {floatMode === "add" ? (
+                <>
+                  <PlusCircle className="h-5 w-5 text-lime-600" /> Add Cash to
+                  Drawer
+                </>
+              ) : (
+                <>
+                  <Banknote className="h-5 w-5 text-lime-600" /> Today&apos;s
+                  Starting Float
+                </>
+              )}
             </DialogTitle>
           </DialogHeader>
 
+          {/* Mode Switcher */}
+          <div className="flex rounded-xl bg-slate-100 p-1 dark:bg-slate-800 my-1">
+            <button
+              type="button"
+              onClick={() => {
+                setFloatMode("add");
+                setFloatAmount("");
+              }}
+              className={`w-1/2 py-2 text-xs font-bold rounded-lg transition cursor-pointer ${
+                floatMode === "add"
+                  ? "bg-white text-slate-900 shadow-sm dark:bg-slate-900 dark:text-white"
+                  : "text-slate-500 hover:text-slate-700 dark:text-slate-400"
+              }`}
+            >
+              + Add Cash
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setFloatMode("set");
+                setFloatAmount(startingDayCash ? String(startingDayCash) : "");
+              }}
+              className={`w-1/2 py-2 text-xs font-bold rounded-lg transition cursor-pointer ${
+                floatMode === "set"
+                  ? "bg-white text-slate-900 shadow-sm dark:bg-slate-900 dark:text-white"
+                  : "text-slate-500 hover:text-slate-700 dark:text-slate-400"
+              }`}
+            >
+              Set Exact Float
+            </button>
+          </div>
+
           <form onSubmit={onFloatSubmit} className="space-y-4 pt-2">
             <p className="text-xs text-slate-500 dark:text-slate-400">
-              Set the opening cash float placed in the register/drawer at the
-              start of today. Cash resets automatically daily.
+              {floatMode === "add"
+                ? "Deposit cash into the drawer. This amount will be added to your current float."
+                : "Configure the baseline opening cash float placed in the register at the start of today."}
             </p>
+
+            {floatMode === "add" && startingDayCash > 0 && (
+              <div className="rounded-xl border border-slate-200/80 bg-slate-50 dark:border-slate-800 dark:bg-slate-800/40 p-3 text-xs flex justify-between items-center">
+                <span className="font-semibold text-slate-500 dark:text-slate-400">
+                  Current Day Float:
+                </span>
+                <span className="font-black text-slate-900 dark:text-white font-mono">
+                  {formatCurrency(startingDayCash)}
+                </span>
+              </div>
+            )}
 
             <div className="space-y-1.5">
               <label className="text-[10px] font-black uppercase tracking-wider text-slate-400">
-                Starting Cash Amount
+                {floatMode === "add" ? "Amount to Add" : "Starting Cash Amount"}
               </label>
               <input
                 type="number"
                 step="0.01"
-                min="0"
+                min="0.01"
                 required
                 value={floatAmount}
                 onChange={(e) => setFloatAmount(e.target.value)}
-                placeholder="e.g. 200"
+                placeholder={floatMode === "add" ? "e.g. 900" : "e.g. 850"}
                 className="w-full h-12 rounded-xl border border-slate-200 bg-white px-4 text-sm font-black text-slate-900 focus:border-[#84CC16] focus:outline-none dark:border-slate-700 dark:bg-slate-950 dark:text-white"
               />
             </div>
+
+            {floatMode === "add" && Number(floatAmount) > 0 && (
+              <div className="rounded-xl bg-lime-50 dark:bg-lime-950/40 border border-lime-200 dark:border-lime-900/50 p-3 text-xs flex justify-between items-center text-lime-900 dark:text-lime-300">
+                <span className="font-bold">New Accumulated Float:</span>
+                <span className="font-black text-sm font-mono">
+                  {formatCurrency(startingDayCash + Number(floatAmount || 0))}
+                </span>
+              </div>
+            )}
 
             <div className="flex gap-2 pt-2">
               <button
@@ -607,7 +692,9 @@ export function CashManagementCard({
                 type="submit"
                 className="w-1/2 h-11 rounded-xl bg-[#84CC16] text-xs font-black text-white hover:bg-[#76b813] transition cursor-pointer shadow-md shadow-lime-500/20"
               >
-                Save Starting Float
+                {floatMode === "add"
+                  ? "Add Cash to Drawer"
+                  : "Save Starting Float"}
               </button>
             </div>
           </form>

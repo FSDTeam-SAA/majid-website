@@ -351,6 +351,51 @@ export function useCashDrawerMetrics(
     }
   };
 
+  // Add cash incrementally to existing drawer float
+  const handleAddCash = async (amount: number) => {
+    if (!shopkeeperId) {
+      toast.error("Session not found");
+      return false;
+    }
+    if (isNaN(amount) || amount <= 0) {
+      toast.error("Enter a valid cash amount to add");
+      return false;
+    }
+
+    try {
+      const newStarting = startingDayCash + amount;
+      const newDrawer = Math.max(
+        0,
+        newStarting +
+          todayMetrics.cashSales -
+          todayMetrics.cashExpenses -
+          banked,
+      );
+
+      await saveCashManagement({
+        shopkeeperId,
+        startingDayCash: newStarting,
+        banked,
+        cashInDrawer: newDrawer,
+      });
+
+      toast.success("Cash added to drawer successfully");
+      refetchCashManagement();
+      return true;
+    } catch (err: unknown) {
+      const errorObj = err as {
+        response?: { data?: { message?: string } };
+        message?: string;
+      };
+      toast.error(
+        errorObj.response?.data?.message ||
+          errorObj.message ||
+          "Failed to add cash",
+      );
+      return false;
+    }
+  };
+
   // Direct allocation between drawer & bank
   const handleAllocateCash = async (
     targetBanked: number,
@@ -402,6 +447,7 @@ export function useCashDrawerMetrics(
     isSaving: isSavingCashManagement,
     handleBankCash,
     handleSetStartingCash,
+    handleAddCash,
     handleAllocateCash,
     refetch: () => {
       refetchCashManagement();

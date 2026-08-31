@@ -15,6 +15,7 @@ import {
   ShieldAlert,
   X,
   Search,
+  ChevronDown,
 } from "lucide-react";
 import { useSession } from "next-auth/react";
 import { toast } from "sonner";
@@ -564,6 +565,152 @@ const PurchaseReceiptPDF = ({
     </Document>
   );
 };
+
+interface ItemNameAutocompleteProps {
+  value: string;
+  onChange: (value: string) => void;
+  onSelectItem: (item: any) => void;
+  inventoryItems: any[];
+  error?: boolean;
+}
+
+function ItemNameAutocomplete({
+  value,
+  onChange,
+  onSelectItem,
+  inventoryItems,
+  error,
+}: ItemNameAutocompleteProps) {
+  const [isOpen, setIsOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (
+        containerRef.current &&
+        !containerRef.current.contains(event.target as Node)
+      ) {
+        setIsOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const filteredItems = useMemo(() => {
+    const q = (value || "").trim().toLowerCase();
+    const seen = new Set<string>();
+    const unique: any[] = [];
+    for (const item of inventoryItems) {
+      if (!item?.itemName) continue;
+      const key = `${item.itemName}-${item.storage || ""}-${item.color || ""}-${item.currentState || (item as any).condition || ""}`;
+      if (!seen.has(key)) {
+        seen.add(key);
+        unique.push(item);
+      }
+    }
+    if (!q) return unique.slice(0, 25);
+    return unique
+      .filter((item) =>
+        String(item.itemName || "")
+          .toLowerCase()
+          .includes(q),
+      )
+      .slice(0, 30);
+  }, [value, inventoryItems]);
+
+  return (
+    <div ref={containerRef} className="relative w-full">
+      <div className="relative">
+        <Input
+          placeholder="Select or Type Item Name"
+          className={`rounded-2xl h-12 pr-10 border-primary bg-background font-bold ${
+            error ? "border-red-500 ring-2 ring-red-500/20" : ""
+          }`}
+          value={value}
+          onChange={(e) => {
+            onChange(e.target.value);
+            if (!isOpen) setIsOpen(true);
+          }}
+          onFocus={() => setIsOpen(true)}
+        />
+        <button
+          type="button"
+          onClick={() => setIsOpen((prev) => !prev)}
+          className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors p-1"
+          tabIndex={-1}
+          aria-label="Toggle item selection"
+        >
+          <ChevronDown
+            size={18}
+            className={`transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`}
+          />
+        </button>
+      </div>
+
+      {isOpen && (
+        <div className="absolute z-50 left-0 right-0 mt-1.5 max-h-64 overflow-y-auto rounded-2xl border border-primary/40 bg-popover shadow-2xl backdrop-blur-md p-1.5 animate-in fade-in-50 zoom-in-95">
+          {filteredItems.length > 0 ? (
+            <div className="space-y-1">
+              <div className="px-3 py-1.5 text-[11px] font-black uppercase tracking-wider text-muted-foreground flex items-center justify-between">
+                <span>
+                  {value.trim()
+                    ? "Matching Results"
+                    : "Quick Selection - Existing Items"}
+                </span>
+                <span className="text-[10px] font-medium text-primary font-mono">
+                  {filteredItems.length} items
+                </span>
+              </div>
+              {filteredItems.map((item, idx) => (
+                <button
+                  key={`${item._id || idx}-${item.itemName}`}
+                  type="button"
+                  onClick={() => {
+                    onSelectItem(item);
+                    setIsOpen(false);
+                  }}
+                  className="w-full text-left px-3 py-2.5 rounded-xl hover:bg-primary/10 transition-colors flex items-center justify-between gap-2 group cursor-pointer"
+                >
+                  <div className="flex flex-col min-w-0">
+                    <span className="font-bold text-sm text-foreground group-hover:text-primary transition-colors truncate">
+                      {item.itemName}
+                    </span>
+                    <div className="flex flex-wrap gap-1.5 mt-1">
+                      {item.storage && (
+                        <span className="inline-block text-[10px] font-semibold bg-muted px-1.5 py-0.5 rounded text-muted-foreground">
+                          {item.storage}
+                        </span>
+                      )}
+                      {item.color && (
+                        <span className="inline-block text-[10px] font-semibold bg-muted px-1.5 py-0.5 rounded text-muted-foreground">
+                          {item.color}
+                        </span>
+                      )}
+                      {(item.condition || item.currentState) && (
+                        <span className="inline-block text-[10px] font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 px-1.5 py-0.5 rounded">
+                          {item.condition || item.currentState}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <span className="text-xs font-bold text-primary shrink-0 opacity-80 group-hover:opacity-100 group-hover:underline">
+                    Use Details
+                  </span>
+                </button>
+              ))}
+            </div>
+          ) : (
+            <div className="p-4 text-center text-xs text-muted-foreground">
+              No matching existing items found. You can continue typing to add
+              this item manually.
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function CreatePurchaseReceipt() {
   const { data: profileData } = useMyProfile();
@@ -1589,39 +1736,31 @@ export default function CreatePurchaseReceipt() {
                             <label className="font-bold text-sm text-muted-foreground ml-1 mb-1 block">
                               Item Name <span className="text-red-500">*</span>
                             </label>
-                            <Input
-                              list="inventory-names"
-                              placeholder="Select or Type Item Name"
-                              className={`rounded-2xl h-12 border-primary bg-background font-bold ${
-                                itemNameError
-                                  ? "border-red-500 ring-2 ring-red-500/20"
-                                  : ""
-                              }`}
+                            <ItemNameAutocomplete
                               value={item.name}
-                              onChange={(e) => {
-                                const val = e.target.value;
-                                const allInv = inventoryData?.data || [];
-                                const found = allInv.find(
-                                  (d: any) => d.itemName === val,
-                                );
-                                if (found) {
-                                  const updated = [...items];
-                                  updated[itemIndex] = {
-                                    ...updated[itemIndex],
-                                    name: found.itemName,
-                                    storage: found.storage || "",
-                                    color: found.color || "",
-                                    condition:
-                                      (found as any).condition ||
-                                      found.currentState ||
-                                      "",
-                                    expectedPrice:
-                                      found.expectedPrice ||
-                                      updated[itemIndex].expectedPrice,
-                                  };
-                                  setItems(updated);
-                                } else {
-                                  updateItem(itemIndex, "name", val);
+                              error={Boolean(itemNameError)}
+                              inventoryItems={inventoryData?.data || []}
+                              onChange={(val) => {
+                                updateItem(itemIndex, "name", val);
+                              }}
+                              onSelectItem={(found) => {
+                                const updated = [...items];
+                                updated[itemIndex] = {
+                                  ...updated[itemIndex],
+                                  name: found.itemName,
+                                  storage: found.storage || "",
+                                  color: found.color || "",
+                                  condition:
+                                    (found as any).condition ||
+                                    found.currentState ||
+                                    "",
+                                  // Keep price manual per client requirement
+                                  expectedPrice:
+                                    updated[itemIndex].expectedPrice,
+                                };
+                                setItems(updated);
+                                if (found.categoryId && !selectedCategoryId) {
+                                  setSelectedCategoryId(found.categoryId);
                                 }
                               }}
                             />
