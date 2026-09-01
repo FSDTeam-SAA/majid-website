@@ -452,16 +452,53 @@ yarn type-check   # Runs tsc --noEmit
 
 ## 📜 Scripts Reference
 
-| Script      | Command           | Description                          |
-| ----------- | ----------------- | ------------------------------------ |
-| Development | `yarn dev`        | Start the dev server with Webpack    |
-| Build       | `yarn build`      | Create an optimized production build |
-| Start       | `yarn start`      | Start the production server          |
-| Lint        | `yarn lint`       | Run ESLint                           |
-| Test        | `yarn test`       | Run Jest tests                       |
-| Test Watch  | `yarn test:watch` | Run tests in watch mode              |
-| Type Check  | `yarn type-check` | TypeScript type validation           |
-| Commit      | `yarn commit`     | Interactive commit with Commitizen   |
+| Script      | Command              | Description                          |
+| ----------- | -------------------- | ------------------------------------ |
+| Development | `npm run dev`        | Start the dev server with Webpack    |
+| Build       | `npm run build`      | Create an optimized production build |
+| Start       | `npm run start`      | Start the production server          |
+| Lint        | `npm run lint`       | Run ESLint                           |
+| Test        | `npm test`           | Run Jest tests                       |
+| Test Watch  | `npm run test:watch` | Run tests in watch mode              |
+| Type Check  | `npm run type-check` | TypeScript type validation           |
+| Commit      | `npm run commit`     | Interactive commit with Commitizen   |
+
+---
+
+## 🚀 CI/CD Pipeline & Deployment
+
+This project uses **GitHub Actions** for Continuous Integration (CI) and Continuous Deployment (CD).
+
+### Continuous Integration (`ci.yml`)
+
+Runs automatically on every pull request and push targeting `main` or `develop`. It is split into modular stages:
+
+1. **Lint & Type Check (`code-quality`)**: Runs ESLint (`npm run lint`) and TypeScript verification (`npm run type-check`).
+2. **Unit Tests (`unit-tests`)**: Executes Jest unit tests (`npm test -- --runInBand`).
+3. **Build Check (`build`)**: Runs the production Next.js build (`npm run build`) with `.next/cache` restoration to speed up runs.
+
+Includes concurrency handling to cancel redundant builds when new commits are pushed to a branch or pull request.
+
+### Continuous Deployment (`deploy.yml`)
+
+Deploys automatically on push to `main` and can also be triggered manually via `workflow_dispatch`.
+
+- Connects securely to the VPS using SSH (`appleboy/ssh-action@v1.2.0`).
+- Pulls the latest changes from `main`.
+- Runs `scripts/deploy.sh` to install dependencies (`npm ci`), compile the application (`npm run build`), and restart PM2 (`ecosystem.config.cjs`).
+- Serialized with concurrency protection (`production-deploy`) to prevent concurrent deploys from colliding.
+
+### Required GitHub Secrets
+
+Configure these in your GitHub repository under **Settings** > **Secrets and variables** > **Actions**:
+
+| Secret Key    | Required | Description                            | Default                     |
+| ------------- | :------: | -------------------------------------- | --------------------------- |
+| `VPS_HOST`    |   Yes    | Server IP address or hostname          | —                           |
+| `VPS_USER`    |   Yes    | SSH username (e.g. `ubuntu` or `root`) | —                           |
+| `VPS_SSH_KEY` |   Yes    | Private SSH key (PEM / OpenSSH format) | —                           |
+| `VPS_PORT`    |    No    | SSH port                               | `22`                        |
+| `VPS_APP_DIR` |    No    | Absolute path to repository on VPS     | `/var/www/imoscan-frontend` |
 
 ---
 
@@ -502,7 +539,7 @@ refactor: extract api calls into feature module
 ### Using Commitizen (Interactive)
 
 ```bash
-yarn commit
+npm run commit
 ```
 
 This launches an interactive CLI to guide you through writing a valid commit message.
