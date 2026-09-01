@@ -146,8 +146,11 @@ describe("Banner verification flow", () => {
 
     expect(screen.getByRole("searchbox")).toHaveValue("fmi");
     expect(
-      screen.getAllByRole("button", { name: /FMI Free Check/ }),
-    ).toHaveLength(2);
+      screen.getByRole("button", { name: "FMI Free Check" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("option", { name: /FMI Free Check/ }),
+    ).toBeInTheDocument();
   });
 
   it("routes an authenticated check with the selected service", async () => {
@@ -161,7 +164,7 @@ describe("Banner verification flow", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: "Choose Service" }));
     fireEvent.click(
-      screen.getByRole("button", { name: /Carrier Premium Check/ }),
+      screen.getByRole("option", { name: /Carrier Premium Check/ }),
     );
 
     const identifier = screen.getByRole("textbox", {

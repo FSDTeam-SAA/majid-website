@@ -355,7 +355,11 @@ export default function Banner() {
           />
 
           {/* Main Search Input Box */}
-          <div
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              handleSearch();
+            }}
             className="
               relative z-10 flex min-h-[64px] md:min-h-[68px] items-center gap-2 md:gap-3
               rounded-[24px] md:rounded-full bg-background
@@ -376,10 +380,11 @@ export default function Banner() {
               />
 
               <label htmlFor={imeiLabelId} className="sr-only">
-                Enter IMEI or Serial Number
+                Enter IMEI or Serial Number...
               </label>
               <textarea
                 id={imeiLabelId}
+                required
                 value={imei}
                 onChange={(e) => setImei(e.target.value)}
                 onKeyDown={(e) => {
@@ -391,7 +396,7 @@ export default function Banner() {
                     handleSearch();
                   }
                 }}
-                placeholder={`Enter IMEI or Serial Number`}
+                placeholder={`Enter IMEI or Serial Number...`}
                 rows={2}
                 className="min-w-0 flex-1 bg-transparent py-1.5 text-sm md:text-base font-medium text-foreground outline-none placeholder:text-muted-foreground resize-none overflow-y-auto custom-scrollbar leading-normal min-h-[44px] max-h-[120px] rounded-md focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background"
               />
@@ -409,7 +414,7 @@ export default function Banner() {
               <button
                 type="button"
                 onClick={handleScanClick}
-                aria-label="Scan IMEI barcode with camera"
+                aria-label="Scan IMEI"
                 title="Scan IMEI"
                 className="flex h-10 w-10 md:h-11 md:w-11 shrink-0 cursor-pointer items-center justify-center rounded-xl transition-all hover:bg-primary/10 hover:text-primary group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background"
               >
@@ -492,7 +497,7 @@ export default function Banner() {
                           </label>
                           <input
                             id={dropdownSearchId}
-                            type="text"
+                            type="search"
                             placeholder="Search for a service..."
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
@@ -695,8 +700,7 @@ export default function Banner() {
 
               {/* ── CTA / Check Button ── */}
               <button
-                type="button"
-                onClick={handleSearch}
+                type="submit"
                 disabled={!isImeiEntered}
                 className={`
                   flex h-[46px] md:h-[50px] cursor-pointer items-center justify-center gap-1.5 md:gap-2 group 
@@ -723,7 +727,7 @@ export default function Banner() {
                 />
               </button>
             </div>
-          </div>
+          </form>
         </motion.div>
 
         {/* ✨ MINIMALIST QUICK CHECKS */}

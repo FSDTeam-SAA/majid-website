@@ -2,7 +2,7 @@
   "name": "website-template",
   "version": "0.1.0",
   "private": true,
-  "packageManager": "yarn@1.22.22",
+  "packageManager": "npm@11.8.2",
   "scripts": {
     "dev": "next dev --webpack",
     "build": "CI=true next build --webpack",
