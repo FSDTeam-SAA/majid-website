@@ -14,6 +14,7 @@ import {
   Loader2,
   Building2,
   UserCheck,
+  Wallet,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -294,12 +295,6 @@ export default function MyShopsDashboard() {
                     </div>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
-                    {/* Dynamic currency indicator badge */}
-                    <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-black uppercase text-slate-700 border border-slate-200">
-                      {getCurrencySymbol(shop.currency || currency)}{" "}
-                      {shop.currency || currency}
-                    </span>
-
                     {shop.isActive ? (
                       <span className="flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-bold uppercase text-emerald-600 border border-emerald-200/50">
                         <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
@@ -368,14 +363,26 @@ export default function MyShopsDashboard() {
                     .filter(Boolean)
                     .join(", ");
 
+                  const previousCash =
+                    shop.cashAvailable?.lastMonth &&
+                    shop.cashAvailable.lastMonth > 0
+                      ? shop.cashAvailable.lastMonth
+                      : (shop.cashAvailable?.yesterday ?? 0) +
+                            (shop.cashAvailable?.lastWeek ?? 0) >
+                          0
+                        ? (shop.cashAvailable?.yesterday ?? 0) +
+                          (shop.cashAvailable?.lastWeek ?? 0)
+                        : (shop.stats?.cashSales ?? 0);
+
                   return (
                     <>
+                      {/* Today's Sales */}
                       <div className="mb-6 space-y-1 min-w-0">
                         <p className="text-sm font-semibold text-slate-500 truncate">
                           {dateFilter === "today" ? "Today's Sales" : "Sales"}
                         </p>
                         <p
-                          className="text-2xl sm:text-3xl font-black text-slate-900 truncate"
+                          className="text-3xl sm:text-4xl font-black text-slate-900 truncate tracking-tight"
                           title={formatCurrency(
                             shop.stats.totalSales,
                             displayCurrency,
@@ -388,96 +395,12 @@ export default function MyShopsDashboard() {
                         </p>
                       </div>
 
-                      {/* Business Health Progress Bar */}
-                      <div className="mb-6 space-y-1.5 rounded-2xl bg-slate-50/80 p-3.5 border border-slate-100">
-                        <div className="flex items-center justify-between text-xs">
-                          <span className="font-bold text-slate-600">
-                            Business Health
-                          </span>
-                          <span className="font-black text-slate-900">
-                            {healthScore}%
-                          </span>
-                        </div>
-                        <div className="h-2 w-full bg-slate-200/70 rounded-full overflow-hidden">
-                          <div
-                            className={`h-full ${healthColor} rounded-full transition-all duration-500`}
-                            style={{
-                              width: `${Math.min(100, Math.max(0, healthScore))}%`,
-                            }}
-                          />
-                        </div>
-                      </div>
-
-                      {/* Total Cash Available Breakdown */}
-                      <div className="mb-6 rounded-2xl bg-slate-50/80 p-3.5 border border-slate-100">
-                        <div className="flex items-center justify-between mb-2.5">
-                          <span className="text-xs font-bold text-slate-600">
-                            Total Cash Available
-                          </span>
-                          <span className="text-[10px] font-bold text-[#84CC16] uppercase tracking-wider bg-lime-50 border border-lime-200/60 px-2 py-0.5 rounded-full">
-                            Cash Drawer
-                          </span>
-                        </div>
-                        <div className="grid grid-cols-3 gap-2 text-center">
-                          <div className="bg-white rounded-xl p-2 border border-slate-100 min-w-0">
-                            <span className="text-[10px] font-semibold text-slate-400 block truncate">
-                              Yesterday
-                            </span>
-                            <span
-                              className="text-xs font-black text-slate-900 block truncate mt-0.5"
-                              title={formatCurrency(
-                                shop.cashAvailable?.yesterday ?? 0,
-                                displayCurrency,
-                              )}
-                            >
-                              {formatCurrency(
-                                shop.cashAvailable?.yesterday ?? 0,
-                                displayCurrency,
-                              )}
-                            </span>
-                          </div>
-                          <div className="bg-white rounded-xl p-2 border border-slate-100 min-w-0">
-                            <span className="text-[10px] font-semibold text-slate-400 block truncate">
-                              Last Week
-                            </span>
-                            <span
-                              className="text-xs font-black text-slate-900 block truncate mt-0.5"
-                              title={formatCurrency(
-                                shop.cashAvailable?.lastWeek ?? 0,
-                                displayCurrency,
-                              )}
-                            >
-                              {formatCurrency(
-                                shop.cashAvailable?.lastWeek ?? 0,
-                                displayCurrency,
-                              )}
-                            </span>
-                          </div>
-                          <div className="bg-white rounded-xl p-2 border border-slate-100 min-w-0">
-                            <span className="text-[10px] font-semibold text-slate-400 block truncate">
-                              Last Month
-                            </span>
-                            <span
-                              className="text-xs font-black text-slate-900 block truncate mt-0.5"
-                              title={formatCurrency(
-                                shop.cashAvailable?.lastMonth ?? 0,
-                                displayCurrency,
-                              )}
-                            >
-                              {formatCurrency(
-                                shop.cashAvailable?.lastMonth ?? 0,
-                                displayCurrency,
-                              )}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="grid grid-cols-3 gap-2 sm:gap-4 mb-6 border-t border-b border-slate-100 py-4 min-w-0">
+                      {/* Customers, Cash Sales, Card Sales with LIVE badges */}
+                      <div className="grid grid-cols-3 gap-2 sm:gap-4 mb-6 border-b border-slate-100 pb-5 min-w-0">
                         <div className="flex flex-col gap-1 min-w-0">
                           <div className="flex items-center gap-1.5 text-slate-500 min-w-0">
-                            <Users className="h-4 w-4 shrink-0" />
-                            <span className="text-xs font-bold text-slate-900 truncate">
+                            <Users className="h-4 w-4 shrink-0 text-slate-400" />
+                            <span className="text-sm font-bold text-slate-900 truncate">
                               {shop.stats.customersCount}
                             </span>
                           </div>
@@ -486,10 +409,10 @@ export default function MyShopsDashboard() {
                           </span>
                         </div>
                         <div className="flex flex-col gap-1 min-w-0">
-                          <div className="flex items-center gap-1.5 text-[#84CC16] min-w-0">
+                          <div className="flex items-center gap-1.5 text-[#84CC16] min-w-0 flex-wrap">
                             <Banknote className="h-4 w-4 shrink-0" />
                             <span
-                              className="text-xs font-bold text-slate-900 truncate"
+                              className="text-sm font-bold text-slate-900 truncate"
                               title={formatCurrency(
                                 shop.stats.cashSales,
                                 displayCurrency,
@@ -500,16 +423,19 @@ export default function MyShopsDashboard() {
                                 displayCurrency,
                               )}
                             </span>
+                            <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-1.5 py-0.5 text-[9px] font-black text-emerald-600 border border-emerald-200/50">
+                              ((•)) LIVE
+                            </span>
                           </div>
                           <span className="text-xs font-semibold text-slate-400 truncate">
                             Cash Sales
                           </span>
                         </div>
                         <div className="flex flex-col gap-1 min-w-0">
-                          <div className="flex items-center gap-1.5 text-blue-500 min-w-0">
+                          <div className="flex items-center gap-1.5 text-blue-500 min-w-0 flex-wrap">
                             <CreditCard className="h-4 w-4 shrink-0" />
                             <span
-                              className="text-xs font-bold text-slate-900 truncate"
+                              className="text-sm font-bold text-slate-900 truncate"
                               title={formatCurrency(
                                 shop.stats.cardSales,
                                 displayCurrency,
@@ -519,6 +445,9 @@ export default function MyShopsDashboard() {
                                 shop.stats.cardSales,
                                 displayCurrency,
                               )}
+                            </span>
+                            <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-1.5 py-0.5 text-[9px] font-black text-blue-600 border border-blue-200/50">
+                              ((•)) LIVE
                             </span>
                           </div>
                           <span className="text-xs font-semibold text-slate-400 truncate">
@@ -527,8 +456,56 @@ export default function MyShopsDashboard() {
                         </div>
                       </div>
 
-                      <div className="flex items-center justify-between mt-auto pt-2">
-                        <div className="flex flex-col gap-1.5 min-w-0 flex-1 mr-3">
+                      {/* Business Health & Total Cash Available side by side */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6 items-start">
+                        {/* Business Health */}
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between text-xs">
+                            <span className="font-bold text-slate-700">
+                              Business Health
+                            </span>
+                            <span className="font-black text-[#84CC16]">
+                              {healthScore}%
+                            </span>
+                          </div>
+                          <div className="relative h-7 w-full overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
+                            <div
+                              className="h-full rounded-full bg-gradient-to-r from-lime-300 via-emerald-300 to-teal-300 transition-all duration-500 shadow-sm"
+                              style={{
+                                width: `${Math.min(100, Math.max(15, healthScore))}%`,
+                              }}
+                            />
+                            <span className="absolute inset-y-0 left-3 flex items-center text-[10px] font-bold text-slate-700 pointer-events-none">
+                              Comparison from last sales
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Total Cash Available from Previous Sales */}
+                        <div className="space-y-1.5">
+                          <span className="text-xs font-semibold text-slate-500 block truncate">
+                            Total Cash Available from Previous Sales
+                          </span>
+                          <div className="flex items-center gap-2">
+                            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-lime-50 text-[#84CC16] border border-lime-200/60">
+                              <Wallet className="h-4 w-4" />
+                            </span>
+                            <span
+                              className="text-xl font-black text-slate-900 tracking-tight"
+                              title={formatCurrency(
+                                previousCash,
+                                displayCurrency,
+                              )}
+                            >
+                              {formatCurrency(previousCash, displayCurrency)}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Staff working today & View shop button */}
+                      <div className="flex items-center justify-between mt-auto pt-2 border-t border-slate-100">
+                        <div className="flex flex-col gap-1 min-w-0 flex-1 mr-3">
                           <span className="text-xs font-semibold text-slate-500">
                             Staff working today
                           </span>
@@ -564,30 +541,26 @@ export default function MyShopsDashboard() {
                                   {staffNames}
                                 </p>
                                 <p className="text-[11px] font-medium text-slate-400">
-                                  {workingStaff.length}{" "}
-                                  {workingStaff.length === 1
-                                    ? "staff"
-                                    : "staff"}
+                                  {workingStaff.length} staff
                                 </p>
                               </div>
                             </div>
                           ) : (
-                            <span className="text-xs font-bold text-slate-400">
-                              No staff scheduled today
+                            <span className="text-xs font-bold text-slate-900">
+                              0 staff
                             </span>
                           )}
                         </div>
 
-                        <Button
-                          variant="ghost"
-                          className="text-[#84CC16] hover:text-[#76b813] hover:bg-[#84CC16]/10 font-bold group rounded-full shrink-0"
+                        <button
+                          className="text-[#84CC16] hover:text-[#76b813] font-bold text-sm flex items-center gap-1 group cursor-pointer shrink-0 transition-colors"
                           onClick={() => handleViewShop(shop._id)}
                         >
                           View shop
                           <span className="ml-1 transition-transform group-hover:translate-x-1">
                             →
                           </span>
-                        </Button>
+                        </button>
                       </div>
                     </>
                   );

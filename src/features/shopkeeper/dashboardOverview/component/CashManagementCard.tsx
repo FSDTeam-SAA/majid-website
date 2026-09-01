@@ -7,21 +7,13 @@ import {
   Receipt,
   ArrowUpRight,
   ArrowDownRight,
-  FileText,
-  ExternalLink,
   ShieldCheck,
   PlusCircle,
   Landmark,
   Layers,
-  Sparkles,
-  ChevronDown,
-  ChevronUp,
 } from "lucide-react";
 import { useCurrency } from "@/hooks/useCurrency";
-import {
-  useCashDrawerMetrics,
-  CashExpenseItem,
-} from "../hooks/useCashDrawerMetrics";
+import { useCashDrawerMetrics } from "../hooks/useCashDrawerMetrics";
 import {
   Dialog,
   DialogContent,
@@ -64,7 +56,6 @@ export function CashManagementCard({
   const [showFloatModal, setShowFloatModal] = useState(false);
   const [floatMode, setFloatMode] = useState<"add" | "set">("add");
   const [showAllocateModal, setShowAllocateModal] = useState(false);
-  const [showExpensesList, setShowExpensesList] = useState(false);
 
   const [bankAmount, setBankAmount] = useState("");
   const [floatAmount, setFloatAmount] = useState("");
@@ -250,13 +241,13 @@ export function CashManagementCard({
 
         {/* Breakdown of Today's Movement (Right side of Hero) */}
         <div className="grid grid-cols-2 gap-3 lg:col-span-6">
-          {/* Today Cash Sales */}
-          <div className="flex flex-col justify-between rounded-3xl border border-slate-100 bg-slate-50/80 p-5 dark:border-slate-800 dark:bg-slate-800/50">
+          {/* Today Cash Sales - INFLOW */}
+          <div className="flex flex-col justify-between rounded-3xl border border-[#bef264]/70 bg-gradient-to-br from-[#f7fee7] via-[#ecfccb] to-[#d9f99d]/80 p-5 shadow-sm dark:border-lime-800/50 dark:from-lime-950/50 dark:via-lime-900/40 dark:to-lime-950/30">
             <div className="flex items-center justify-between">
-              <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-lime-100 text-lime-700 dark:bg-lime-950/50 dark:text-lime-400">
+              <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-lime-100/80 text-lime-700 dark:bg-lime-950/60 dark:text-lime-400">
                 <ArrowUpRight className="h-4 w-4" />
               </span>
-              <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+              <span className="rounded-full bg-white/60 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-lime-800 border border-white/80 shadow-[inset_0_1px_1px_rgba(255,255,255,0.8),0_1px_2px_rgba(0,0,0,0.04)] backdrop-blur-md dark:bg-white/15 dark:text-lime-300 dark:border-white/20">
                 Inflow
               </span>
             </div>
@@ -264,39 +255,39 @@ export function CashManagementCard({
               <p className="text-2xl font-black text-slate-900 dark:text-white">
                 {formatCurrency(todayMetrics.cashSales)}
               </p>
-              <p className="text-xs font-bold text-slate-500 dark:text-slate-400">
+              <p className="text-xs font-bold text-slate-600 dark:text-slate-400">
                 Today&apos;s Cash Sales ({todayMetrics.invoiceCount} invoices)
               </p>
             </div>
           </div>
 
-          {/* Today Cash Expenses (Purchases) */}
-          <div className="flex flex-col justify-between rounded-3xl border border-rose-100/80 bg-rose-50/50 p-5 dark:border-rose-900/30 dark:bg-rose-950/20">
+          {/* Today Cash Expenses - OUTFLOW */}
+          <div className="flex flex-col justify-between rounded-3xl border border-[#fde047]/70 bg-gradient-to-br from-[#fffbeb] via-[#fef9c3] to-[#fde047]/70 p-5 shadow-sm dark:border-amber-800/50 dark:from-amber-950/50 dark:via-yellow-950/40 dark:to-amber-950/30">
             <div className="flex items-center justify-between">
-              <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-rose-100 text-rose-700 dark:bg-rose-900/50 dark:text-rose-400">
+              <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-rose-100/80 text-rose-600 dark:bg-rose-950/60 dark:text-rose-400">
                 <ArrowDownRight className="h-4 w-4" />
               </span>
-              <span className="text-[10px] font-black uppercase tracking-widest text-rose-400">
+              <span className="rounded-full bg-white/60 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-red-600 border border-white/80 shadow-[inset_0_1px_1px_rgba(255,255,255,0.8),0_1px_2px_rgba(0,0,0,0.04)] backdrop-blur-md dark:bg-white/15 dark:text-red-400 dark:border-white/20">
                 Outflow
               </span>
             </div>
             <div className="mt-3">
-              <p className="text-2xl font-black text-rose-600 dark:text-rose-400">
+              <p className="text-2xl font-black text-red-600 dark:text-red-400">
                 {formatCurrency(todayMetrics.cashExpenses)}
               </p>
-              <p className="text-xs font-bold text-slate-500 dark:text-slate-400">
+              <p className="text-xs font-bold text-slate-600 dark:text-slate-400">
                 Stock Purchases & Expenses ({todayMetrics.expenseCount})
               </p>
             </div>
           </div>
 
-          {/* Banked to Owner Today */}
-          <div className="flex flex-col justify-between rounded-3xl border border-violet-100/80 bg-violet-50/50 p-5 dark:border-violet-900/30 dark:bg-violet-950/20">
+          {/* Banked to Owner Today - TRANSFERRED */}
+          <div className="flex flex-col justify-between rounded-3xl border border-[#c4b5fd]/60 bg-gradient-to-br from-[#faf5ff] via-[#f3e8ff] to-[#ddd6fe]/80 p-5 shadow-sm dark:border-purple-800/50 dark:from-purple-950/50 dark:via-purple-900/40 dark:to-violet-950/30">
             <div className="flex items-center justify-between">
-              <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-violet-100 text-violet-700 dark:bg-violet-900/50 dark:text-violet-400">
+              <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-violet-100/80 text-violet-700 dark:bg-violet-950/60 dark:text-violet-400">
                 <Building2 className="h-4 w-4" />
               </span>
-              <span className="text-[10px] font-black uppercase tracking-widest text-violet-400">
+              <span className="rounded-full bg-white/60 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-violet-700 border border-white/80 shadow-[inset_0_1px_1px_rgba(255,255,255,0.8),0_1px_2px_rgba(0,0,0,0.04)] backdrop-blur-md dark:bg-white/15 dark:text-violet-300 dark:border-white/20">
                 Transferred
               </span>
             </div>
@@ -304,27 +295,27 @@ export function CashManagementCard({
               <p className="text-2xl font-black text-violet-700 dark:text-violet-300">
                 {formatCurrency(banked)}
               </p>
-              <p className="text-xs font-bold text-slate-500 dark:text-slate-400">
+              <p className="text-xs font-bold text-slate-600 dark:text-slate-400">
                 Banked to Owner Today
               </p>
             </div>
           </div>
 
-          {/* Starting Float */}
-          <div className="flex flex-col justify-between rounded-3xl border border-slate-100 bg-slate-50/80 p-5 dark:border-slate-800 dark:bg-slate-800/50">
+          {/* Starting Float - OPENING */}
+          <div className="flex flex-col justify-between rounded-3xl border border-[#67e8f9]/60 bg-gradient-to-br from-[#ecfeff] via-[#cffafe] to-[#a5f3fc]/80 p-5 shadow-sm dark:border-teal-800/50 dark:from-teal-950/50 dark:via-teal-900/40 dark:to-cyan-950/30">
             <div className="flex items-center justify-between">
-              <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-slate-200 text-slate-700 dark:bg-slate-700 dark:text-slate-300">
+              <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-teal-100/80 text-teal-700 dark:bg-teal-950/60 dark:text-teal-400">
                 <Receipt className="h-4 w-4" />
               </span>
-              <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+              <span className="rounded-full bg-white/60 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-teal-800 border border-white/80 shadow-[inset_0_1px_1px_rgba(255,255,255,0.8),0_1px_2px_rgba(0,0,0,0.04)] backdrop-blur-md dark:bg-white/15 dark:text-teal-300 dark:border-white/20">
                 Opening
               </span>
             </div>
             <div className="mt-3">
-              <p className="text-2xl font-black text-slate-800 dark:text-slate-200">
+              <p className="text-2xl font-black text-slate-900 dark:text-white">
                 {formatCurrency(startingDayCash)}
               </p>
-              <p className="text-xs font-bold text-slate-500 dark:text-slate-400">
+              <p className="text-xs font-bold text-slate-600 dark:text-slate-400">
                 Starting Day Float (Today)
               </p>
             </div>
@@ -416,116 +407,6 @@ export function CashManagementCard({
           </div>
         </div>
       </div>
-
-      {/* STOCK PURCHASES & CASH EXPENSES BREAKDOWN */}
-      <div className="mt-6 border-t border-slate-100 pt-5 dark:border-slate-800">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Receipt className="h-4 w-4 text-rose-500" />
-            <h3 className="text-sm font-black text-slate-900 dark:text-white">
-              Stock Purchases & Cash Expenses Breakdown (
-              {cashExpensesList.length})
-            </h3>
-          </div>
-          <button
-            onClick={() => setShowExpensesList(!showExpensesList)}
-            className="flex items-center gap-1 text-xs font-bold text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white cursor-pointer"
-          >
-            {showExpensesList ? "Hide Breakdown" : "View Breakdown"}
-            {showExpensesList ? (
-              <ChevronUp className="h-4 w-4" />
-            ) : (
-              <ChevronDown className="h-4 w-4" />
-            )}
-          </button>
-        </div>
-
-        {showExpensesList && (
-          <div className="mt-4 overflow-hidden rounded-2xl border border-slate-200 dark:border-slate-700">
-            {cashExpensesList.length === 0 ? (
-              <div className="p-8 text-center text-xs font-semibold text-slate-500">
-                No cash stock purchases or expenses recorded yet. When stock is
-                purchased with cash, the invoice is linked here.
-              </div>
-            ) : (
-              <div className="max-h-72 overflow-y-auto">
-                <table className="w-full text-left text-xs">
-                  <thead className="bg-slate-50 dark:bg-slate-800 text-[10px] font-black uppercase tracking-wider text-slate-400 border-b border-slate-200 dark:border-slate-700">
-                    <tr>
-                      <th className="px-4 py-3">Date</th>
-                      <th className="px-4 py-3">Description / Item</th>
-                      <th className="px-4 py-3">Seller / Customer</th>
-                      <th className="px-4 py-3">Amount (Paid)</th>
-                      <th className="px-4 py-3 text-right">Attached Invoice</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800 font-semibold">
-                    {cashExpensesList.map((exp: CashExpenseItem) => (
-                      <tr
-                        key={exp.id}
-                        className="hover:bg-slate-50 dark:hover:bg-slate-800/60 transition"
-                      >
-                        <td className="px-4 py-3 text-slate-500 whitespace-nowrap">
-                          {exp.date.toLocaleDateString()}{" "}
-                          {exp.date.toLocaleTimeString([], {
-                            hour: "2-digit",
-                            minute: "2-digit",
-                          })}
-                        </td>
-                        <td className="px-4 py-3 font-bold text-slate-900 dark:text-white max-w-xs truncate">
-                          {exp.description}
-                        </td>
-                        <td className="px-4 py-3 text-slate-600 dark:text-slate-300">
-                          {exp.sellerName || "N/A"}
-                        </td>
-                        <td className="px-4 py-3 font-black text-rose-600 dark:text-rose-400 whitespace-nowrap">
-                          -{formatCurrency(exp.amount)}
-                        </td>
-                        <td className="px-4 py-3 text-right">
-                          {exp.pdfUrl ? (
-                            <a
-                              href={exp.pdfUrl}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="inline-flex items-center gap-1 rounded-lg bg-slate-100 px-2.5 py-1 text-[11px] font-black text-slate-700 hover:bg-[#84CC16] hover:text-white transition dark:bg-slate-800 dark:text-slate-300"
-                            >
-                              <FileText className="h-3 w-3" /> Receipt PDF{" "}
-                              <ExternalLink className="h-2.5 w-2.5" />
-                            </a>
-                          ) : (
-                            <span className="text-[11px] text-slate-400">
-                              No PDF
-                            </span>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-        )}
-      </div>
-
-      {/* AI INSIGHT FOOTER */}
-      {aiInsight && (
-        <div className="mt-5 rounded-2xl border border-lime-200/60 bg-lime-50/50 p-4 dark:border-lime-900/30 dark:bg-lime-950/20">
-          <div className="flex items-start gap-2.5">
-            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-[#84CC16] text-white">
-              <Sparkles className="h-3.5 w-3.5" />
-            </span>
-            <div className="text-xs">
-              <p className="font-black text-slate-900 dark:text-white">
-                Cash Management AI Insight
-              </p>
-              <p className="mt-0.5 whitespace-pre-line text-slate-600 dark:text-slate-300 font-medium">
-                {aiInsight}
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* ─── MODAL 1: BANK CASH TO OWNER ─── */}
       <Dialog open={showBankModal} onOpenChange={setShowBankModal}>
