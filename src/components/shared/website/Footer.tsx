@@ -1,6 +1,6 @@
 "use client";
 
-import { CheckCircle2, Facebook, Twitter, Linkedin, Link2 } from "lucide-react";
+import { Facebook, Twitter, Linkedin, Link2 } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 
@@ -32,52 +32,12 @@ export default function Footer() {
           {/* Links Columns */}
           <div className="lg:col-span-2">
             <h4 className="text-xs font-black text-foreground uppercase tracking-[0.2em] mb-8">
-              Product
-            </h4>
-            <ul className="space-y-4">
-              <li>
-                <Link
-                  href="#"
-                  className="text-sm text-muted-foreground hover:text-[#84CC16] transition"
-                >
-                  IMEI Check
-                </Link>
-              </li>
-              <li>
-                <Link
-                  href="#"
-                  className="text-sm text-muted-foreground hover:text-[#84CC16] transition"
-                >
-                  AI Reports
-                </Link>
-              </li>
-              <li>
-                <Link
-                  href="#"
-                  className="text-sm text-muted-foreground hover:text-[#84CC16] transition"
-                >
-                  Pricing
-                </Link>
-              </li>
-              <li>
-                <Link
-                  href="#"
-                  className="text-sm text-muted-foreground hover:text-[#84CC16] transition"
-                >
-                  API Access
-                </Link>
-              </li>
-            </ul>
-          </div>
-
-          <div className="lg:col-span-2">
-            <h4 className="text-xs font-black text-foreground uppercase tracking-[0.2em] mb-8">
               Company
             </h4>
             <ul className="space-y-4">
               <li>
                 <Link
-                  href="#"
+                  href="/about"
                   className="text-sm text-muted-foreground hover:text-[#84CC16] transition"
                 >
                   About
@@ -85,7 +45,7 @@ export default function Footer() {
               </li>
               <li>
                 <Link
-                  href="#"
+                  href="/contact-us"
                   className="text-sm text-muted-foreground hover:text-[#84CC16] transition"
                 >
                   Contact
@@ -99,14 +59,6 @@ export default function Footer() {
                   Blog
                 </Link>
               </li>
-              <li>
-                <Link
-                  href="#"
-                  className="text-sm text-muted-foreground hover:text-[#84CC16] transition"
-                >
-                  Careers
-                </Link>
-              </li>
             </ul>
           </div>
 
@@ -117,23 +69,15 @@ export default function Footer() {
             <ul className="space-y-4">
               <li>
                 <Link
-                  href="#"
+                  href="/faqs"
                   className="text-sm text-muted-foreground hover:text-[#84CC16] transition"
                 >
-                  Help Center
+                  FAQs
                 </Link>
               </li>
               <li>
                 <Link
-                  href="#"
-                  className="text-sm text-muted-foreground hover:text-[#84CC16] transition"
-                >
-                  Documentation
-                </Link>
-              </li>
-              <li>
-                <Link
-                  href="#"
+                  href="/terms-conditions"
                   className="text-sm text-muted-foreground hover:text-[#84CC16] transition"
                 >
                   Terms & Conditions
@@ -141,7 +85,7 @@ export default function Footer() {
               </li>
               <li>
                 <Link
-                  href="#"
+                  href="/privacy-policy"
                   className="text-sm text-muted-foreground hover:text-[#84CC16] transition"
                 >
                   Privacy Policy
@@ -174,13 +118,13 @@ export default function Footer() {
           </p>
           <div className="flex gap-8">
             <Link
-              href="#"
+              href="/privacy-policy"
               className="text-[11px] font-bold text-muted-foreground hover:text-foreground transition uppercase tracking-widest"
             >
               Privacy Policy
             </Link>
             <Link
-              href="#"
+              href="/terms-conditions"
               className="text-[11px] font-bold text-muted-foreground hover:text-foreground transition uppercase tracking-widest"
             >
               Terms of Service

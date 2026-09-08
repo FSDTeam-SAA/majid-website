@@ -289,8 +289,15 @@ export default function SignUp() {
               </div>
               <span className="text-[13px] font-bold text-[#64748B] group-hover:text-[#0F172A] transition">
                 I agree to the{" "}
-                <span className="text-[#84CC16]">Terms of services</span> and{" "}
-                <span className="text-[#84CC16]">Privacy Policy</span>
+                <Link
+                  href="/terms-conditions"
+                  target="_blank"
+                  className="text-[#84CC16] hover:underline"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  Terms of services
+                </Link>{" "}
+                and <span className="text-[#84CC16]">Privacy Policy</span>
               </span>
             </label>
           </div>
