@@ -35,14 +35,23 @@ export default function ShopkeeperLayout({
   // Guest-allowed pages render immediately so scan can start right away
   if (status === "loading" && !isGuestAllowedPage) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="w-10 h-10 border-4 border-[#84CC16] border-t-transparent rounded-full animate-spin" />
+      <div
+        className="flex items-center justify-center min-h-screen"
+        suppressHydrationWarning
+      >
+        <div
+          className="w-10 h-10 border-4 border-[#84CC16] border-t-transparent rounded-full animate-spin"
+          suppressHydrationWarning
+        />
       </div>
     );
   }
 
   return (
-    <div className="flex min-h-screen bg-surface text-foreground">
+    <div
+      className="flex min-h-screen bg-surface text-foreground"
+      suppressHydrationWarning
+    >
       {/* Desktop Sidebar — authenticated only */}
       {isAuthenticated && (
         <div className="hidden lg:block overflow-visible">

@@ -16,6 +16,7 @@ import {
   X,
   Search,
   ChevronDown,
+  Smartphone,
 } from "lucide-react";
 import { useSession } from "next-auth/react";
 import { toast } from "sonner";
@@ -55,6 +56,13 @@ import {
   useCategories,
   useMyInventory,
 } from "@/features/shopkeeper/inventory/hooks/useInventory";
+import {
+  searchDeviceCatalog,
+  COMMON_STORAGES,
+  COMMON_COLORS,
+  COMMON_CONDITIONS,
+  DEVICE_CATALOG,
+} from "@/features/shopkeeper/inventory/data/deviceCatalog";
 import { useMyInvoiceGet } from "@/features/shopkeeper/inventory/hooks/useInvoiceGenaretor";
 import { InvoiceDateTimeSection } from "../../_components/InvoiceDateTimeSection";
 import { CollectPaymentModal } from "../../_components/CollectPaymentModal";
@@ -566,6 +574,22 @@ const PurchaseReceiptPDF = ({
   );
 };
 
+function dedupeStrings(arr: (string | undefined | null)[]): string[] {
+  const seen = new Set<string>();
+  const result: string[] = [];
+  for (const item of arr) {
+    if (!item) continue;
+    const trimmed = String(item).trim();
+    if (!trimmed) continue;
+    const lower = trimmed.toLowerCase();
+    if (!seen.has(lower)) {
+      seen.add(lower);
+      result.push(trimmed);
+    }
+  }
+  return result;
+}
+
 interface ItemNameAutocompleteProps {
   value: string;
   onChange: (value: string) => void;
@@ -600,23 +624,56 @@ function ItemNameAutocomplete({
   const filteredItems = useMemo(() => {
     const q = (value || "").trim().toLowerCase();
     const seen = new Set<string>();
-    const unique: any[] = [];
+    const inventoryMatches: any[] = [];
+
+    // 1. Existing inventory items (Top priority)
     for (const item of inventoryItems) {
       if (!item?.itemName) continue;
-      const key = `${item.itemName}-${item.storage || ""}-${item.color || ""}-${item.currentState || (item as any).condition || ""}`;
+      const key =
+        `${item.itemName}-${item.storage || ""}-${item.color || ""}-${item.currentState || (item as any).condition || ""}`.toLowerCase();
       if (!seen.has(key)) {
         seen.add(key);
-        unique.push(item);
+        if (
+          !q ||
+          String(item.itemName || "")
+            .toLowerCase()
+            .includes(q)
+        ) {
+          inventoryMatches.push({
+            ...item,
+            source: "inventory",
+          });
+        }
       }
     }
-    if (!q) return unique.slice(0, 25);
-    return unique
-      .filter((item) =>
-        String(item.itemName || "")
-          .toLowerCase()
-          .includes(q),
-      )
-      .slice(0, 30);
+
+    // 2. Common device catalog suggestions
+    const catalogResults = searchDeviceCatalog(q, 35);
+    const catalogMatches: any[] = [];
+    for (const device of catalogResults) {
+      const modelKey = device.itemName.toLowerCase();
+      if (!seen.has(modelKey)) {
+        seen.add(modelKey);
+        catalogMatches.push({
+          itemName: device.itemName,
+          brand: device.brand,
+          storage: device.storages[0] || "",
+          availableStorages: device.storages,
+          color: device.colors[0] || "",
+          availableColors: device.colors,
+          condition: device.currentState || "new",
+          currentState: device.currentState || "new",
+          source: "catalog",
+        });
+      }
+    }
+
+    const maxInventory = q ? 15 : 10;
+    const maxCatalog = q ? 20 : 15;
+    return [
+      ...inventoryMatches.slice(0, maxInventory),
+      ...catalogMatches.slice(0, maxCatalog),
+    ];
   }, [value, inventoryItems]);
 
   return (
@@ -649,22 +706,20 @@ function ItemNameAutocomplete({
       </div>
 
       {isOpen && (
-        <div className="absolute z-50 left-0 right-0 mt-1.5 max-h-64 overflow-y-auto rounded-2xl border border-primary/40 bg-popover shadow-2xl backdrop-blur-md p-1.5 animate-in fade-in-50 zoom-in-95">
+        <div className="absolute z-50 left-0 right-0 mt-1.5 max-h-72 overflow-y-auto rounded-2xl border border-primary/40 bg-popover shadow-2xl backdrop-blur-md p-1.5 animate-in fade-in-50 zoom-in-95">
           {filteredItems.length > 0 ? (
             <div className="space-y-1">
               <div className="px-3 py-1.5 text-[11px] font-black uppercase tracking-wider text-muted-foreground flex items-center justify-between">
                 <span>
-                  {value.trim()
-                    ? "Matching Results"
-                    : "Quick Selection - Existing Items"}
+                  {value.trim() ? "Suggestions" : "Common Devices & Inventory"}
                 </span>
                 <span className="text-[10px] font-medium text-primary font-mono">
-                  {filteredItems.length} items
+                  {filteredItems.length} suggestions
                 </span>
               </div>
               {filteredItems.map((item, idx) => (
                 <button
-                  key={`${item._id || idx}-${item.itemName}`}
+                  key={`${item.source || "item"}-${item._id || idx}-${item.itemName}`}
                   type="button"
                   onClick={() => {
                     onSelectItem(item);
@@ -673,15 +728,33 @@ function ItemNameAutocomplete({
                   className="w-full text-left px-3 py-2.5 rounded-xl hover:bg-primary/10 transition-colors flex items-center justify-between gap-2 group cursor-pointer"
                 >
                   <div className="flex flex-col min-w-0">
-                    <span className="font-bold text-sm text-foreground group-hover:text-primary transition-colors truncate">
-                      {item.itemName}
-                    </span>
-                    <div className="flex flex-wrap gap-1.5 mt-1">
+                    <div className="flex items-center gap-2">
+                      <span className="font-bold text-sm text-foreground group-hover:text-primary transition-colors truncate">
+                        {item.itemName}
+                      </span>
+                      {item.source === "catalog" ? (
+                        <span className="inline-flex items-center gap-1 text-[9px] font-black uppercase tracking-wider bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20 px-1.5 py-0.5 rounded-full shrink-0">
+                          <Smartphone size={10} />
+                          Catalog
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center text-[9px] font-black uppercase tracking-wider bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 px-1.5 py-0.5 rounded-full shrink-0">
+                          In Inventory
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex flex-wrap items-center gap-1.5 mt-1">
                       {item.storage && (
                         <span className="inline-block text-[10px] font-semibold bg-muted px-1.5 py-0.5 rounded text-muted-foreground">
                           {item.storage}
                         </span>
                       )}
+                      {item.availableStorages &&
+                        item.availableStorages.length > 1 && (
+                          <span className="inline-block text-[9px] font-medium text-muted-foreground/70">
+                            (+{item.availableStorages.length - 1} sizes)
+                          </span>
+                        )}
                       {item.color && (
                         <span className="inline-block text-[10px] font-semibold bg-muted px-1.5 py-0.5 rounded text-muted-foreground">
                           {item.color}
@@ -702,8 +775,144 @@ function ItemNameAutocomplete({
             </div>
           ) : (
             <div className="p-4 text-center text-xs text-muted-foreground">
-              No matching existing items found. You can continue typing to add
-              this item manually.
+              No matching devices found. You can continue typing to add this
+              item manually.
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+interface QuickSelectInputProps {
+  value: string;
+  onChange: (value: string) => void;
+  options: string[];
+  preferredOptions?: string[];
+  placeholder?: string;
+  listId?: string;
+  className?: string;
+}
+
+function QuickSelectInput({
+  value,
+  onChange,
+  options,
+  preferredOptions,
+  placeholder,
+  listId,
+  className,
+}: QuickSelectInputProps) {
+  const [isOpen, setIsOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (
+        containerRef.current &&
+        !containerRef.current.contains(event.target as Node)
+      ) {
+        setIsOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const displayOptions = useMemo(() => {
+    const q = (value || "").trim().toLowerCase();
+    const allUnique = dedupeStrings([...(preferredOptions || []), ...options]);
+
+    if (!q) return allUnique;
+
+    const matches = allUnique.filter((opt) => opt.toLowerCase().includes(q));
+    const isExactMatch = allUnique.some((opt) => opt.toLowerCase() === q);
+    // If exact match with current value, show all options so user can switch between them
+    if (isExactMatch) {
+      return allUnique;
+    }
+    return matches.length > 0 ? matches : allUnique;
+  }, [value, options, preferredOptions]);
+
+  return (
+    <div ref={containerRef} className="relative w-full">
+      <div className="relative">
+        <Input
+          list={listId}
+          placeholder={placeholder}
+          className={`rounded-2xl h-12 pr-10 border-primary bg-background font-bold ${className || ""}`}
+          value={value}
+          onChange={(e) => {
+            onChange(e.target.value);
+            if (!isOpen) setIsOpen(true);
+          }}
+          onFocus={() => setIsOpen(true)}
+        />
+        <button
+          type="button"
+          onClick={() => setIsOpen((prev) => !prev)}
+          className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors p-1 cursor-pointer"
+          tabIndex={-1}
+          aria-label="Toggle options"
+        >
+          <ChevronDown
+            size={18}
+            className={`transition-transform duration-200 ${
+              isOpen ? "rotate-180" : ""
+            }`}
+          />
+        </button>
+      </div>
+
+      {isOpen && (
+        <div className="absolute z-50 left-0 right-0 mt-1.5 max-h-56 overflow-y-auto rounded-2xl border border-primary/40 bg-popover shadow-2xl backdrop-blur-md p-1.5 animate-in fade-in-50 zoom-in-95">
+          {displayOptions.length > 0 ? (
+            <div className="space-y-0.5">
+              {preferredOptions && preferredOptions.length > 0 && (
+                <div className="px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-muted-foreground">
+                  Recommended for this model
+                </div>
+              )}
+              {displayOptions.map((opt, idx) => {
+                const isSelected =
+                  String(opt).toLowerCase() === String(value).toLowerCase();
+                const isPreferred = preferredOptions?.includes(opt);
+
+                return (
+                  <button
+                    key={`quick-opt-${opt}-${idx}`}
+                    type="button"
+                    onClick={() => {
+                      onChange(opt);
+                      setIsOpen(false);
+                    }}
+                    className={`w-full text-left px-3 py-2 rounded-xl text-sm font-bold transition-colors flex items-center justify-between group cursor-pointer ${
+                      isSelected
+                        ? "bg-primary/15 text-primary"
+                        : "hover:bg-primary/10 text-foreground"
+                    }`}
+                  >
+                    <div className="flex items-center gap-2 truncate">
+                      <span>{opt}</span>
+                      {isPreferred && (
+                        <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-600 dark:text-blue-400">
+                          Model Spec
+                        </span>
+                      )}
+                    </div>
+                    {isSelected && (
+                      <span className="text-xs font-bold text-primary shrink-0">
+                        Selected
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="p-3 text-center text-xs text-muted-foreground">
+              No options found
             </div>
           )}
         </div>
@@ -724,23 +933,23 @@ export default function CreatePurchaseReceipt() {
 
   const uniqueInventoryData = useMemo(() => {
     const invItems = inventoryData?.data || [];
+    const invNames = invItems
+      .map((i) => i.itemName)
+      .filter(Boolean) as string[];
+    const catalogNames = DEVICE_CATALOG.map((d) => d.itemName);
+    const invStorages = invItems
+      .map((i) => i.storage)
+      .filter(Boolean) as string[];
+    const invColors = invItems.map((i) => i.color).filter(Boolean) as string[];
+    const invConditions = invItems
+      .map((i: any) => i.condition || i.currentState)
+      .filter(Boolean) as string[];
+
     return {
-      names: Array.from(
-        new Set(invItems.map((i) => i.itemName).filter(Boolean) as string[]),
-      ),
-      storages: Array.from(
-        new Set(invItems.map((i) => i.storage).filter(Boolean) as string[]),
-      ),
-      colors: Array.from(
-        new Set(invItems.map((i) => i.color).filter(Boolean) as string[]),
-      ),
-      conditions: Array.from(
-        new Set(
-          invItems
-            .map((i: any) => i.condition || i.currentState)
-            .filter(Boolean) as string[],
-        ),
-      ),
+      names: dedupeStrings([...invNames, ...catalogNames]),
+      storages: dedupeStrings([...invStorages, ...COMMON_STORAGES]),
+      colors: dedupeStrings([...invColors, ...COMMON_COLORS]),
+      conditions: dedupeStrings([...invConditions, ...COMMON_CONDITIONS]),
     };
   }, [inventoryData]);
 
@@ -1678,23 +1887,29 @@ export default function CreatePurchaseReceipt() {
 
                 {/* Datalists for Inventory Autocomplete */}
                 <datalist id="inventory-names">
-                  {uniqueInventoryData.names.map((name) => (
-                    <option key={name} value={name} />
+                  {uniqueInventoryData.names.map((name, idx) => (
+                    <option key={`inv-name-${name}-${idx}`} value={name} />
                   ))}
                 </datalist>
                 <datalist id="inventory-storages">
-                  {uniqueInventoryData.storages.map((storage) => (
-                    <option key={storage} value={storage} />
+                  {uniqueInventoryData.storages.map((storage, idx) => (
+                    <option
+                      key={`inv-storage-${storage}-${idx}`}
+                      value={storage}
+                    />
                   ))}
                 </datalist>
                 <datalist id="inventory-colors">
-                  {uniqueInventoryData.colors.map((color) => (
-                    <option key={color} value={color} />
+                  {uniqueInventoryData.colors.map((color, idx) => (
+                    <option key={`inv-color-${color}-${idx}`} value={color} />
                   ))}
                 </datalist>
                 <datalist id="inventory-conditions">
-                  {uniqueInventoryData.conditions.map((condition) => (
-                    <option key={condition} value={condition} />
+                  {uniqueInventoryData.conditions.map((condition, idx) => (
+                    <option
+                      key={`inv-condition-${condition}-${idx}`}
+                      value={condition}
+                    />
                   ))}
                 </datalist>
 
@@ -1754,6 +1969,8 @@ export default function CreatePurchaseReceipt() {
                                     (found as any).condition ||
                                     found.currentState ||
                                     "",
+                                  availableStorages: found.availableStorages,
+                                  availableColors: found.availableColors,
                                   // Keep price manual per client requirement
                                   expectedPrice:
                                     updated[itemIndex].expectedPrice,
@@ -1770,13 +1987,24 @@ export default function CreatePurchaseReceipt() {
                             <label className="font-bold text-sm text-muted-foreground ml-1 mb-1 block">
                               Storage / Memory
                             </label>
-                            <Input
-                              list="inventory-storages"
+                            <QuickSelectInput
+                              listId="inventory-storages"
                               placeholder="Select or Type Storage"
-                              className="rounded-2xl h-12 border-primary bg-background font-bold"
                               value={item.storage || ""}
-                              onChange={(e) =>
-                                updateItem(itemIndex, "storage", e.target.value)
+                              options={uniqueInventoryData.storages}
+                              preferredOptions={
+                                item.availableStorages?.length
+                                  ? item.availableStorages
+                                  : item.name
+                                    ? DEVICE_CATALOG.find(
+                                        (d) =>
+                                          d.itemName.toLowerCase() ===
+                                          item.name.trim().toLowerCase(),
+                                      )?.storages
+                                    : undefined
+                              }
+                              onChange={(val) =>
+                                updateItem(itemIndex, "storage", val)
                               }
                             />
                           </div>
@@ -1785,13 +2013,24 @@ export default function CreatePurchaseReceipt() {
                             <label className="font-bold text-sm text-muted-foreground ml-1 mb-1 block">
                               Color
                             </label>
-                            <Input
-                              list="inventory-colors"
+                            <QuickSelectInput
+                              listId="inventory-colors"
                               placeholder="Select or Type Color"
-                              className="rounded-2xl h-12 border-primary bg-background font-bold"
                               value={item.color || ""}
-                              onChange={(e) =>
-                                updateItem(itemIndex, "color", e.target.value)
+                              options={uniqueInventoryData.colors}
+                              preferredOptions={
+                                item.availableColors?.length
+                                  ? item.availableColors
+                                  : item.name
+                                    ? DEVICE_CATALOG.find(
+                                        (d) =>
+                                          d.itemName.toLowerCase() ===
+                                          item.name.trim().toLowerCase(),
+                                      )?.colors
+                                    : undefined
+                              }
+                              onChange={(val) =>
+                                updateItem(itemIndex, "color", val)
                               }
                             />
                           </div>
@@ -1800,17 +2039,13 @@ export default function CreatePurchaseReceipt() {
                             <label className="font-bold text-sm text-muted-foreground ml-1 mb-1 block">
                               Condition
                             </label>
-                            <Input
-                              list="inventory-conditions"
+                            <QuickSelectInput
+                              listId="inventory-conditions"
                               placeholder="Select or Type Condition"
-                              className="rounded-2xl h-12 border-primary bg-background font-bold"
                               value={item.condition || ""}
-                              onChange={(e) =>
-                                updateItem(
-                                  itemIndex,
-                                  "condition",
-                                  e.target.value,
-                                )
+                              options={uniqueInventoryData.conditions}
+                              onChange={(val) =>
+                                updateItem(itemIndex, "condition", val)
                               }
                             />
                           </div>
