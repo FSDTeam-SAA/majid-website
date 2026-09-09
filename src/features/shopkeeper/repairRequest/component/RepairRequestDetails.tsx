@@ -9,6 +9,7 @@ import {
   User,
   Mail,
   X,
+  XCircle,
   ChevronLeft,
   ChevronRight,
   CheckCircle2,
@@ -43,6 +44,7 @@ import axios from "axios";
 import { useSession } from "next-auth/react";
 import { useMyProfile } from "../../settings/hooks/useSettings";
 import { RepairRequestFormModal } from "@/features/customer/repairRequest/component/RepairRequestFormModal";
+import UnableToRepairModal from "./UnableToRepairModal";
 
 const timelineSteps = [
   {
@@ -100,9 +102,10 @@ export default function RepairRequestDetails({ id }: { id: string }) {
   const updateStatus = useUpdateRepairRequestStatusByShopkeeper();
   const session = useSession();
   const { data: profileData } = useMyProfile();
-  const { currency, formatCurrency } = useCurrency();
+  const { formatCurrency } = useCurrency();
   const [showOfferModal, setShowOfferModal] = useState(false);
   const [isReassignModalOpen, setIsReassignModalOpen] = useState(false);
+  const [showUnableToRepairModal, setShowUnableToRepairModal] = useState(false);
   const updateResentQuote = useUpdateResentRepairQuoteStatus();
   const addRepairNote = useAddRepairRequestNote();
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
@@ -222,6 +225,7 @@ export default function RepairRequestDetails({ id }: { id: string }) {
   };
 
   const currentStatus = request?.status;
+  const isUnableToRepair = currentStatus === "unable-to-repair";
 
   const currentStepIndex = timelineSteps.findIndex((step) =>
     step.statuses.includes(currentStatus),
@@ -319,8 +323,14 @@ export default function RepairRequestDetails({ id }: { id: string }) {
                       </p>
                     </div>
                   </div>
-                  <div className="px-5 py-1.5 bg-[#DCFCE7] text-[#16A34A] rounded-full text-xs font-black uppercase tracking-wider">
-                    {request.status.replace(/_/g, " ")}
+                  <div
+                    className={`px-5 py-1.5 rounded-full text-xs font-black uppercase tracking-wider ${
+                      isUnableToRepair
+                        ? "bg-red-100 text-red-700"
+                        : "bg-[#DCFCE7] text-[#16A34A]"
+                    }`}
+                  >
+                    {request.status.replace(/[-_]/g, " ")}
                   </div>
                 </div>
 
@@ -358,12 +368,27 @@ export default function RepairRequestDetails({ id }: { id: string }) {
               </div>
 
               <div className="relative border-l-2 border-border dark:border-yellow-400 ml-4 space-y-8 pb-4">
-                {timelineSteps.map((step, index) => {
+                {(isUnableToRepair
+                  ? timelineSteps.filter((step) =>
+                      [
+                        "order_booked",
+                        "order_assigned",
+                        "reassigned",
+                        "diagnosing",
+                        "quote_sent",
+                      ].includes(step.id),
+                    )
+                  : timelineSteps
+                ).map((step, index) => {
                   const isCompleted =
-                    isCompletedStatus || index < currentStepIndex;
+                    isUnableToRepair ||
+                    isCompletedStatus ||
+                    index < currentStepIndex;
 
                   const isActive =
-                    !isCompletedStatus && index === currentStepIndex;
+                    !isUnableToRepair &&
+                    !isCompletedStatus &&
+                    index === currentStepIndex;
 
                   let dotStyle = "bg-muted border-border text-muted-foreground"; // pending default
 
@@ -424,6 +449,39 @@ export default function RepairRequestDetails({ id }: { id: string }) {
                     </div>
                   );
                 })}
+
+                {isUnableToRepair && (
+                  <div className="relative pl-8">
+                    {/* RED DOT WITH X */}
+                    <div className="absolute -left-[11px] top-1 flex h-5 w-5 items-center justify-center rounded-full bg-[#EF4444] border-2 border-[#EF4444] text-white shadow-sm">
+                      <X size={12} strokeWidth={3} />
+                    </div>
+
+                    {/* CONTENT */}
+                    <div>
+                      <div className="flex items-center gap-3">
+                        <h4 className="text-base font-bold text-foreground">
+                          Unable to Repair
+                        </h4>
+                      </div>
+
+                      <p className="text-sm font-medium text-muted-foreground mt-1">
+                        {request.unableToRepairReason ||
+                          "Motherboard issue — service not offered"}
+                      </p>
+
+                      <p className="text-sm font-medium text-muted-foreground mt-0.5">
+                        Customer notified
+                      </p>
+
+                      <div className="mt-2">
+                        <span className="inline-block px-3 py-1 rounded-full text-xs font-bold bg-[#FEE2E2] text-[#B91C1C] border border-[#FECACA]">
+                          Closed — Unrepaired
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Issue Description Card */}
@@ -919,6 +977,22 @@ export default function RepairRequestDetails({ id }: { id: string }) {
                       Reassigned
                     </Button>
                   )}
+
+                  <Button
+                    type="button"
+                    onClick={() => setShowUnableToRepairModal(true)}
+                    className="col-span-2 w-full rounded-full font-bold h-11 cursor-pointer !bg-[#EF4444] hover:!bg-red-600 text-white flex items-center justify-center gap-2 uppercase tracking-wide shadow-md shadow-red-500/20"
+                  >
+                    <XCircle size={18} />
+                    Unable to Repair
+                  </Button>
+
+                  <UnableToRepairModal
+                    isOpen={showUnableToRepairModal}
+                    onClose={() => setShowUnableToRepairModal(false)}
+                    repairRequest={request}
+                    onSuccess={() => refetch()}
+                  />
 
                   <RepairRequestFormModal
                     shopkeeper={null}

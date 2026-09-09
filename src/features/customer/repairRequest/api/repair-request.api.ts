@@ -161,6 +161,9 @@ export const updateRepairReSentQuoteStatus = async ({
   status,
   waitingForPartsDays,
   waitingForPartsDescription,
+  unableToRepairReason,
+  unableToRepairNote,
+  unableToRepairCustomerMessage,
 }: {
   id: string;
   status:
@@ -173,15 +176,22 @@ export const updateRepairReSentQuoteStatus = async ({
     | "start-work"
     | "waiting-for-parts"
     | "order-assigned"
-    | "diagnosing";
+    | "diagnosing"
+    | "unable-to-repair";
   waitingForPartsDays?: number;
   waitingForPartsDescription?: string;
+  unableToRepairReason?: string;
+  unableToRepairNote?: string;
+  unableToRepairCustomerMessage?: string;
   userNotesId?: string;
 }): Promise<ApiResponse<RepairRequest>> => {
   const response = await api.put(`/repair-requests/update-status/${id}`, {
     status,
     waitingForPartsDays,
     waitingForPartsDescription,
+    unableToRepairReason,
+    unableToRepairNote,
+    unableToRepairCustomerMessage,
   });
   return response.data;
 };

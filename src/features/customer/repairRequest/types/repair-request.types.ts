@@ -46,7 +46,8 @@ export type RepairRequestStatus =
   | "repair_in_progress"
   | "completed"
   | "reassigned"
-  | "quote-resent";
+  | "quote-resent"
+  | "unable-to-repair";
 
 export interface ShopkeeperNote {
   _id?: string;
@@ -111,4 +112,7 @@ export interface RepairRequest {
   userNotes?: UserNote[];
   waitingForPartsDays?: number;
   waitingForPartsDescription?: string;
+  unableToRepairReason?: string;
+  unableToRepairNote?: string;
+  unableToRepairCustomerMessage?: string;
 }
