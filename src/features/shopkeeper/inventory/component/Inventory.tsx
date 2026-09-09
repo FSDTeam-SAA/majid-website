@@ -178,11 +178,23 @@ export default function Inventory() {
   const stockItems = filteredItems;
 
   const totalValue = useMemo(() => {
-    return items.reduce(
-      (sum: number, item: InventoryItem) =>
-        sum + getInventoryDisplayPrice(item),
-      0,
-    );
+    return items.reduce((sum: number, item: InventoryItem) => {
+      const price = getInventoryDisplayPrice(item);
+      if (Array.isArray(item.variants) && item.variants.length > 0) {
+        const variantsTotal = item.variants.reduce((vSum, v) => {
+          const vPrice = v.expectedPrice ?? price;
+          const vQty = Number(v.quantity) || 0;
+          return vSum + vPrice * vQty;
+        }, 0);
+        return (
+          sum +
+          (variantsTotal > 0
+            ? variantsTotal
+            : price * (Number(item.quantity) || 0))
+        );
+      }
+      return sum + price * (Number(item.quantity) || 0);
+    }, 0);
   }, [items]);
 
   const handleDelete = (id: string) => {
