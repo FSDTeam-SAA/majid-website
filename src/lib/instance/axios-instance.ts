@@ -1,5 +1,5 @@
 import axios, { AxiosInstance, InternalAxiosRequestConfig } from "axios";
-import { getSession } from "next-auth/react";
+import { getSession, signOut } from "next-auth/react";
 import { getActiveShopId } from "@/features/shopkeeper/shop/store/shopStorage";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL;
@@ -51,6 +51,37 @@ axiosInstance.interceptors.request.use(
     return config;
   },
   (error) => Promise.reject(error),
+);
+
+// Response interceptor to handle 401 errors
+axiosInstance.interceptors.response.use(
+  (response) => response,
+  async (error) => {
+    const originalRequest = error.config;
+
+    // Do not retry refresh-token endpoint itself on 401 to prevent loop
+    if (originalRequest?.url?.includes("/auth/refresh-token")) {
+      return Promise.reject(error);
+    }
+
+    if (error.response?.status === 401 && !originalRequest?._retry) {
+      originalRequest._retry = true;
+
+      const session = await getSession();
+
+      if (session?.error === "RefreshAccessTokenError") {
+        signOut({ callbackUrl: "/auth/login" });
+        return Promise.reject(error);
+      }
+
+      if (session?.accessToken) {
+        originalRequest.headers.Authorization = `Bearer ${session.accessToken}`;
+        return axiosInstance(originalRequest);
+      }
+    }
+
+    return Promise.reject(error);
+  },
 );
 
 export default axiosInstance;

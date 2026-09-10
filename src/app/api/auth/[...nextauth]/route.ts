@@ -110,6 +110,11 @@ const handler = NextAuth({
     strategy: "jwt",
   },
 
+  pages: {
+    signIn: "/auth/login",
+    error: "/auth/login",
+  },
+
   callbacks: {
     async jwt({ token, user, trigger, session }) {
       // Initial sign in

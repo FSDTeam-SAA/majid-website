@@ -299,7 +299,7 @@ export default function Pricing() {
                         "Please contact our support for Enterprise solutions.",
                       );
                     } else {
-                      window.location.href = "/login";
+                      window.location.href = "/auth/login";
                     }
                   }}
                   className={`w-full mt-auto font-bold py-4 rounded-2xl transition cursor-pointer ${styles.button}`}
