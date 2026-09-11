@@ -426,6 +426,7 @@ export type Customer = {
   // optional fields
   salesMethod?: string;
   actualSalePrice?: number;
+  repairCount?: number;
 
   createdAt: string;
   updatedAt: string;

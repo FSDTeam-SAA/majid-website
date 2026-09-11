@@ -11,6 +11,7 @@ import {
   updateRepairRequestStatusByShopkeeper,
   addRepairRequestNote,
   updateRepairReSentQuoteStatus,
+  getCustomerRepairHistory,
 } from "../api/repair-request.api";
 
 export function useShopkeeperRepairRequests(page = 1, limit = 10) {
@@ -161,5 +162,22 @@ export function useUpdateResentRepairQuoteStatus() {
         error.response?.data?.message || "Failed to update quote status",
       );
     },
+  });
+}
+
+export function useCustomerRepairHistory(
+  params: { phone?: string; email?: string; customerId?: string },
+  enabled = true,
+) {
+  return useQuery({
+    queryKey: [
+      "customer-repair-history",
+      params.phone,
+      params.email,
+      params.customerId,
+    ],
+    queryFn: () => getCustomerRepairHistory(params),
+    enabled:
+      enabled && Boolean(params.phone || params.email || params.customerId),
   });
 }

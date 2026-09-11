@@ -17,6 +17,8 @@ import {
   Search,
   ChevronDown,
   Smartphone,
+  ExternalLink,
+  Printer,
 } from "lucide-react";
 import { useSession } from "next-auth/react";
 import { toast } from "sonner";
@@ -590,6 +592,10 @@ function dedupeStrings(arr: (string | undefined | null)[]): string[] {
   return result;
 }
 
+function generateRandomReceiptNumber(): string {
+  return `PI-${Math.floor(10000 + Math.random() * 90000)}`;
+}
+
 interface ItemNameAutocompleteProps {
   value: string;
   onChange: (value: string) => void;
@@ -1008,6 +1014,13 @@ export default function CreatePurchaseReceipt() {
   const [selectedCustomerId, setSelectedCustomerId] = useState("");
   const [customerSearchQuery, setCustomerSearchQuery] = useState("");
   const [validationAttempted, setValidationAttempted] = useState(false);
+  const [savedReceipt, setSavedReceipt] = useState<{
+    receiptNumber: string;
+    pdfUrl?: string | null;
+    pdfBlob?: Blob | null;
+  } | null>(null);
+  const [showSuccessBanner, setShowSuccessBanner] = useState(false);
+  const [showDataClearedCard, setShowDataClearedCard] = useState(false);
   const getInvoiceUser = useMyInvoiceGet(shopkeeperId || "223423423");
   const customers = useMemo(
     () => getInvoiceUser?.data?.data || [],
@@ -1396,6 +1409,28 @@ export default function CreatePurchaseReceipt() {
   );
   const isSubmitting = isCreatingInvoice || isCreatingInventory;
 
+  const validItems = useMemo(
+    () => items.filter((i) => Boolean(String(i.name || "").trim())),
+    [items],
+  );
+  const uniqueDevicesCount = validItems.length;
+  const aggregatedScannedIdentifiers = useMemo(
+    () => items.reduce((acc, item) => acc + (item.serials?.length || 0), 0),
+    [items],
+  );
+
+  const isReadyForNewCustomer = useMemo(() => {
+    return (
+      !customer.firstName.trim() &&
+      !customer.lastName.trim() &&
+      !customer.email.trim() &&
+      !customer.phone.trim() &&
+      !customer.address.trim() &&
+      !customer.idNumber.trim() &&
+      !selectedCustomerId
+    );
+  }, [customer, selectedCustomerId]);
+
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const [paymentForm, setPaymentForm] = useState<CheckoutPaymentForm>(() =>
     createCheckoutPaymentForm(0),
@@ -1447,6 +1482,33 @@ export default function CreatePurchaseReceipt() {
     await handleCreateReceipt(payment);
   };
 
+  const handleViewReceipt = () => {
+    if (savedReceipt?.pdfUrl) {
+      window.open(savedReceipt.pdfUrl, "_blank");
+      return;
+    }
+    if (savedReceipt?.pdfBlob) {
+      const blobUrl = URL.createObjectURL(savedReceipt.pdfBlob);
+      window.open(blobUrl, "_blank");
+    }
+  };
+
+  const handlePrintReceipt = () => {
+    if (savedReceipt?.pdfBlob) {
+      const blobUrl = URL.createObjectURL(savedReceipt.pdfBlob);
+      const printWindow = window.open(blobUrl);
+      if (printWindow) {
+        printWindow.addEventListener("load", () => {
+          printWindow.print();
+        });
+      }
+      return;
+    }
+    if (savedReceipt?.pdfUrl) {
+      window.open(savedReceipt.pdfUrl, "_blank");
+    }
+  };
+
   const handleCreateReceipt = async (payment?: CheckoutPaymentResult) => {
     const doc = (
       <PurchaseReceiptPDF
@@ -1465,6 +1527,8 @@ export default function CreatePurchaseReceipt() {
       `purchase_receipt_${customer.firstName || "customer"}.pdf`,
       { type: "application/pdf" },
     );
+
+    const generatedReceiptNumber = generateRandomReceiptNumber();
 
     try {
       if (addToInventory) {
@@ -1494,7 +1558,7 @@ export default function CreatePurchaseReceipt() {
         );
       }
 
-      await createInvoice({
+      const invoiceRes = await createInvoice({
         shopkeeperId: shopkeeperId || "",
         type: "Purchase Invoice",
         invoice: file,
@@ -1505,7 +1569,57 @@ export default function CreatePurchaseReceipt() {
         paymentStatus: payment?.status || "paid",
         paymentDetails: payment?.details,
         currency,
+        invoiceNumber: generatedReceiptNumber,
       });
+
+      const invoiceData = (invoiceRes as any)?.data || invoiceRes;
+      const finalReceiptNumber =
+        invoiceData?.invoiceNumber ||
+        (invoiceData?._id
+          ? `PI-${String(invoiceData._id).slice(-5).toUpperCase()}`
+          : generatedReceiptNumber);
+
+      setSavedReceipt({
+        receiptNumber: finalReceiptNumber,
+        pdfUrl: invoiceData?.invoice?.url || null,
+        pdfBlob: blob,
+      });
+      setShowSuccessBanner(true);
+      setShowDataClearedCard(true);
+
+      // Reset customer and contact fields (Developer Note 2)
+      setCustomer({
+        firstName: "",
+        lastName: "",
+        email: "",
+        phone: "",
+        address: "",
+        idNumber: "",
+      });
+      setSelectedCustomerId("");
+      setCustomerSearchQuery("");
+      setValidationAttempted(false);
+
+      // Reset items to one blank Device #1 card (Developer Note 3)
+      setItems([
+        {
+          name: "",
+          storage: "",
+          color: "",
+          condition: "",
+          quantity: 1,
+          expectedPrice: 0,
+          serials: [],
+        },
+      ]);
+      setAddToInventory(false);
+      setSelectedCategoryId("");
+
+      // Clear uploaded ID images, captured photos, scanned IMEI/serials (Developer Note 5)
+      setScanInputs({});
+      setCapturedImage(null);
+      setOcrStatus(null);
+      setIsParsingFile({});
 
       setIsPaymentModalOpen(false);
 
@@ -1515,6 +1629,7 @@ export default function CreatePurchaseReceipt() {
           : "Purchase receipt created successfully",
       );
     } catch {
+      // If saving fails, keep the entered data and show an error—do not reset the form.
       toast.error(
         addToInventory
           ? "Failed to create purchase receipt or add items to inventory"
@@ -1550,29 +1665,92 @@ export default function CreatePurchaseReceipt() {
           />
         </div>
 
+        {/* Callout 1: SUCCESS BANNER (Show success only after server confirms invoice was saved) */}
+        {showSuccessBanner && savedReceipt && (
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-4 md:p-5 rounded-2xl border border-green-200 bg-green-50/90 dark:bg-green-950/30 dark:border-green-800 text-foreground shadow-sm transition-all animate-in fade-in slide-in-from-top-2 duration-300">
+            <div className="flex items-center gap-3.5">
+              <div className="w-10 h-10 rounded-full bg-green-600 text-white flex items-center justify-center shrink-0 shadow-sm">
+                <CheckCircle2 className="w-6 h-6" />
+              </div>
+              <div>
+                <h3 className="text-base font-black leading-tight text-foreground">
+                  Purchase invoice created successfully
+                </h3>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Receipt {savedReceipt.receiptNumber} has been saved.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2.5 w-full sm:w-auto justify-end">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={handleViewReceipt}
+                className="rounded-xl font-bold text-xs gap-1.5 h-9 bg-background hover:bg-muted"
+              >
+                <ExternalLink className="w-3.5 h-3.5" />
+                View Receipt
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={handlePrintReceipt}
+                className="rounded-xl font-bold text-xs gap-1.5 h-9 bg-background hover:bg-muted"
+              >
+                <Printer className="w-3.5 h-3.5" />
+                Print
+              </Button>
+              <button
+                type="button"
+                onClick={() => setShowSuccessBanner(false)}
+                className="text-muted-foreground hover:text-foreground p-1 rounded-lg transition-colors ml-1"
+                aria-label="Dismiss banner"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        )}
+
         <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
           {/* LEFT CONTAINER */}
           <div className="xl:col-span-2 space-y-6">
-            {/* CUSTOMER INFORMATION CONFIGURATION SUB-PANEL */}
+            {/* Callout 2: CUSTOMER AND ADDRESS DETAILS SUB-PANEL */}
             <Card className="rounded-[28px] border-0 shadow-sm">
               <CardContent className="p-8 space-y-6">
-                <div className="flex items-center gap-3">
-                  <div className="w-11 h-11 rounded-2xl bg-orange-100 text-orange-600 flex items-center justify-center">
-                    <User size={22} />
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-11 h-11 rounded-2xl bg-orange-100 text-orange-600 flex items-center justify-center shrink-0">
+                      <User size={22} />
+                    </div>
+                    <div>
+                      <h2 className="text-2xl font-black">
+                        Customer and Address Details
+                      </h2>
+                      <p className="text-sm text-muted-foreground">
+                        Enter customer information or capture an ID to get
+                        started
+                      </p>
+                    </div>
                   </div>
-                  <div>
-                    <h2 className="text-2xl font-black">
-                      Customer Information
-                    </h2>
-                    <p className="text-sm text-muted-foreground">
-                      Identity validation framework controls
-                    </p>
-                  </div>
+
+                  {isReadyForNewCustomer && (
+                    <div className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-green-100 text-green-700 dark:bg-green-950/40 dark:text-green-300 text-xs font-bold shrink-0 self-start sm:self-center border border-green-200 dark:border-green-800">
+                      <CheckCircle2
+                        size={14}
+                        className="text-green-600 dark:text-green-400"
+                      />
+                      Ready for a new customer
+                    </div>
+                  )}
                 </div>
 
                 <div className="space-y-3">
                   <label className="font-bold text-sm text-muted-foreground ml-1">
-                    Select Existing Customer
+                    Select or create customer
                   </label>
                   <Select
                     value={selectedCustomerId}
@@ -1600,7 +1778,7 @@ export default function CreatePurchaseReceipt() {
                     }}
                   >
                     <SelectTrigger className="rounded-2xl h-12 border-primary bg-background font-bold">
-                      <SelectValue placeholder="Choose a customer" />
+                      <SelectValue placeholder="Select or create customer" />
                     </SelectTrigger>
                     <SelectContent className="rounded-2xl border-primary">
                       <div className="sticky top-0 z-10 bg-background p-2 border-b">
@@ -2298,6 +2476,7 @@ export default function CreatePurchaseReceipt() {
               </CardContent>
             </Card>
 
+            {/* Callout 4: RECEIPT SUMMARY */}
             <Card className="rounded-[28px] border-0 shadow-sm">
               <CardContent className="p-8 space-y-5">
                 <div>
@@ -2312,17 +2491,14 @@ export default function CreatePurchaseReceipt() {
                     <p className="text-xs uppercase tracking-widest font-black text-muted-foreground">
                       Total Unique Devices
                     </p>
-                    <p className="text-3xl font-black">{items.length}</p>
+                    <p className="text-3xl font-black">{uniqueDevicesCount}</p>
                   </div>
                   <div className="bg-muted rounded-2xl p-4">
                     <p className="text-xs uppercase tracking-widest font-black text-muted-foreground">
                       Aggregated Scanned Identifiers
                     </p>
                     <p className="text-3xl font-black">
-                      {items.reduce(
-                        (acc, item) => acc + item.serials.length,
-                        0,
-                      )}
+                      {aggregatedScannedIdentifiers}
                     </p>
                   </div>
                 </div>
@@ -2337,15 +2513,55 @@ export default function CreatePurchaseReceipt() {
                 </div>
 
                 <Button
-                  disabled={isSubmitting || ocrLoading}
+                  disabled={!isFormValid || isSubmitting || ocrLoading}
                   onClick={handleInitiateReceipt}
                   className="w-full h-14 rounded-2xl text-sm font-black uppercase tracking-wider"
                 >
                   Create Purchase Receipt
                   {isSubmitting && <Loader2 className="ml-2 animate-spin" />}
                 </Button>
+                {!isFormValid && (
+                  <p className="text-xs text-muted-foreground text-center font-medium mt-1">
+                    Add customer and item details to continue
+                  </p>
+                )}
               </CardContent>
             </Card>
+
+            {/* Callout 5: TEMPORARY INVOICE DATA CLEARED */}
+            {showDataClearedCard && (
+              <Card className="rounded-[28px] border border-green-200 bg-green-50/60 dark:bg-green-950/20 dark:border-green-800/40 shadow-sm animate-in fade-in slide-in-from-top-2 duration-300">
+                <CardContent className="p-6 space-y-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-full bg-green-600 text-white flex items-center justify-center shrink-0 shadow-sm">
+                      <CheckCircle2 className="w-5 h-5" />
+                    </div>
+                    <h3 className="text-base font-black text-foreground">
+                      Temporary invoice data cleared
+                    </h3>
+                  </div>
+
+                  <ul className="space-y-2.5 text-sm font-semibold text-foreground/90 pl-1">
+                    <li className="flex items-center gap-2.5">
+                      <CheckCircle2 className="w-4 h-4 text-green-600 shrink-0" />
+                      <span>Customer details</span>
+                    </li>
+                    <li className="flex items-center gap-2.5">
+                      <CheckCircle2 className="w-4 h-4 text-green-600 shrink-0" />
+                      <span>Items and prices</span>
+                    </li>
+                    <li className="flex items-center gap-2.5">
+                      <CheckCircle2 className="w-4 h-4 text-green-600 shrink-0" />
+                      <span>Scanned identifiers</span>
+                    </li>
+                    <li className="flex items-center gap-2.5">
+                      <CheckCircle2 className="w-4 h-4 text-green-600 shrink-0" />
+                      <span>Captured ID/photo</span>
+                    </li>
+                  </ul>
+                </CardContent>
+              </Card>
+            )}
           </div>
         </div>
       </div>

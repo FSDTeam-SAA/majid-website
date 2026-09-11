@@ -195,3 +195,23 @@ export const updateRepairReSentQuoteStatus = async ({
   });
   return response.data;
 };
+
+export interface CustomerRepairHistoryData {
+  repairs: RepairRequest[];
+  devices: string[];
+  issues: string[];
+  totalRepairs: number;
+  recognizedDevicesCount: number;
+  mostRecentRepair: RepairRequest | null;
+}
+
+export const getCustomerRepairHistory = async (params: {
+  phone?: string;
+  email?: string;
+  customerId?: string;
+}): Promise<ApiResponse<CustomerRepairHistoryData>> => {
+  const response = await api.get("/repair-requests/customer-history", {
+    params,
+  });
+  return response.data;
+};
