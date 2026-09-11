@@ -64,7 +64,7 @@ export default function RepairSection() {
             <div className="mb-5 inline-flex items-center gap-3 rounded-full border border-white/10 bg-white/5 px-4 py-2">
               <Wrench className="h-4 w-4 text-[#84CC16]" />
               <span className="text-sm font-bold uppercase tracking-[0.24em] text-white/70">
-                Repair Section
+                Repair Operations
               </span>
             </div>
 
@@ -75,10 +75,9 @@ export default function RepairSection() {
             </h2>
 
             <p className="mt-6 max-w-[620px] text-base leading-7 text-slate-300 md:text-lg">
-              This project already has the repair foundation in both frontend
-              and backend: request intake, status progression, technician notes,
-              customer history, and receipt generation. The new landing page
-              section now surfaces that value clearly for clients.
+              Manage complete repair workflows from initial device intake and
+              live status tracking to technician diagnostic notes, customer
+              history, and instant receipt generation.
             </p>
 
             <div className="mt-8 space-y-4">
@@ -129,8 +128,8 @@ export default function RepairSection() {
                     Customer Job Timeline
                   </h3>
                   <p className="mt-2 max-w-sm text-sm leading-6 text-slate-500">
-                    Structured for the same stages your existing repair module
-                    already tracks.
+                    Clear stage-by-stage visibility from initial diagnostic
+                    inspection to final customer collection.
                   </p>
                 </div>
                 <div className="rounded-2xl bg-[#F8FAFC] px-4 py-3 text-right">

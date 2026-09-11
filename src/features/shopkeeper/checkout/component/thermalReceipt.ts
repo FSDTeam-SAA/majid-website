@@ -10,6 +10,11 @@ export interface ThermalReceiptItem {
   sellingPrice: number;
 }
 
+export interface ThermalReceiptAllocation {
+  invoiceNumber: string;
+  amountApplied: number;
+}
+
 export interface ThermalReceiptPayload {
   invoiceNumber: string;
   createdAt: Date;
@@ -34,6 +39,9 @@ export interface ThermalReceiptPayload {
   currency: string;
   payment: CheckoutPaymentResult;
   website?: string;
+  allocations?: ThermalReceiptAllocation[];
+  previousOutstanding?: number;
+  remainingCustomerBalance?: number;
 }
 
 const escapeHtml = (value: unknown) =>
@@ -300,6 +308,32 @@ export const buildThermalReceiptHtml = (payload: ThermalReceiptPayload) => {
         getPaymentMethodLabel(payload.payment.method),
       )}</b></div>
       ${buildPaymentDetails(payload.payment, payload.currency)}
+      ${
+        payload.allocations && payload.allocations.length > 0
+          ? `
+        <div class="rule"></div>
+        <div class="item-heading">Payments to Previous Invoices</div>
+        ${payload.allocations
+          .map(
+            (alloc) => `
+          <div><span>${escapeHtml(alloc.invoiceNumber)}:</span><b>${escapeHtml(
+            formatMoney(alloc.amountApplied, payload.currency),
+          )}</b></div>
+        `,
+          )
+          .join("")}
+      `
+          : ""
+      }
+      ${
+        payload.remainingCustomerBalance !== undefined
+          ? `
+        <div><span>Remaining Customer Due:</span><b>${escapeHtml(
+          formatMoney(payload.remainingCustomerBalance, payload.currency),
+        )}</b></div>
+      `
+          : ""
+      }
     </section>
 
     <div class="thanks center">Thank you for your business!</div>

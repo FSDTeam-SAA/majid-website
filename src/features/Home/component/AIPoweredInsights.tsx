@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Zap, BarChart3, ShieldCheck, AlertCircle } from "lucide-react";
+import { Zap, BadgeCheck, ShieldCheck, AlertCircle } from "lucide-react";
 
 export default function AIPoweredInsights() {
   return (
@@ -31,8 +31,8 @@ export default function AIPoweredInsights() {
                 Comprehensive Device DNA
               </h3>
               <p className="text-[#64748B] dark:text-white text-sm md:text-base max-w-sm mb-8">
-                Our AI cross-references 140+ global databases to provide an
-                instant health score and ownership history.
+                Automated checks cross-reference device registries and records
+                to provide an instant health score and ownership profile.
               </p>
             </div>
 
@@ -69,14 +69,14 @@ export default function AIPoweredInsights() {
             <div className="bg-white/20 p-4 rounded-2xl mb-6">
               <Zap className="w-8 h-8 text-white fill-white" />
             </div>
-            <h3 className="text-2xl font-bold mb-3">0.4s Response Time</h3>
+            <h3 className="text-2xl font-bold mb-3">Rapid Automated Checks</h3>
             <p className="text-white/80 text-sm leading-relaxed">
-              The fastest AI engine in the industry. No more waiting for manual
-              database updates.
+              Automated verification engine delivering instant diagnostic
+              insights without waiting for manual database lookups.
             </p>
           </motion.div>
 
-          {/* 3. Sentiment Analysis */}
+          {/* 3. Warranty & Coverage Verification */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
@@ -84,13 +84,13 @@ export default function AIPoweredInsights() {
             transition={{ delay: 0.2 }}
             className="bg-[#EEFBCC] p-8 md:p-10 rounded-[32px] text-center flex flex-col items-center"
           >
-            <BarChart3 className="w-10 h-10 text-[#0F172A] mb-6" />
+            <BadgeCheck className="w-10 h-10 text-[#0F172A] mb-6" />
             <h3 className="text-xl font-bold text-[#0F172A] mb-3">
-              Sentiment Analysis
+              Warranty & Coverage
             </h3>
             <p className="text-[#64748B] text-sm">
-              Scanning news, social, and local permits to gauge investor
-              appetite.
+              Verify official manufacturer warranty validity, purchase
+              validation, and support coverage status.
             </p>
           </motion.div>
 
@@ -107,8 +107,8 @@ export default function AIPoweredInsights() {
               Blacklist Guard
             </h3>
             <p className="text-[#64748B] text-sm">
-              Real-time alerts for lost or stolen status across all major GSMA
-              registries.
+              Real-time alerts for lost, stolen, or blocked status across
+              international carrier registries.
             </p>
           </motion.div>
 

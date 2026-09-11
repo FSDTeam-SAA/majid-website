@@ -4,7 +4,7 @@ export const CERTIFICATE_PDF_HEIGHT = 800;
 export const QUICK_FEATURES = [
   {
     title: "Global Database",
-    desc: "Verified against 140+ global carrier and stolen device registries.",
+    desc: "Verified against global carrier and stolen device registries.",
     icon: "ShieldCheck",
     color: "bg-[#E0EEFF]",
   },

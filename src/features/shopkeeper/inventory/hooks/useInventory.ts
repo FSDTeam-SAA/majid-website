@@ -229,6 +229,8 @@ export function useCreateInvoice() {
       discountName?: string;
       discountPercentage?: number;
       discountAmount?: number;
+      allocations?:
+        Array<{ invoiceId: string; amountApplied: number }> | string;
       lineItems?: Array<{
         itemId: string;
         quantity: number;

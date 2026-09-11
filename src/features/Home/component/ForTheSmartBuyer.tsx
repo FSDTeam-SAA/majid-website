@@ -2,7 +2,6 @@
 
 import { motion } from "framer-motion";
 import { ShoppingCart, Store, ArrowUpRight } from "lucide-react";
-import Image from "next/image";
 
 const buyerFeatures = [
   "Device blacklist / stolen status check",
@@ -59,29 +58,7 @@ export default function ForTheSmartBuyer() {
               </ul>
             </div>
 
-            <div className="flex items-center justify-between mt-auto pt-8 border-t border-gray-50">
-              {/* Avatars */}
-              <div className="flex items-center">
-                <div className="flex -space-x-3 overflow-hidden">
-                  {[1, 2, 3, 4, 5].map((i) => (
-                    <div
-                      key={i}
-                      className="inline-block h-8 w-8 rounded-full ring-2 ring-white bg-gray-100 overflow-hidden"
-                    >
-                      <Image
-                        src={`https://i.pravatar.cc/150?u=${i + 10}`}
-                        alt="User"
-                        width={32}
-                        height={32}
-                      />
-                    </div>
-                  ))}
-                </div>
-                <span className="ml-4 text-xs font-black text-[#94A3B8] dark:text-white uppercase">
-                  +10k
-                </span>
-              </div>
-
+            <div className="flex items-center justify-end mt-auto pt-8 border-t border-gray-50">
               <button className="flex items-center gap-2 text-sm font-black text-[#3B82F6] hover:gap-3 transition-all">
                 Explore Solutions <ArrowUpRight size={18} />
               </button>

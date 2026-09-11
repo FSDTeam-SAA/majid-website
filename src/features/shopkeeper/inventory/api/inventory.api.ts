@@ -302,6 +302,7 @@ export const createInvoice = async (input: {
   discountName?: string;
   discountPercentage?: number;
   discountAmount?: number;
+  allocations?: Array<{ invoiceId: string; amountApplied: number }> | string;
   lineItems?: Array<{ itemId: string; quantity: number; variantId?: string }>;
 }) => {
   const formData = new FormData();
@@ -348,6 +349,14 @@ export const createInvoice = async (input: {
     input.itemsIds.forEach((id: string) => {
       formData.append("itemsIds", id);
     });
+  }
+  if (input.allocations) {
+    formData.append(
+      "allocations",
+      typeof input.allocations === "string"
+        ? input.allocations
+        : JSON.stringify(input.allocations),
+    );
   }
   if (input.lineItems?.length)
     formData.append("lineItems", JSON.stringify(input.lineItems));

@@ -105,9 +105,6 @@ export default function Footer() {
               <SocialIcon icon={<Linkedin size={18} />} />
               <SocialIcon icon={<Link2 size={18} />} />
             </div>
-            <p className="text-[10px] font-bold text-muted-foreground italic uppercase tracking-wider">
-              Trusted by 2M+ users monthly.
-            </p>
           </div>
         </div>
 

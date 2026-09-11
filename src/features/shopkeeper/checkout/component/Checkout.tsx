@@ -49,6 +49,7 @@ import {
   useCreateInvoice,
   useCustomersByShopkeeper,
   useCreateCustomer,
+  useCustomerInvoices,
 } from "../../inventory/hooks/useInventory";
 import { useGetMyRepairRequests } from "@/features/customer/repairRequest/hooks/useRepairRequest";
 import { updateRepairRequestStatusByShopkeeper } from "@/features/customer/repairRequest/api/repair-request.api";
@@ -164,6 +165,18 @@ export default function Checkout() {
   const [paymentForm, setPaymentForm] = useState(() =>
     createCheckoutPaymentForm(0),
   );
+  const [paymentOptionMode, setPaymentOptionMode] = useState<
+    "pay-all" | "pay-today" | "custom"
+  >("pay-today");
+  const [allocationStrategy, setAllocationStrategy] = useState<
+    "oldest-first" | "today-first" | "even"
+  >("oldest-first");
+  const [isManualAllocation, setIsManualAllocation] = useState(false);
+  const [manualAllocations, setManualAllocations] = useState<
+    Record<string, number>
+  >({});
+  const [customAmountReceived, setCustomAmountReceived] = useState("");
+  const [isDueInvoicesModalOpen, setIsDueInvoicesModalOpen] = useState(false);
 
   // Local item quantities & selected variant (for Browse Inventory cards)
   const [localQuantities, setLocalQuantities] = useState<
@@ -377,6 +390,205 @@ export default function Checkout() {
       totalPayment: Math.round(computedTotalPayment * 100) / 100,
     };
   }, [subtotal, activeShop]);
+
+  // ─── Customer Invoices & Outstanding Balances ──────────────────────────────
+  const { data: customerInvoicesData, refetch: refetchCustomerInvoices } =
+    useCustomerInvoices(selectedCustomer?._id, Boolean(selectedCustomer?._id), {
+      shopkeeperId,
+    });
+
+  const customerInvoices = useMemo(() => {
+    return customerInvoicesData?.data?.invoices || [];
+  }, [customerInvoicesData]);
+
+  const dueInvoices = useMemo(() => {
+    return customerInvoices.filter((inv) => {
+      const due = Number(inv.dueAmount);
+      return (
+        due > 0 ||
+        inv.paymentStatus === "due" ||
+        inv.paymentStatus === "partial"
+      );
+    });
+  }, [customerInvoices]);
+
+  const previousOutstanding = useMemo(() => {
+    return dueInvoices.reduce(
+      (sum, inv) => sum + (Number(inv.dueAmount) || 0),
+      0,
+    );
+  }, [dueInvoices]);
+
+  const todayPurchase = totalPayment;
+  const payAllTotal = previousOutstanding + todayPurchase;
+
+  const effectiveAmountReceived = useMemo(() => {
+    if (paymentOptionMode === "pay-all") {
+      return payAllTotal.toFixed(2);
+    }
+    if (paymentOptionMode === "pay-today") {
+      return todayPurchase.toFixed(2);
+    }
+    return customAmountReceived;
+  }, [paymentOptionMode, payAllTotal, todayPurchase, customAmountReceived]);
+
+  const allocationPreview = useMemo(() => {
+    const numReceived = Math.max(0, Number(effectiveAmountReceived) || 0);
+    const sortedDues = [...dueInvoices].sort(
+      (a, b) =>
+        new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
+    );
+
+    const rows: Array<{
+      id: string;
+      invoiceNumber: string;
+      previousDue: number;
+      applied: number;
+      remaining: number;
+      isToday?: boolean;
+    }> = [];
+
+    if (isManualAllocation) {
+      sortedDues.forEach((inv) => {
+        const prevDue = Number(inv.dueAmount) || 0;
+        const app = Math.min(
+          prevDue,
+          Math.max(0, manualAllocations[inv._id] ?? 0),
+        );
+        rows.push({
+          id: inv._id,
+          invoiceNumber:
+            inv.invoiceNumber || `INV-${inv._id.slice(-4).toUpperCase()}`,
+          previousDue: prevDue,
+          applied: app,
+          remaining: Math.max(0, prevDue - app),
+        });
+      });
+
+      const todayApp = Math.min(
+        todayPurchase,
+        Math.max(0, manualAllocations["TODAY"] ?? 0),
+      );
+      rows.push({
+        id: "TODAY",
+        invoiceNumber: "TODAY'S SALE",
+        previousDue: todayPurchase,
+        applied: todayApp,
+        remaining: Math.max(0, todayPurchase - todayApp),
+        isToday: true,
+      });
+    } else if (allocationStrategy === "today-first") {
+      let pool = numReceived;
+      const todayApp = Math.min(todayPurchase, pool);
+      pool = Math.max(0, pool - todayApp);
+
+      sortedDues.forEach((inv) => {
+        const prevDue = Number(inv.dueAmount) || 0;
+        const app = Math.min(prevDue, pool);
+        pool = Math.max(0, pool - app);
+        rows.push({
+          id: inv._id,
+          invoiceNumber:
+            inv.invoiceNumber || `INV-${inv._id.slice(-4).toUpperCase()}`,
+          previousDue: prevDue,
+          applied: app,
+          remaining: Math.max(0, prevDue - app),
+        });
+      });
+
+      rows.push({
+        id: "TODAY",
+        invoiceNumber: "TODAY'S SALE",
+        previousDue: todayPurchase,
+        applied: todayApp,
+        remaining: Math.max(0, todayPurchase - todayApp),
+        isToday: true,
+      });
+    } else if (allocationStrategy === "even") {
+      const allItems = [
+        ...sortedDues.map((inv) => ({
+          id: inv._id,
+          invoiceNumber:
+            inv.invoiceNumber || `INV-${inv._id.slice(-4).toUpperCase()}`,
+          due: Number(inv.dueAmount) || 0,
+          isToday: false,
+        })),
+        {
+          id: "TODAY",
+          invoiceNumber: "TODAY'S SALE",
+          due: todayPurchase,
+          isToday: true,
+        },
+      ];
+      const totalAll = allItems.reduce((s, x) => s + x.due, 0);
+      let pool = numReceived;
+      allItems.forEach((item, idx) => {
+        const share = totalAll > 0 ? (item.due / totalAll) * numReceived : 0;
+        const app =
+          idx === allItems.length - 1
+            ? Math.min(item.due, pool)
+            : Math.min(item.due, Math.round(share * 100) / 100);
+        pool = Math.max(0, pool - app);
+        rows.push({
+          id: item.id,
+          invoiceNumber: item.invoiceNumber,
+          previousDue: item.due,
+          applied: app,
+          remaining: Math.max(0, item.due - app),
+          isToday: item.isToday,
+        });
+      });
+    } else {
+      // Default: oldest-first
+      let pool = numReceived;
+      sortedDues.forEach((inv) => {
+        const prevDue = Number(inv.dueAmount) || 0;
+        const app = Math.min(prevDue, pool);
+        pool = Math.max(0, pool - app);
+        rows.push({
+          id: inv._id,
+          invoiceNumber:
+            inv.invoiceNumber || `INV-${inv._id.slice(-4).toUpperCase()}`,
+          previousDue: prevDue,
+          applied: app,
+          remaining: Math.max(0, prevDue - app),
+        });
+      });
+
+      const todayApp = Math.min(todayPurchase, pool);
+      rows.push({
+        id: "TODAY",
+        invoiceNumber: "TODAY'S SALE",
+        previousDue: todayPurchase,
+        applied: todayApp,
+        remaining: Math.max(0, todayPurchase - todayApp),
+        isToday: true,
+      });
+    }
+
+    return rows;
+  }, [
+    effectiveAmountReceived,
+    dueInvoices,
+    isManualAllocation,
+    allocationStrategy,
+    manualAllocations,
+    todayPurchase,
+  ]);
+
+  const totalApplied = useMemo(() => {
+    return allocationPreview.reduce((sum, r) => sum + r.applied, 0);
+  }, [allocationPreview]);
+
+  const remainingCustomerBalance = useMemo(() => {
+    return allocationPreview.reduce((sum, r) => sum + r.remaining, 0);
+  }, [allocationPreview]);
+
+  const customerBalanceStatus = useMemo(() => {
+    if (remainingCustomerBalance <= 0) return "PAID";
+    if (totalApplied > 0) return "PART-PAID";
+    return "DUE";
+  }, [remainingCustomerBalance, totalApplied]);
   const totalCartCount = useMemo(
     () =>
       orderCartItems.reduce(
@@ -693,7 +905,15 @@ export default function Checkout() {
     await processCheckout(payment);
   };
 
-  const processCheckout = async (payment: CheckoutPaymentResult) => {
+  const processCheckout = async (
+    payment: CheckoutPaymentResult,
+    checkoutAllocations?: Array<{ invoiceId: string; amountApplied: number }>,
+    allocationsReceipt?: Array<{
+      invoiceNumber: string;
+      amountApplied: number;
+    }>,
+    currentRemainingCustomerBalance?: number,
+  ) => {
     if (!shopkeeperId) {
       toast.error("Session expired");
       return;
@@ -836,6 +1056,7 @@ export default function Checkout() {
           deliveryTo: deliveryOrderMeta?.deliveryTo,
         },
         discountAmount: totalDiscount,
+        allocations: checkoutAllocations,
       });
 
       const receiptOpened = printThermalReceipt(
@@ -868,6 +1089,9 @@ export default function Checkout() {
           total: totalPayment,
           currency,
           payment,
+          allocations: allocationsReceipt,
+          previousOutstanding,
+          remainingCustomerBalance: currentRemainingCustomerBalance,
         },
         receiptWindow,
       );
@@ -900,7 +1124,7 @@ export default function Checkout() {
         try {
           await updateRepairRequestStatusByShopkeeper({
             id: collectedRepairRequestId,
-            status: "collected",
+            status: "completed",
           });
         } catch (collectedError) {
           console.error(
@@ -918,6 +1142,10 @@ export default function Checkout() {
       }
 
       setSelectedCustomer(null);
+      setCustomAmountReceived("");
+      setManualAllocations({});
+      setIsManualAllocation(false);
+      setPaymentOptionMode("pay-today");
       setOnlineOrderDetails({
         marketplace: "",
         orderNumber: "",
@@ -932,6 +1160,11 @@ export default function Checkout() {
       }));
       setCheckoutMode("walk-in");
       setIsPaymentModalOpen(false);
+
+      refetchCustomerInvoices();
+      queryClient.invalidateQueries({
+        queryKey: ["customer-invoices"],
+      });
 
       if (!cartCleared) {
         toast.warning(
@@ -951,6 +1184,114 @@ export default function Checkout() {
     } finally {
       setIsPlacingOrder(false);
     }
+  };
+
+  const handleTakePayment = async () => {
+    if (orderCartItems.length === 0) {
+      toast.error("Cart is empty. Add items or repair orders first.");
+      return;
+    }
+
+    if (checkoutMode === "delivery") {
+      if (!deliveryDetails.from.trim()) {
+        toast.error("Delivery from location is required");
+        return;
+      }
+      if (!deliveryDetails.deliveryTo.trim()) {
+        toast.error("Delivery to location is required");
+        return;
+      }
+    }
+
+    const numericReceived = Number(effectiveAmountReceived) || 0;
+    if (paymentForm.method !== "due" && numericReceived <= 0) {
+      toast.error("Please enter a valid amount received.");
+      return;
+    }
+
+    if (paymentForm.method === "due" && !selectedCustomer?._id) {
+      toast.error(
+        "Select a registered customer before recording an amount due.",
+      );
+      return;
+    }
+
+    if (paymentForm.method === "card") {
+      if (
+        !paymentForm.cardLastFour ||
+        !/^\d{4}$/.test(paymentForm.cardLastFour)
+      ) {
+        toast.error("Enter card's last 4 digits");
+        return;
+      }
+      if (!paymentForm.transactionReference.trim()) {
+        toast.error("Card transaction reference is required");
+        return;
+      }
+    }
+
+    if (paymentForm.method === "bank") {
+      if (!paymentForm.bankName.trim()) {
+        toast.error("Bank name is required");
+        return;
+      }
+      if (!paymentForm.transactionReference.trim()) {
+        toast.error("Bank transfer reference is required");
+        return;
+      }
+    }
+
+    const todayRow = allocationPreview.find((r) => r.isToday);
+    const todayApplied = todayRow
+      ? todayRow.applied
+      : Math.min(totalPayment, numericReceived);
+    const todayRemaining = todayRow
+      ? todayRow.remaining
+      : Math.max(0, totalPayment - todayApplied);
+
+    const paymentResult: CheckoutPaymentResult = {
+      method: paymentForm.method || "cash",
+      status:
+        todayRemaining <= 0 ? "paid" : todayApplied > 0 ? "partial" : "due",
+      amountPaid: todayApplied,
+      dueAmount: todayRemaining,
+      details: {
+        amountReceived: numericReceived,
+        changeGiven: Math.max(
+          0,
+          numericReceived - (previousOutstanding + totalPayment),
+        ),
+        cardholderName: paymentForm.cardholderName.trim() || undefined,
+        cardLastFour: paymentForm.cardLastFour.trim() || undefined,
+        bankName: paymentForm.bankName.trim() || undefined,
+        accountLastFour: paymentForm.accountLastFour.trim() || undefined,
+        transactionReference:
+          paymentForm.transactionReference.trim() || undefined,
+        dueDate: paymentForm.dueDate || undefined,
+        notes: paymentForm.notes.trim() || undefined,
+      },
+    };
+
+    const previousAllocations = allocationPreview
+      .filter((r) => !r.isToday && r.applied > 0)
+      .map((r) => ({
+        invoiceId: r.id,
+        amountApplied: r.applied,
+      }));
+
+    const receiptAllocations = allocationPreview
+      .filter((r) => !r.isToday && r.applied > 0)
+      .map((r) => ({
+        invoiceNumber: r.invoiceNumber,
+        amountApplied: r.applied,
+      }));
+
+    await processCheckout(
+      paymentResult,
+      previousAllocations,
+      receiptAllocations,
+      remainingCustomerBalance,
+    );
   };
 
   // Helper to adjust browse card local qty state
@@ -1393,55 +1734,62 @@ export default function Checkout() {
         </div>
       </div>
 
-      {/* ─── RIGHT PANEL (Order Details Sidebar) ─── */}
-      <div className="w-full xl:w-[420px] bg-white border border-slate-100 rounded-[28px] p-6 shadow-sm flex flex-col shrink-0 min-h-[calc(100vh-120px)]">
-        {/* Order Details Header */}
-        <div className="flex items-center justify-between pb-4 border-b border-slate-100">
-          <div className="space-y-0.5">
-            <h2 className="text-lg font-black text-slate-900 tracking-tight">
-              Order Details
+      {/* ─── RIGHT PANEL (Checkout POS Sidebar) ─── */}
+      <div className="w-full xl:w-[460px] bg-white border border-slate-100 rounded-[28px] p-5 shadow-sm flex flex-col shrink-0 min-h-[calc(100vh-120px)] space-y-4">
+        {/* Checkout Header */}
+        <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+          <div className="flex items-center gap-2">
+            <h2 className="text-xl font-black text-slate-900 tracking-tight">
+              CHECKOUT
             </h2>
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-              {totalCartCount} items in list
-            </p>
+            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest bg-slate-100 px-2 py-0.5 rounded-md">
+              {totalCartCount} item{totalCartCount !== 1 ? "s" : ""}
+            </span>
           </div>
-          <button
-            onClick={handleClearOrder}
-            disabled={orderCartItems.length === 0}
-            className="text-xs font-black text-red-500 hover:text-red-600 disabled:opacity-30 disabled:pointer-events-none transition-colors"
-          >
-            Clear Order
-          </button>
+
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                document
+                  .getElementById("browse-inventory-section")
+                  ?.scrollIntoView({ behavior: "smooth" });
+              }}
+              className="px-2.5 py-1 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-[10px] font-black uppercase text-slate-600 tracking-wider transition-colors"
+            >
+              RETURN TO BROWSE
+            </button>
+            <button
+              onClick={handleClearOrder}
+              disabled={orderCartItems.length === 0}
+              className="text-xs font-black text-red-500 hover:text-red-600 disabled:opacity-30 disabled:pointer-events-none transition-colors"
+            >
+              Clear
+            </button>
+          </div>
         </div>
 
-        {/* Callout 1: Checkout Type (Walk-In, Repair, Online, Return) */}
-        <div className="mt-4 space-y-2">
-          <label className="text-xs font-black text-slate-700 uppercase tracking-wider block">
-            Checkout Type
-          </label>
-          <div className="grid grid-cols-2 gap-2">
-            {(["walk-in", "repair", "online", "return"] as const).map(
-              (mode) => (
-                <button
-                  key={mode}
-                  type="button"
-                  onClick={() => {
-                    setCheckoutMode(mode);
-                    if (mode === "return") {
-                      setIsReturnModalOpen(true);
-                    }
-                  }}
-                  className={`py-3 px-3 text-xs font-black uppercase tracking-wider rounded-xl transition-all text-center ${
-                    checkoutMode === mode
-                      ? "bg-[#84CC16] text-white shadow shadow-lime-500/20"
-                      : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                  }`}
-                >
-                  {mode}
-                </button>
-              ),
-            )}
-          </div>
+        {/* Checkout Type Selector (Walk-in, Repair, Online, Return) */}
+        <div className="grid grid-cols-4 gap-1.5 p-1 bg-slate-100/80 rounded-xl">
+          {(["walk-in", "repair", "online", "return"] as const).map((mode) => (
+            <button
+              key={mode}
+              type="button"
+              onClick={() => {
+                setCheckoutMode(mode);
+                if (mode === "return") {
+                  setIsReturnModalOpen(true);
+                }
+              }}
+              className={`py-1.5 px-2 text-[10px] font-black uppercase tracking-wider rounded-lg transition-all text-center ${
+                checkoutMode === mode
+                  ? "bg-[#84CC16] text-white shadow-sm"
+                  : "text-slate-600 hover:text-slate-900"
+              }`}
+            >
+              {mode}
+            </button>
+          ))}
         </div>
 
         <ReturnInvoiceModal
@@ -1450,439 +1798,257 @@ export default function Checkout() {
           shopkeeperId={shopkeeperId}
         />
 
-        {/* Customer Select / Card */}
-        <div className="mt-4">
-          <div
-            onClick={() => setIsCustomerSelectorOpen(true)}
-            className="flex items-center justify-between p-4 bg-slate-50 border border-slate-100 rounded-2xl hover:border-slate-200 cursor-pointer transition-all duration-200 group"
-          >
-            <div className="flex items-center gap-3">
-              <div className="flex items-center justify-center w-10 h-10 rounded-full bg-slate-200 text-slate-600">
-                <User size={18} />
-              </div>
-              <div className="min-w-0">
-                <p className="text-xs font-black text-slate-500 uppercase tracking-widest mb-0.5">
-                  Customer {selectedCustomer ? "(Auto-filled)" : ""}
-                </p>
-                {selectedCustomer ? (
-                  <p className="text-sm font-black text-slate-950 truncate">
-                    {selectedCustomer.firstName}{" "}
-                    {selectedCustomer.lastName || ""}
-                  </p>
-                ) : (
-                  <p className="text-sm font-black text-slate-400">
-                    Select Customer
-                  </p>
-                )}
-              </div>
+        {/* ─── 1. CUSTOMER (AUTO-FILLED) ─── */}
+        <div className="rounded-2xl border border-slate-200/80 bg-white p-3.5 shadow-sm space-y-2.5">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[#84CC16] text-[10px] font-black text-white">
+                1
+              </span>
+              <span className="text-[11px] font-black uppercase tracking-wider text-slate-500">
+                CUSTOMER {selectedCustomer ? "(AUTO-FILLED)" : ""}
+              </span>
             </div>
-
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-1">
               {selectedCustomer && (
                 <button
-                  onClick={(e) => {
-                    e.stopPropagation();
+                  type="button"
+                  onClick={() => {
                     setSelectedCustomer(null);
                     setPulledRepairItem(null);
                   }}
-                  className="w-5 h-5 rounded-full bg-slate-200 hover:bg-slate-355 text-slate-500 flex items-center justify-center X"
+                  className="flex h-5 w-5 items-center justify-center rounded-full bg-slate-100 text-slate-400 hover:bg-slate-200 hover:text-slate-600 transition-colors"
+                  title="Clear customer"
                 >
-                  <X size={10} />
+                  <X size={11} />
                 </button>
               )}
-              <ChevronRight
-                size={16}
-                className="text-slate-400 group-hover:translate-x-0.5 transition-transform"
-              />
+              <button
+                type="button"
+                onClick={() => setIsCustomerSelectorOpen(true)}
+                className="text-slate-400 hover:text-slate-700 transition-colors p-0.5"
+                title="Change customer"
+              >
+                <ChevronRight size={15} />
+              </button>
             </div>
           </div>
-        </div>
 
-        {/* Itemized Cart List */}
-        <div className="flex-1 overflow-y-auto max-h-[350px] custom-scrollbar space-y-3 mt-6 pr-1">
-          {isCartLoading ? (
-            <div className="space-y-4">
-              {[1, 2, 3].map((i) => (
-                <div
-                  key={i}
-                  className="h-16 bg-slate-100 rounded-xl animate-pulse"
-                />
-              ))}
+          <div
+            onClick={() => setIsCustomerSelectorOpen(true)}
+            className="flex items-center gap-3 cursor-pointer group"
+          >
+            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-100 text-slate-500 group-hover:bg-slate-200 transition-colors">
+              <User size={17} />
             </div>
-          ) : orderCartItems.length > 0 ? (
-            orderCartItems.map((cartItem: any) => {
-              const item = cartItem.itemId;
-              const variant = getCartVariant(cartItem);
-              const originalPrice = getCartPrice(cartItem);
-              const manualValue = manualPrices[cartItem._id];
-              const parsedManual = Number(manualValue);
-              const isExceeded =
-                manualValue !== undefined &&
-                manualValue !== "" &&
-                Number.isFinite(parsedManual) &&
-                parsedManual > originalPrice;
-
-              let sellingPrice =
-                manualValue !== undefined &&
-                manualValue !== "" &&
-                Number.isFinite(parsedManual)
-                  ? parsedManual
-                  : originalPrice;
-
-              if (sellingPrice > originalPrice) {
-                sellingPrice = originalPrice;
-              }
-              if (sellingPrice < 0) {
-                sellingPrice = 0;
-              }
-
-              const discountAmount = Math.max(0, originalPrice - sellingPrice);
-              const discountPercent =
-                originalPrice > 0 ? (discountAmount / originalPrice) * 100 : 0;
-              const hasDiscount = discountAmount > 0.001;
-
-              return (
-                <div
-                  key={cartItem._id}
-                  className="rounded-2xl border border-slate-100 bg-white p-4 hover:shadow-sm transition-all"
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex items-center gap-3 min-w-0 flex-1">
-                      <div className="relative w-11 h-11 bg-slate-50 border border-slate-200 rounded-xl overflow-hidden shrink-0 flex items-center justify-center">
-                        {variant?.image?.url || item?.image?.url ? (
-                          <Image
-                            src={variant?.image?.url || item.image.url}
-                            alt={item.itemName}
-                            fill
-                            className="object-cover"
-                          />
-                        ) : (
-                          <Package size={16} className="text-slate-400" />
-                        )}
-                      </div>
-                      <div className="min-w-0">
-                        <p className="text-xs font-black text-slate-900 truncate leading-snug">
-                          {item?.itemName || "Custom Item"}
-                        </p>
-                        <p className="text-[10px] font-bold text-slate-400 truncate">
-                          {cartItem.type === "repair"
-                            ? "Repair Service"
-                            : variant
-                              ? `${variant.color || "Variant"}${variant.storage ? ` · ${variant.storage}` : ""}`
-                              : item?.brand || "Brand"}{" "}
-                          - {item?.currentState || "New"}
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="flex flex-col items-end gap-2 ml-2 shrink-0">
-                      <button
-                        onClick={() => handleDeleteCartItem(cartItem._id)}
-                        className="p-1 text-slate-400 hover:text-red-500 rounded-full hover:bg-red-50 transition-colors"
-                        aria-label="Remove item"
-                      >
-                        <Trash2 size={13} />
-                      </button>
-
-                      <div className="flex items-center bg-slate-50 rounded-lg p-0.5 border border-slate-200">
-                        <button
-                          type="button"
-                          disabled={cartItem.type === "repair"}
-                          onClick={() =>
-                            handleUpdateCartQty(
-                              cartItem._id,
-                              cartItem.quantity,
-                              -1,
-                            )
-                          }
-                          className="w-5.5 h-5.5 flex items-center justify-center text-slate-500 hover:text-slate-800 disabled:opacity-40 cursor-pointer"
-                        >
-                          <Minus size={11} />
-                        </button>
-                        <input
-                          type="number"
-                          min="1"
-                          disabled={cartItem.type === "repair"}
-                          value={cartItem.quantity}
-                          onChange={(e) => {
-                            const val = parseInt(e.target.value, 10);
-                            if (!isNaN(val) && val > 0) {
-                              handleSetCartQty(cartItem._id, val);
-                            }
-                          }}
-                          className="w-7 text-center text-xs font-black bg-transparent border-0 p-0 focus:outline-none focus:ring-0 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                        />
-                        <button
-                          type="button"
-                          disabled={cartItem.type === "repair"}
-                          onClick={() =>
-                            handleUpdateCartQty(
-                              cartItem._id,
-                              cartItem.quantity,
-                              1,
-                            )
-                          }
-                          className="w-5.5 h-5.5 flex items-center justify-center text-slate-500 hover:text-slate-800 disabled:opacity-40 cursor-pointer"
-                        >
-                          <Plus size={11} />
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Single Selling Price Box */}
-                  <div
-                    className={`mt-4 rounded-xl border px-3.5 py-2.5 shadow-sm transition-all ${
-                      isExceeded
-                        ? "border-red-500 bg-red-50/50 text-red-700 ring-2 ring-red-500/20"
-                        : "border-slate-200 bg-slate-50/50"
-                    }`}
-                  >
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-1.5">
-                        <PencilLine
-                          size={12}
-                          className={
-                            isExceeded ? "text-red-500" : "text-slate-400"
-                          }
-                        />
-                        <p
-                          className={`text-[10px] font-black uppercase tracking-wider ${
-                            isExceeded ? "text-red-600" : "text-slate-500"
-                          }`}
-                        >
-                          Selling Price
-                        </p>
-                      </div>
-                      {hasDiscount && !isExceeded && (
-                        <span className="text-[10px] font-black text-[#84CC16] bg-[#84CC16]/10 px-2 py-0.5 rounded-full border border-[#84CC16]/20">
-                          -{discountPercent.toFixed(0)}% Off
-                        </span>
-                      )}
-                    </div>
-                    <div className="mt-1.5 flex items-center gap-2">
-                      <span
-                        className={`text-sm font-black ${
-                          isExceeded ? "text-red-600" : "text-slate-900"
-                        }`}
-                      >
-                        {currencySymbol}
-                      </span>
-                      <input
-                        type="text"
-                        inputMode="decimal"
-                        value={manualValue ?? sellingPrice.toFixed(2)}
-                        onChange={(e) =>
-                          handlePriceInputChange(cartItem._id, e.target.value)
-                        }
-                        onBlur={(e) => {
-                          const nextValue = e.target.value.trim();
-                          if (nextValue === "") {
-                            setManualPrices((prev) => {
-                              const next = { ...prev };
-                              delete next[cartItem._id];
-                              return next;
-                            });
-                            return;
-                          }
-
-                          const numericValue = Number(nextValue);
-                          if (!Number.isFinite(numericValue)) {
-                            setManualPrices((prev) => ({
-                              ...prev,
-                              [cartItem._id]: originalPrice.toFixed(2),
-                            }));
-                            return;
-                          }
-
-                          if (numericValue > originalPrice) {
-                            toast.error(
-                              `Selling price cannot exceed the original price (${currencySymbol}${originalPrice.toFixed(2)}).`,
-                            );
-                            setManualPrices((prev) => ({
-                              ...prev,
-                              [cartItem._id]: originalPrice.toFixed(2),
-                            }));
-                            return;
-                          }
-
-                          if (numericValue < 0) {
-                            setManualPrices((prev) => ({
-                              ...prev,
-                              [cartItem._id]: "0.00",
-                            }));
-                            return;
-                          }
-
-                          setManualPrices((prev) => ({
-                            ...prev,
-                            [cartItem._id]: numericValue.toFixed(2),
-                          }));
-                        }}
-                        className={`w-full bg-transparent text-sm font-black outline-none ${
-                          isExceeded
-                            ? "text-red-600 placeholder:text-red-300"
-                            : "text-slate-900"
-                        }`}
-                      />
-                    </div>
-                  </div>
-
-                  {isExceeded && (
-                    <p className="mt-1.5 text-[11px] font-bold text-red-500 ml-1">
-                      Selling price cannot exceed {currencySymbol}
-                      {originalPrice.toFixed(2)}
-                    </p>
-                  )}
-
-                  {hasDiscount && !isExceeded && (
-                    <div className="mt-3 flex items-center justify-between rounded-xl border border-[#FCA5A5] bg-[#FFF7F7] px-3 py-2">
-                      <div className="flex items-center gap-2 text-[#65A30D]">
-                        <Tag size={14} />
-                        <span className="text-xs font-black">Discount</span>
-                      </div>
-                      <span className="text-xs font-black text-[#65A30D]">
-                        {discountPercent.toFixed(
-                          discountPercent % 1 === 0 ? 0 : 2,
-                        )}
-                        % (-
-                        {currencySymbol}
-                        {(discountAmount * cartItem.quantity).toFixed(2)})
-                      </span>
-                    </div>
-                  )}
-
-                  {/* <div className="mt-3 flex justify-end">
-                    <p className="text-sm font-black text-slate-900">
-                      Line Total: {currencySymbol}
-                      {(sellingPrice * cartItem.quantity).toFixed(2)}
-                    </p>
-                  </div> */}
-                </div>
-              );
-            })
-          ) : (
-            /* Callout 2: Empty Cart Guidance */
-            <div className="flex flex-col items-center justify-center py-12 text-center text-slate-400">
-              <div className="flex items-center justify-center w-12 h-12 rounded-2xl bg-slate-100 text-slate-300 mb-3">
-                <ShoppingCart size={24} className="text-slate-400" />
-              </div>
-              <p className="text-sm font-black text-slate-900">Cart is empty</p>
-              <p className="text-xs font-medium text-slate-500 mt-1 max-w-[240px]">
-                Select a ready order or choose an item from Browse Inventory.
+            <div className="min-w-0">
+              <p className="text-sm font-black text-slate-900 truncate">
+                {selectedCustomer
+                  ? `${selectedCustomer.firstName} ${selectedCustomer.lastName || ""}`
+                  : "Select Customer"}
               </p>
+              <p className="text-[10px] font-bold text-slate-400">
+                {selectedCustomer
+                  ? `Customer ID: ${selectedCustomer.customerId || `CUST-${selectedCustomer._id.slice(-4).toUpperCase()}`}`
+                  : "Walk-in Customer (click to choose)"}
+              </p>
+            </div>
+          </div>
+
+          {/* Previous Due Warning Banner */}
+          {selectedCustomer && previousOutstanding > 0 && (
+            <div className="flex items-center justify-between rounded-xl border border-amber-200 bg-[#FEFCE8] px-3 py-2 text-xs">
+              <div className="flex items-center gap-1.5 font-bold text-amber-900 min-w-0">
+                <AlertCircle size={14} className="text-amber-600 shrink-0" />
+                <span className="truncate">
+                  <span className="font-black text-amber-950">
+                    {currencySymbol}
+                    {previousOutstanding.toFixed(2)}
+                  </span>{" "}
+                  due from {dueInvoices.length} previous invoice
+                  {dueInvoices.length > 1 ? "s" : ""}
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setIsDueInvoicesModalOpen(true);
+                }}
+                className="text-[10px] font-black uppercase tracking-wider text-amber-800 hover:text-amber-950 underline underline-offset-2 ml-2 shrink-0"
+              >
+                VIEW DUE INVOICES &gt;
+              </button>
             </div>
           )}
         </div>
 
-        {checkoutMode === "delivery" && (
-          <div className="mt-4 rounded-2xl border border-slate-150 bg-slate-50 p-4 space-y-3">
-            <div>
-              <p className="text-xs font-black text-slate-900">
-                Delivery Details
-              </p>
-              <p className="mt-0.5 text-[10px] font-bold text-slate-500">
-                Record local delivery route, delivered items, and completed
-                payment.
-              </p>
+        {/* ─── 2. TODAY'S CART ─── */}
+        <div className="rounded-2xl border border-slate-200/80 bg-white p-3.5 shadow-sm space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[#84CC16] text-[10px] font-black text-white">
+                2
+              </span>
+              <span className="text-[11px] font-black uppercase tracking-wider text-slate-500">
+                Today&apos;s Cart
+              </span>
             </div>
+            <span className="text-[10px] font-black text-slate-400">
+              {orderCartItems.length} item
+              {orderCartItems.length !== 1 ? "s" : ""}
+            </span>
+          </div>
 
-            <div className="grid grid-cols-1 gap-3">
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-black uppercase tracking-wider text-slate-500">
-                  From
-                </label>
-                <StructuredAddressFields
-                  value={deliveryDetails.from}
-                  onChange={(from) =>
-                    setDeliveryDetails((prev) => ({
-                      ...prev,
-                      from,
-                    }))
-                  }
-                />
+          <div className="max-h-[220px] overflow-y-auto custom-scrollbar space-y-2 pr-1">
+            {isCartLoading ? (
+              <div className="space-y-2">
+                {[1, 2].map((i) => (
+                  <div
+                    key={i}
+                    className="h-12 bg-slate-100 rounded-xl animate-pulse"
+                  />
+                ))}
               </div>
+            ) : orderCartItems.length > 0 ? (
+              orderCartItems.map((cartItem: any) => {
+                const item = cartItem.itemId;
+                const variant = getCartVariant(cartItem);
+                const originalPrice = getCartPrice(cartItem);
+                const manualValue = manualPrices[cartItem._id];
+                const parsedManual = Number(manualValue);
+                const sellingPrice =
+                  manualValue !== undefined &&
+                  manualValue !== "" &&
+                  Number.isFinite(parsedManual) &&
+                  parsedManual >= 0
+                    ? parsedManual
+                    : originalPrice;
+                const lineTotal = sellingPrice * cartItem.quantity;
 
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-black uppercase tracking-wider text-slate-500">
-                  Delivery To
-                </label>
-                <StructuredAddressFields
-                  value={deliveryDetails.deliveryTo}
-                  onChange={(deliveryTo) =>
-                    setDeliveryDetails((prev) => ({
-                      ...prev,
-                      deliveryTo,
-                    }))
-                  }
-                />
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <div className="flex items-center justify-between gap-3">
-                <label className="text-[10px] font-black uppercase tracking-wider text-slate-500">
-                  Items Being Delivered
-                </label>
-                <span className="text-[10px] font-black text-slate-400">
-                  {selectedDeliveryItemIds.length}/{cartItems.length}
-                </span>
-              </div>
-
-              <div className="max-h-40 space-y-2 overflow-y-auto pr-1">
-                {cartItems.length > 0 ? (
-                  cartItems.map((cartItem: any) => {
-                    const item = cartItem.itemId;
-                    const variant = getCartVariant(cartItem);
-                    const checked = selectedDeliveryItemIds.includes(
-                      cartItem._id,
-                    );
-
-                    return (
-                      <label
-                        key={cartItem._id}
-                        className={`flex cursor-pointer items-center gap-3 rounded-xl border p-3 transition-all ${
-                          checked
-                            ? "border-[#84CC16] bg-lime-50"
-                            : "border-slate-200 bg-white"
-                        }`}
-                      >
-                        <input
-                          type="checkbox"
-                          checked={checked}
-                          onChange={() =>
-                            setDeliveryDetails((prev) => ({
-                              ...prev,
-                              selectedCartItemIds: checked
-                                ? prev.selectedCartItemIds.filter(
-                                    (id) => id !== cartItem._id,
-                                  )
-                                : [...prev.selectedCartItemIds, cartItem._id],
-                            }))
-                          }
-                          className="h-4 w-4 accent-[#84CC16]"
-                        />
-                        <div className="min-w-0 flex-1">
-                          <p className="truncate text-xs font-black text-slate-900">
-                            {item?.itemName || "Custom Item"}
-                          </p>
-                          <p className="text-[10px] font-bold text-slate-500">
-                            Qty {cartItem.quantity} •{" "}
-                            {formatCurrency(getCartPrice(cartItem))}
-                            {variant
-                              ? ` • ${variant.color || "Variant"}${variant.storage ? ` · ${variant.storage}` : ""}`
-                              : ""}
-                          </p>
+                return (
+                  <div
+                    key={cartItem._id}
+                    className="p-2 rounded-xl bg-slate-50 border border-slate-100 hover:border-slate-200 transition-colors space-y-1.5"
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <div className="w-9 h-9 rounded-lg bg-white border border-slate-100 flex items-center justify-center overflow-hidden shrink-0">
+                          {item?.images?.[0]?.url ? (
+                            <Image
+                              src={item.images[0].url}
+                              alt={item.itemName || "Item"}
+                              width={36}
+                              height={36}
+                              className="object-contain w-full h-full"
+                            />
+                          ) : (
+                            <Package size={16} className="text-slate-300" />
+                          )}
                         </div>
-                      </label>
-                    );
-                  })
-                ) : (
-                  <div className="rounded-xl border border-dashed border-slate-200 bg-white p-4 text-center text-xs font-bold text-slate-400">
-                    Add items to the cart before creating a delivery.
+                        <div className="min-w-0">
+                          <p className="text-xs font-black text-slate-900 truncate">
+                            {item?.itemName || cartItem.name || "Unknown Item"}
+                          </p>
+                          <div className="flex items-center gap-2 mt-0.5">
+                            <span className="text-[10px] font-bold text-slate-500">
+                              Qty: {cartItem.quantity}
+                            </span>
+                            {variant && (
+                              <span className="text-[10px] font-bold text-slate-400">
+                                • {variant.sku || variant.variantName}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2 shrink-0">
+                        <span className="text-xs font-black text-slate-900">
+                          {currencySymbol}
+                          {lineTotal.toFixed(2)}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteCartItem(cartItem._id)}
+                          className="text-slate-300 hover:text-red-500 transition-colors p-0.5"
+                          title="Remove item"
+                        >
+                          <Trash2 size={13} />
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Compact manual price edit input */}
+                    <div className="flex items-center justify-between text-[10px] font-bold text-slate-400 pt-1 border-t border-slate-200/50">
+                      <span>Price per unit:</span>
+                      <div className="flex items-center gap-1">
+                        <span>{currencySymbol}</span>
+                        <input
+                          type="text"
+                          value={
+                            manualPrices[cartItem._id] !== undefined
+                              ? manualPrices[cartItem._id]
+                              : originalPrice.toFixed(2)
+                          }
+                          onChange={(e) =>
+                            handlePriceInputChange(cartItem._id, e.target.value)
+                          }
+                          className="w-14 h-5 px-1 text-right text-[11px] font-black border border-slate-200 rounded bg-white focus:outline-none focus:border-[#84CC16]"
+                        />
+                      </div>
+                    </div>
                   </div>
-                )}
+                );
+              })
+            ) : (
+              <div className="py-6 text-center text-slate-400">
+                <ShoppingCart
+                  size={20}
+                  className="mx-auto mb-1 text-slate-300"
+                />
+                <p className="text-xs font-bold">Cart is empty</p>
+                <p className="text-[10px] text-slate-400 mt-0.5">
+                  Select a ready order or choose items from Browse Inventory.
+                </p>
               </div>
+            )}
+          </div>
+
+          <div className="flex items-center justify-between pt-2 border-t border-slate-100 text-xs font-bold text-slate-700">
+            <span>Today&apos;s purchase</span>
+            <span className="text-sm font-black text-slate-950">
+              {currencySymbol}
+              {todayPurchase.toFixed(2)}
+            </span>
+          </div>
+        </div>
+
+        {/* ─── Delivery Details / Online Details (when active) ─── */}
+        {checkoutMode === "delivery" && (
+          <div className="rounded-2xl border border-slate-150 bg-slate-50 p-3 space-y-2 text-xs">
+            <p className="font-black text-slate-900">Delivery Details</p>
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-black uppercase tracking-wider text-slate-500">
+                From
+              </label>
+              <StructuredAddressFields
+                value={deliveryDetails.from}
+                onChange={(from) =>
+                  setDeliveryDetails((prev) => ({ ...prev, from }))
+                }
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-black uppercase tracking-wider text-slate-500">
+                Delivery To
+              </label>
+              <StructuredAddressFields
+                value={deliveryDetails.deliveryTo}
+                onChange={(deliveryTo) =>
+                  setDeliveryDetails((prev) => ({ ...prev, deliveryTo }))
+                }
+              />
             </div>
           </div>
         )}
@@ -1935,61 +2101,433 @@ export default function Checkout() {
           </div>
         )}
 
-        {/* Calculations / Summary */}
-        <div className="bg-slate-50 border border-slate-150 rounded-2xl p-4 space-y-2.5 mt-4 text-xs font-bold text-slate-600">
-          <div className="flex justify-between">
-            <span>Subtotal</span>
-            <span className="text-slate-900 font-black">
-              {currencySymbol}
-              {subtotalBeforeDiscount.toFixed(2)}
+        {/* ─── 3. AMOUNT PAYABLE ─── */}
+        <div className="rounded-2xl border border-slate-200/80 bg-white p-3.5 shadow-sm space-y-2.5">
+          <div className="flex items-center gap-2">
+            <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[#84CC16] text-[10px] font-black text-white">
+              3
+            </span>
+            <span className="text-[11px] font-black uppercase tracking-wider text-slate-500">
+              Amount Payable
             </span>
           </div>
-          {totalDiscount > 0 && (
-            <div className="flex justify-between text-red-500">
-              <span>Total Discount</span>
-              <span className="font-black">
-                -{currencySymbol}
-                {totalDiscount.toFixed(2)}
-              </span>
-            </div>
-          )}
-          {activeShop?.taxEnabled && (
-            <div className="flex justify-between">
-              <span>
-                {activeShop.taxName || "Tax"}{" "}
-                {activeShop.taxIncludedInPrice ? "(Included)" : ""}
-              </span>
-              <span className="text-slate-900 font-black">
+
+          <div className="space-y-1.5 text-xs">
+            <div className="flex justify-between text-slate-600 font-bold">
+              <span>Previous outstanding</span>
+              <span className="font-black text-slate-900">
                 {currencySymbol}
-                {tax.toFixed(2)}
+                {previousOutstanding.toFixed(2)}
               </span>
             </div>
-          )}
-          <div className="flex justify-between text-base font-black text-slate-900 border-t border-slate-200/60 pt-2.5 mt-2">
-            <span>Total Payment</span>
-            <span className="text-[#84CC16]">
-              {currencySymbol}
-              {totalPayment.toFixed(2)}
+            <div className="flex justify-between text-slate-600 font-bold">
+              <span>Today&apos;s purchase</span>
+              <span className="font-black text-slate-900">
+                {currencySymbol}
+                {todayPurchase.toFixed(2)}
+              </span>
+            </div>
+            <div className="flex justify-between items-center pt-2 border-t border-slate-100">
+              <span className="text-xs font-black text-slate-900">
+                Pay all today
+              </span>
+              <span className="text-base font-black text-[#84CC16]">
+                {currencySymbol}
+                {payAllTotal.toFixed(2)}
+              </span>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-1.5 text-[10px] font-bold text-slate-500 bg-slate-50 rounded-xl p-2">
+            <Info size={13} className="text-slate-400 shrink-0" />
+            <span>
+              Previous invoices remain separate from today&apos;s receipt.
             </span>
           </div>
         </div>
 
-        {/* Place Order Button */}
-        <button
-          onClick={handlePlaceOrder}
-          disabled={orderCartItems.length === 0 || isPlacingOrder}
-          className="flex h-14 items-center justify-center gap-2 rounded-2xl bg-[#84CC16] text-white text-sm font-black shadow-lg shadow-lime-500/20 transition-all hover:bg-[#75b213] active:scale-[0.98] disabled:opacity-40 disabled:pointer-events-none mt-4 w-full"
-        >
-          {isPlacingOrder ? (
-            <Loader2 className="h-5 w-5 animate-spin" />
-          ) : (
-            <>
-              <ShoppingCart size={16} strokeWidth={2.5} />
-              <span>Charge Now</span>
-            </>
-          )}
-        </button>
+        {/* ─── 4. PAYMENT OPTIONS ─── */}
+        <div className="rounded-2xl border border-slate-200/80 bg-white p-3.5 shadow-sm space-y-3">
+          <div className="flex items-center gap-2">
+            <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[#84CC16] text-[10px] font-black text-white">
+              4
+            </span>
+            <span className="text-[11px] font-black uppercase tracking-wider text-slate-500">
+              Payment Options
+            </span>
+          </div>
+
+          {/* 3 Option Buttons */}
+          <div className="grid grid-cols-3 gap-1.5">
+            <button
+              type="button"
+              onClick={() => setPaymentOptionMode("pay-all")}
+              className={`flex flex-col items-center justify-center py-2 px-1 rounded-xl border text-center transition-all ${
+                paymentOptionMode === "pay-all"
+                  ? "border-[#84CC16] bg-[#84CC16] text-white shadow-sm shadow-lime-500/20"
+                  : "border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100"
+              }`}
+            >
+              <span className="text-[10px] font-black uppercase tracking-wider">
+                Pay All
+              </span>
+              <span
+                className={`text-[11px] font-black ${
+                  paymentOptionMode === "pay-all"
+                    ? "text-white"
+                    : "text-slate-900"
+                }`}
+              >
+                {currencySymbol}
+                {payAllTotal.toFixed(2)}
+              </span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setPaymentOptionMode("pay-today")}
+              className={`flex flex-col items-center justify-center py-2 px-1 rounded-xl border text-center transition-all ${
+                paymentOptionMode === "pay-today"
+                  ? "border-[#84CC16] bg-[#84CC16] text-white shadow-sm shadow-lime-500/20"
+                  : "border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100"
+              }`}
+            >
+              <span className="text-[10px] font-black uppercase tracking-wider">
+                Pay Today Only
+              </span>
+              <span
+                className={`text-[11px] font-black ${
+                  paymentOptionMode === "pay-today"
+                    ? "text-white"
+                    : "text-slate-900"
+                }`}
+              >
+                {currencySymbol}
+                {todayPurchase.toFixed(2)}
+              </span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setPaymentOptionMode("custom")}
+              className={`flex flex-col items-center justify-center py-2 px-1 rounded-xl border text-center transition-all ${
+                paymentOptionMode === "custom"
+                  ? "border-[#84CC16] bg-[#84CC16] text-white shadow-sm shadow-lime-500/20"
+                  : "border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100"
+              }`}
+            >
+              <span className="text-[10px] font-black uppercase tracking-wider">
+                Custom / Partial
+              </span>
+              <span
+                className={`text-[11px] font-black ${
+                  paymentOptionMode === "custom"
+                    ? "text-white"
+                    : "text-slate-500"
+                }`}
+              >
+                Enter amount
+              </span>
+            </button>
+          </div>
+
+          <div className="grid grid-cols-2 gap-2">
+            {/* Payment Method */}
+            <div className="space-y-1">
+              <label className="text-[10px] font-black uppercase tracking-wider text-slate-500">
+                Payment method
+              </label>
+              <select
+                value={paymentForm.method || "cash"}
+                onChange={(e) =>
+                  setPaymentForm((prev) => ({
+                    ...prev,
+                    method: e.target.value as any,
+                  }))
+                }
+                className="w-full h-9 rounded-xl border border-slate-200 bg-slate-50 px-2 text-xs font-bold text-slate-800 focus:border-[#84CC16] focus:outline-none"
+              >
+                <option value="cash">Cash</option>
+                <option value="card">Card</option>
+                <option value="bank">Bank Transfer</option>
+                <option value="due">Due / Pay Later</option>
+              </select>
+            </div>
+
+            {/* Amount Received */}
+            <div className="space-y-1">
+              <label className="text-[10px] font-black uppercase tracking-wider text-slate-500">
+                Amount received
+              </label>
+              <div className="relative">
+                <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">
+                  {currencySymbol}
+                </span>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={
+                    paymentOptionMode === "custom"
+                      ? customAmountReceived
+                      : effectiveAmountReceived
+                  }
+                  onChange={(e) => {
+                    setPaymentOptionMode("custom");
+                    setCustomAmountReceived(e.target.value);
+                  }}
+                  className="w-full h-9 rounded-xl border border-slate-200 bg-slate-50 pl-6 pr-2 text-right text-xs font-black text-slate-900 focus:border-[#84CC16] focus:outline-none"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Apply payment & edit allocation */}
+          <div className="flex items-center justify-between gap-2 pt-1">
+            <div className="flex items-center gap-1.5 flex-1 min-w-0">
+              <span className="text-[10px] font-black uppercase tracking-wider text-slate-500 shrink-0">
+                Apply payment
+              </span>
+              <select
+                value={allocationStrategy}
+                onChange={(e) => setAllocationStrategy(e.target.value as any)}
+                disabled={isManualAllocation}
+                className="h-8 flex-1 min-w-0 rounded-lg border border-slate-200 bg-slate-50 px-1.5 text-[11px] font-bold text-slate-800 focus:border-[#84CC16] focus:outline-none disabled:opacity-60"
+              >
+                <option value="oldest_first">Oldest dues first</option>
+                <option value="today_first">Today&apos;s purchase first</option>
+                <option value="pro_rata">Evenly distributed</option>
+              </select>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setIsManualAllocation((prev) => !prev)}
+              className={`h-8 px-2 rounded-lg text-[10px] font-black uppercase tracking-wider border transition-colors shrink-0 ${
+                isManualAllocation
+                  ? "border-[#84CC16] bg-[#84CC16]/10 text-[#65a30d]"
+                  : "border-slate-200 bg-slate-50 text-blue-600 hover:bg-slate-100"
+              }`}
+            >
+              {isManualAllocation ? "Auto Allocate" : "Edit Allocation"}
+            </button>
+          </div>
+        </div>
+
+        {/* ─── 5. PAYMENT ALLOCATION PREVIEW ─── */}
+        <div className="rounded-2xl border border-slate-200/80 bg-white p-3.5 shadow-sm space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[#84CC16] text-[10px] font-black text-white">
+                5
+              </span>
+              <span className="text-[11px] font-black uppercase tracking-wider text-slate-500">
+                Payment Allocation Preview
+              </span>
+            </div>
+            {isManualAllocation && (
+              <span className="text-[9px] font-black uppercase tracking-wider text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200">
+                Manual Mode
+              </span>
+            )}
+          </div>
+
+          {/* Allocation Table */}
+          <div className="overflow-hidden rounded-xl border border-slate-200">
+            <table className="w-full text-left text-[11px]">
+              <thead className="bg-slate-50 text-[10px] font-black uppercase tracking-wider text-slate-500 border-b border-slate-200">
+                <tr>
+                  <th className="px-2.5 py-1.5">Invoice / Sale</th>
+                  <th className="px-2 py-1.5 text-right">Previous due</th>
+                  <th className="px-2 py-1.5 text-right">Applied</th>
+                  <th className="px-2.5 py-1.5 text-right">Remaining</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 font-bold">
+                {allocationPreview.map((row) => (
+                  <tr
+                    key={row.id}
+                    className={
+                      row.isToday ? "bg-slate-50/50" : "hover:bg-slate-50/30"
+                    }
+                  >
+                    <td className="px-2.5 py-2 font-black text-slate-800">
+                      {row.invoiceNumber}
+                    </td>
+                    <td className="px-2 py-2 text-right text-slate-600">
+                      {currencySymbol}
+                      {row.previousDue.toFixed(2)}
+                    </td>
+                    <td className="px-2 py-2 text-right">
+                      {isManualAllocation ? (
+                        <input
+                          type="number"
+                          step="0.01"
+                          max={row.previousDue}
+                          min={0}
+                          value={
+                            manualAllocations[row.id] !== undefined
+                              ? manualAllocations[row.id]
+                              : row.applied.toFixed(2)
+                          }
+                          onChange={(e) => {
+                            const val = parseFloat(e.target.value) || 0;
+                            setManualAllocations((prev) => ({
+                              ...prev,
+                              [row.id]: Math.min(
+                                row.previousDue,
+                                Math.max(0, val),
+                              ),
+                            }));
+                          }}
+                          className="w-16 h-6 px-1 text-right text-[11px] font-black border border-slate-200 rounded bg-white focus:outline-none focus:border-[#84CC16]"
+                        />
+                      ) : (
+                        <span className="font-black text-slate-900">
+                          {currencySymbol}
+                          {row.applied.toFixed(2)}
+                        </span>
+                      )}
+                    </td>
+                    <td
+                      className={`px-2.5 py-2 text-right font-black ${
+                        row.remaining <= 0 ? "text-[#84CC16]" : "text-rose-500"
+                      }`}
+                    >
+                      {currencySymbol}
+                      {row.remaining.toFixed(2)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Allocation Totals Summary */}
+          <div className="space-y-1.5 pt-1 text-xs">
+            <div className="flex justify-between items-center text-slate-600 font-bold">
+              <span>Payment received</span>
+              <span className="font-black text-slate-900">
+                {currencySymbol}
+                {Number(effectiveAmountReceived || 0).toFixed(2)}
+              </span>
+            </div>
+            <div className="flex justify-between items-center text-slate-600 font-bold">
+              <span>Remaining customer balance</span>
+              <div className="flex items-center gap-2">
+                <span
+                  className={`font-black ${
+                    remainingCustomerBalance <= 0
+                      ? "text-[#84CC16]"
+                      : "text-rose-600"
+                  }`}
+                >
+                  {currencySymbol}
+                  {remainingCustomerBalance.toFixed(2)}
+                </span>
+                <span
+                  className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-black uppercase tracking-wider ${
+                    customerBalanceStatus === "PAID"
+                      ? "bg-lime-50 text-[#65a30d] border border-lime-200"
+                      : customerBalanceStatus === "PART-PAID"
+                        ? "bg-amber-50 text-amber-700 border border-amber-200"
+                        : "bg-rose-50 text-rose-700 border border-rose-200"
+                  }`}
+                >
+                  {customerBalanceStatus === "PART-PAID" && (
+                    <AlertCircle size={10} className="shrink-0" />
+                  )}
+                  {customerBalanceStatus}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* TAKE PAYMENT ACTION BUTTON */}
+          <button
+            type="button"
+            onClick={handleTakePayment}
+            disabled={orderCartItems.length === 0 || isPlacingOrder}
+            className="flex flex-col items-center justify-center gap-0.5 rounded-2xl bg-[#84CC16] text-white py-3 px-4 text-xs font-black shadow-lg shadow-lime-500/20 transition-all hover:bg-[#75b213] active:scale-[0.98] disabled:opacity-40 disabled:pointer-events-none mt-2 w-full"
+          >
+            {isPlacingOrder ? (
+              <Loader2 className="h-5 w-5 animate-spin my-1" />
+            ) : (
+              <>
+                <span className="text-sm tracking-wide">
+                  TAKE {currencySymbol}
+                  {Number(effectiveAmountReceived || 0).toFixed(2)} PAYMENT
+                </span>
+                <span className="text-[10px] font-semibold text-lime-100">
+                  Create today&apos;s receipt and record payment allocation
+                </span>
+              </>
+            )}
+          </button>
+        </div>
       </div>
+
+      {/* ─── DUE INVOICES MODAL ─── */}
+      <Dialog
+        open={isDueInvoicesModalOpen}
+        onOpenChange={setIsDueInvoicesModalOpen}
+      >
+        <DialogContent className="max-h-[85vh] overflow-y-auto rounded-3xl border-none bg-white p-6 font-poppins sm:max-w-xl">
+          <DialogHeader className="border-b border-slate-100 pb-4 text-left">
+            <DialogTitle className="text-lg font-black text-slate-950 flex items-center gap-2">
+              <AlertCircle className="text-amber-500" size={20} />
+              Outstanding Invoices for {selectedCustomer?.firstName}{" "}
+              {selectedCustomer?.lastName}
+            </DialogTitle>
+            <DialogDescription className="text-xs font-bold text-slate-500">
+              Total outstanding balance:{" "}
+              <span className="font-black text-rose-600">
+                {currencySymbol}
+                {previousOutstanding.toFixed(2)}
+              </span>{" "}
+              across {dueInvoices.length} invoice
+              {dueInvoices.length !== 1 ? "s" : ""}.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-3 pt-2">
+            {dueInvoices.map((inv: any) => (
+              <div
+                key={inv._id}
+                className="flex items-center justify-between p-3.5 rounded-2xl border border-slate-200 bg-slate-50 hover:bg-slate-100/70 transition-colors"
+              >
+                <div>
+                  <p className="text-xs font-black text-slate-900">
+                    Invoice #{inv.invoiceId || inv._id.slice(-8).toUpperCase()}
+                  </p>
+                  <p className="text-[11px] font-bold text-slate-500">
+                    {new Date(inv.createdAt).toLocaleDateString()} •{" "}
+                    {inv.items?.length || 0} items
+                  </p>
+                </div>
+                <div className="text-right">
+                  <p className="text-xs font-black text-rose-600">
+                    {currencySymbol}
+                    {(inv.dueBalance ?? inv.subtotal ?? 0).toFixed(2)} Due
+                  </p>
+                  <span className="inline-block px-1.5 py-0.5 rounded text-[9px] font-black uppercase tracking-wider bg-rose-100 text-rose-700">
+                    {inv.paymentStatus || "UNPAID"}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="pt-4 flex justify-end">
+            <button
+              type="button"
+              onClick={() => setIsDueInvoicesModalOpen(false)}
+              className="px-4 py-2 bg-slate-900 text-white rounded-xl text-xs font-bold hover:bg-slate-800 transition-colors"
+            >
+              Close
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* ─── PAYMENT DIALOG ─── */}
       <Dialog

@@ -56,9 +56,17 @@ export const getPaymentMethodLabel = (
   }
 };
 
+export interface ValidateCheckoutPaymentOptions {
+  amountPaidForToday?: number;
+  totalReceived?: number;
+  allocations?: Array<{ invoiceId: string; amountApplied: number }>;
+  allowPartial?: boolean;
+}
+
 export const validateCheckoutPayment = (
   form: CheckoutPaymentForm,
   total: number,
+  options?: ValidateCheckoutPaymentOptions,
 ): { error?: string; payment?: CheckoutPaymentResult } => {
   if (!form.method) {
     return { error: "Select how the customer is paying" };
@@ -69,21 +77,42 @@ export const validateCheckoutPayment = (
   if (form.method === "cash") {
     const amountReceived = Number(form.amountReceived);
 
-    if (!Number.isFinite(amountReceived) || amountReceived < normalizedTotal) {
+    if (!Number.isFinite(amountReceived) || amountReceived < 0) {
+      return {
+        error: "Enter a valid amount received",
+      };
+    }
+
+    if (!options?.allowPartial && amountReceived < normalizedTotal) {
       return {
         error: "Cash received must be equal to or greater than the total",
       };
     }
 
+    const todayPaid =
+      options?.amountPaidForToday !== undefined
+        ? roundMoney(
+            Math.min(normalizedTotal, Math.max(0, options.amountPaidForToday)),
+          )
+        : roundMoney(Math.min(normalizedTotal, amountReceived));
+    const dueAmount = roundMoney(Math.max(0, normalizedTotal - todayPaid));
+    const status: CheckoutPaymentStatus =
+      dueAmount <= 0 ? "paid" : todayPaid > 0 ? "partial" : "due";
+
     return {
       payment: {
         method: "cash",
-        status: "paid",
-        amountPaid: normalizedTotal,
-        dueAmount: 0,
+        status,
+        amountPaid: todayPaid,
+        dueAmount,
         details: {
           amountReceived: roundMoney(amountReceived),
-          changeGiven: roundMoney(amountReceived - normalizedTotal),
+          changeGiven: roundMoney(
+            Math.max(
+              0,
+              amountReceived - (options?.totalReceived ?? normalizedTotal),
+            ),
+          ),
           notes: form.notes.trim() || undefined,
         },
       },
@@ -99,12 +128,22 @@ export const validateCheckoutPayment = (
       return { error: "Card transaction reference is required" };
     }
 
+    const todayPaid =
+      options?.amountPaidForToday !== undefined
+        ? roundMoney(
+            Math.min(normalizedTotal, Math.max(0, options.amountPaidForToday)),
+          )
+        : normalizedTotal;
+    const dueAmount = roundMoney(Math.max(0, normalizedTotal - todayPaid));
+    const status: CheckoutPaymentStatus =
+      dueAmount <= 0 ? "paid" : todayPaid > 0 ? "partial" : "due";
+
     return {
       payment: {
         method: "card",
-        status: "paid",
-        amountPaid: normalizedTotal,
-        dueAmount: 0,
+        status,
+        amountPaid: todayPaid,
+        dueAmount,
         details: {
           cardholderName: form.cardholderName.trim() || undefined,
           cardLastFour: form.cardLastFour,
@@ -128,12 +167,22 @@ export const validateCheckoutPayment = (
       return { error: "Bank transfer reference is required" };
     }
 
+    const todayPaid =
+      options?.amountPaidForToday !== undefined
+        ? roundMoney(
+            Math.min(normalizedTotal, Math.max(0, options.amountPaidForToday)),
+          )
+        : normalizedTotal;
+    const dueAmount = roundMoney(Math.max(0, normalizedTotal - todayPaid));
+    const status: CheckoutPaymentStatus =
+      dueAmount <= 0 ? "paid" : todayPaid > 0 ? "partial" : "due";
+
     return {
       payment: {
         method: "bank",
-        status: "paid",
-        amountPaid: normalizedTotal,
-        dueAmount: 0,
+        status,
+        amountPaid: todayPaid,
+        dueAmount,
         details: {
           bankName: form.bankName.trim(),
           accountLastFour: form.accountLastFour.trim() || undefined,

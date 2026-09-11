@@ -65,14 +65,15 @@ export default function PosSection() {
                 <div className="flex flex-wrap items-start justify-between gap-4">
                   <div>
                     <p className="text-xs font-black uppercase tracking-[0.28em] text-[#84CC16]">
-                      POS Section
+                      Counter POS Desk
                     </p>
                     <h3 className="mt-2 text-2xl font-black">
                       Faster counter operations for mobile shops
                     </h3>
                     <p className="mt-2 max-w-sm text-sm leading-6 text-slate-300">
-                      Built around the checkout, cart, inventory, customer, and
-                      invoice modules already present in the project.
+                      Unify walk-in retail sales, repair pickups, customer
+                      balances, and thermal receipts in a streamlined counter
+                      flow.
                     </p>
                   </div>
                   <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
@@ -198,7 +199,7 @@ export default function PosSection() {
             <div className="mb-5 inline-flex items-center gap-3 rounded-full border border-slate-200 bg-slate-50 px-4 py-2">
               <ShoppingCart className="h-4 w-4 text-[#3B82F6]" />
               <span className="text-sm font-bold uppercase tracking-[0.24em] text-slate-500">
-                POS Section
+                Counter & Retail POS
               </span>
             </div>
 
@@ -209,10 +210,9 @@ export default function PosSection() {
             </h2>
 
             <p className="mt-6 max-w-[610px] text-base leading-7 text-slate-600 md:text-lg">
-              The shopkeeper app already supports inventory, add-to-cart,
-              customer records, checkout, invoices, payments, and repair-linked
-              selling. This new section packages those capabilities as a clear
-              POS story on the landing page.
+              Equip your store with integrated inventory control, rapid walk-in
+              checkout, customer balance tracking, flexible payment methods, and
+              seamless repair collection.
             </p>
 
             <div className="mt-8 space-y-4">

@@ -153,8 +153,8 @@ export default function ExperienceSmarter() {
                 />
                 <StatusCard
                   icon={<Check className="text-[#22C55E]" />}
-                  label="Part Authenticity"
-                  sub="All original components"
+                  label="Hardware Specifications"
+                  sub="Verified OEM profile"
                   status="check"
                 />
               </div>
@@ -258,15 +258,20 @@ function TechItem({
   label,
   value,
 }: {
-  icon: React.ReactNode;
+  icon?: React.ReactNode;
   label: string;
   value: string;
 }) {
   return (
     <div>
-      <p className="text-[9px] font-bold text-[#94A3B8] dark:text-white uppercase mb-1">
-        {label}
-      </p>
+      <div className="flex items-center gap-1 mb-1 text-[#94A3B8] dark:text-white">
+        {icon && (
+          <span className="flex h-3.5 w-3.5 items-center justify-center [&>svg]:h-3.5 [&>svg]:w-3.5">
+            {icon}
+          </span>
+        )}
+        <p className="text-[9px] font-bold uppercase">{label}</p>
+      </div>
       <p className="text-[11px] font-bold text-[#0F172A] dark:text-white">
         {value}
       </p>
