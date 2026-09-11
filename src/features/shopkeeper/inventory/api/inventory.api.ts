@@ -373,6 +373,64 @@ export const getMyInvoiceHistory = async (
   return response.data;
 };
 
+export interface CustomerInvoiceSummary {
+  totalInvoiced: number;
+  totalPaid: number;
+  totalDue: number;
+  paymentStatus: "paid" | "partial" | "due";
+  count: number;
+}
+
+export interface PaymentActivityItem {
+  id: string;
+  date: string;
+  amount: number;
+  paymentMethod: string;
+  invoiceNumber: string;
+  invoiceType: string;
+}
+
+export interface CustomerInvoiceItem {
+  _id: string;
+  invoiceNumber?: string;
+  type?: string;
+  createdAt: string;
+  paymentMethod?: string;
+  totalAmount?: number;
+  invoiceAmount?: number;
+  paidAmount?: number;
+  amountPaid?: number;
+  dueAmount?: number;
+  paymentStatus?: string;
+  invoice?: {
+    url?: string;
+  };
+  [key: string]: unknown;
+}
+
+export interface CustomerInvoicesResponse {
+  success: boolean;
+  message: string;
+  data: {
+    invoices: CustomerInvoiceItem[];
+    summary: CustomerInvoiceSummary;
+    paymentActivities: PaymentActivityItem[];
+  };
+}
+
+export const getCustomerInvoices = async (
+  customerId: string,
+  params?: {
+    shopId?: string;
+    shopkeeperId?: string;
+  },
+): Promise<CustomerInvoicesResponse> => {
+  const response = await api.get(`/invoices/customer/${customerId}`, {
+    params,
+  });
+  return response.data;
+};
+
 export const createCustomer = async (input: {
   firstName: string;
   lastName: string;

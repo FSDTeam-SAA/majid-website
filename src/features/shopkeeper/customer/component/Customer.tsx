@@ -5,20 +5,22 @@ import { useSession } from "next-auth/react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import {
+  AlertTriangle,
   BadgePercent,
   Calendar,
+  Clock3,
   CreditCard,
-  Download,
   Edit2,
-  Eye,
   FileText,
   Filter,
   Grid2X2,
   History,
   Loader2,
+  Lock,
   Mail,
   MoreVertical,
   Plus,
+  Receipt,
   Search,
   Send,
   ShoppingBag,
@@ -26,6 +28,7 @@ import {
   TrendingUp,
   UserCheck,
   Users,
+  Wallet,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -52,9 +55,11 @@ import {
 } from "@/components/ui/table";
 import {
   useCustomersByShopkeeper,
+  useCustomerInvoices,
   useDeleteCustomer,
   useMyInvoiceHistory,
 } from "../../inventory/hooks/useInventory";
+import type { CustomerInvoiceItem } from "../../inventory/api/inventory.api";
 import type { Customer, InvoiceHistoryItem } from "../../inventory/types";
 import { CustomerFormModal } from "./modals/CustomerFormModal";
 import { useCurrency } from "@/hooks/useCurrency";
@@ -211,55 +216,6 @@ const formatDate = (date?: string) => {
   });
 };
 
-const formatInvoiceAmount = (amount?: number, currency = "USD") => {
-  if (amount === undefined || amount === null) return "N/A";
-
-  try {
-    return new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency,
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    }).format(amount);
-  } catch {
-    return `${amount.toFixed(2)} ${currency}`;
-  }
-};
-
-const getInvoicePaymentDetail = (invoice: CustomerInvoice) => {
-  const details = invoice.paymentDetails;
-
-  if (invoice.paymentMethod === "card" && details?.cardLastFour) {
-    return `•••• ${details.cardLastFour}${
-      details.transactionReference
-        ? ` · Ref ${details.transactionReference}`
-        : ""
-    }`;
-  }
-
-  if (invoice.paymentMethod === "bank") {
-    return [details?.bankName, details?.transactionReference]
-      .filter(Boolean)
-      .join(" · ");
-  }
-
-  if (invoice.paymentMethod === "cash" && details?.amountReceived != null) {
-    return `Received ${formatInvoiceAmount(
-      details.amountReceived,
-      invoice.currency,
-    )} · Change ${formatInvoiceAmount(
-      details.changeGiven || 0,
-      invoice.currency,
-    )}`;
-  }
-
-  if (invoice.paymentMethod === "due" && details?.dueDate) {
-    return `Due ${formatDate(details.dueDate)}`;
-  }
-
-  return "";
-};
-
 const getInitial = (customer: Customer) =>
   customer.firstName?.charAt(0).toUpperCase() ||
   customer.lastName?.charAt(0).toUpperCase() ||
@@ -275,8 +231,10 @@ export default function Customer() {
     isLoading,
     isError,
   } = useCustomersByShopkeeper(shopkeeperId || "");
-  const { data: invoicesResponse, isLoading: isInvoicesLoading } =
-    useMyInvoiceHistory(shopkeeperId || "", !!shopkeeperId);
+  const { data: invoicesResponse } = useMyInvoiceHistory(
+    shopkeeperId || "",
+    !!shopkeeperId,
+  );
   const deleteCustomerMutation = useDeleteCustomer();
 
   const [searchQuery, setSearchQuery] = useState("");
@@ -298,6 +256,25 @@ export default function Customer() {
     createDefaultEmailForm(),
   );
   const todayDate = useMemo(() => new Date().toISOString().slice(0, 10), []);
+
+  const customerInvoicesQuery = useCustomerInvoices(
+    selectedCustomer?._id || "",
+    Boolean(selectedCustomer),
+    { shopkeeperId: shopkeeperId || undefined },
+  );
+
+  const customerInvoicesData = customerInvoicesQuery.data?.data;
+  const customerInvoicesList = customerInvoicesData?.invoices || [];
+  const customerInvoicesSummary = customerInvoicesData?.summary || {
+    totalInvoiced: 0,
+    totalPaid: 0,
+    totalDue: 0,
+    paymentStatus: "due" as const,
+    count: 0,
+  };
+  const customerPaymentActivities =
+    customerInvoicesData?.paymentActivities || [];
+  const isCustomerInvoicesLoading = customerInvoicesQuery.isLoading;
 
   const customerDiscountsQuery = useQuery({
     queryKey: ["customer-discounts", discountCustomer?._id || ""],
@@ -418,11 +395,6 @@ export default function Customer() {
     filteredRows.every(({ customer }) =>
       selectedCustomerIds.includes(customer._id),
     );
-
-  const selectedCustomerInvoices = useMemo(() => {
-    if (!selectedCustomer) return [];
-    return getCustomerInvoices(selectedCustomer);
-  }, [getCustomerInvoices, selectedCustomer]);
 
   const selectedDiscounts = useMemo(() => {
     const apiDiscounts = customerDiscountsQuery.data?.data || [];
@@ -591,25 +563,6 @@ export default function Customer() {
         toast.error(err.response?.data?.message || "Failed to delete discount");
       },
     });
-  };
-
-  const handleDownload = async (url: string, filename: string) => {
-    try {
-      const response = await fetch(url);
-      const blob = await response.blob();
-      const blobUrl = window.URL.createObjectURL(blob);
-      const link = document.createElement("a");
-
-      link.href = blobUrl;
-      link.download = filename;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(blobUrl);
-    } catch (error) {
-      console.error("Download failed:", error);
-      toast.error("Failed to download invoice");
-    }
   };
 
   const toggleCustomerSelection = (customerId: string) => {
@@ -1472,221 +1425,427 @@ export default function Customer() {
           if (!open) setSelectedCustomer(null);
         }}
       >
-        <DialogContent className="max-h-[90vh] overflow-hidden rounded-2xl p-0 sm:max-w-5xl">
+        <DialogContent className="max-h-[92vh] overflow-hidden rounded-[28px] p-0 !max-w-[1050px] sm:!max-w-[1050px] w-[95vw] border-0 shadow-2xl">
           <DialogHeader className="border-b border-slate-100 px-6 py-5 dark:border-slate-700">
             <DialogTitle className="flex items-center gap-3 text-xl font-black">
               <span className="flex h-10 w-10 items-center justify-center rounded-full bg-lime-50 text-[#84CC16] dark:bg-lime-500/10">
-                <UserCheck size={18} />
+                <UserCheck size={20} />
               </span>
               Customer Details
             </DialogTitle>
           </DialogHeader>
 
           {selectedCustomer && (
-            <div className="max-h-[calc(90vh-92px)] overflow-y-auto p-6">
-              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-                <div className="rounded-2xl border border-slate-100 p-4 dark:border-slate-700">
-                  <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">
-                    Name
-                  </span>
-                  <p className="mt-1 text-base font-black text-slate-900 dark:text-white">
-                    {selectedCustomer.firstName} {selectedCustomer.lastName}
-                  </p>
-                  <p className="mt-1 text-xs font-bold text-slate-500">
-                    ID: {selectedCustomer.customerId || "N/A"}
-                  </p>
+            <div className="max-h-[calc(92vh-88px)] overflow-y-auto p-6 space-y-6">
+              {/* Callout 1: Customer Details Information Cards */}
+              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                <div className="rounded-2xl border border-slate-100 p-4 bg-white dark:bg-slate-800 shadow-sm space-y-2">
+                  <div>
+                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                      NAME
+                    </span>
+                    <p className="mt-0.5 text-lg font-black text-slate-900 dark:text-white capitalize">
+                      {[selectedCustomer.firstName, selectedCustomer.lastName]
+                        .filter(Boolean)
+                        .join(" ") || "N/A"}
+                    </p>
+                  </div>
+                  <div>
+                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                      CUSTOMER ID
+                    </span>
+                    <p className="mt-0.5 text-xs font-black text-slate-700 dark:text-slate-300">
+                      {selectedCustomer.customerId ||
+                        `CUST-${selectedCustomer._id.slice(-4).toUpperCase()}`}
+                    </p>
+                  </div>
                 </div>
-                <div className="rounded-2xl border border-slate-100 p-4 dark:border-slate-700">
+
+                <div className="rounded-2xl border border-slate-100 p-4 bg-white dark:bg-slate-800 shadow-sm space-y-1">
                   <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">
-                    Email
+                    EMAIL
                   </span>
-                  <p className="mt-1 break-all text-sm font-bold text-slate-700 dark:text-slate-200">
+                  <p className="mt-1 break-all text-xs font-bold text-slate-700 dark:text-slate-200">
                     {selectedCustomer.email || "No email"}
                   </p>
                 </div>
-                <div className="rounded-2xl border border-slate-100 p-4 dark:border-slate-700">
+
+                <div className="rounded-2xl border border-slate-100 p-4 bg-white dark:bg-slate-800 shadow-sm space-y-1">
                   <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">
-                    Phone
+                    PHONE
                   </span>
-                  <p className="mt-1 text-sm font-bold text-slate-700 dark:text-slate-200">
+                  <p className="mt-1 text-xs font-bold text-slate-700 dark:text-slate-200">
                     {selectedCustomer.phone || "No phone"}
                   </p>
                 </div>
-                <div className="rounded-2xl border border-slate-100 p-4 dark:border-slate-700">
-                  <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">
-                    Already Paid
-                  </span>
-                  <p className="mt-1 text-base font-black text-[#84CC16]">
-                    {formatCurrency(selectedCustomer.alreadyPaid || 0)}
-                  </p>
-                </div>
-                <div className="rounded-2xl border border-slate-100 p-4 dark:border-slate-700 md:col-span-2 xl:col-span-3">
-                  <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">
-                    Address
-                  </span>
-                  <p className="mt-1 text-sm font-bold text-slate-700 dark:text-slate-200">
-                    {selectedCustomer.address || "No address"}
-                  </p>
-                </div>
-                <div className="rounded-2xl border border-slate-100 p-4 dark:border-slate-700">
-                  <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">
-                    Payment Type
-                  </span>
-                  <p className="mt-1 flex items-center gap-1.5 text-sm font-black capitalize text-slate-900 dark:text-white">
-                    <CreditCard className="h-4 w-4 text-[#84CC16]" />
-                    {selectedCustomer.paymentType || "N/A"}
-                  </p>
+
+                <div className="rounded-2xl border border-slate-100 p-4 bg-white dark:bg-slate-800 shadow-sm flex flex-col justify-between">
+                  <div>
+                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                      ADDRESS
+                    </span>
+                    <p className="mt-1 text-xs font-bold text-slate-700 dark:text-slate-200 truncate">
+                      {selectedCustomer.address || "United Kingdom"}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-1.5 text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 pt-2">
+                    <Lock className="w-3 h-3 shrink-0" />
+                    <span>Records linked by shop_id + customer_id</span>
+                  </div>
                 </div>
               </div>
 
-              <div className="mt-8 overflow-hidden rounded-2xl border border-slate-100 dark:border-slate-700">
-                <div className="flex flex-col gap-2 border-b border-slate-100 bg-slate-50 px-5 py-4 dark:border-slate-700 dark:bg-slate-800/70 sm:flex-row sm:items-center sm:justify-between">
-                  <div className="flex items-center gap-2">
-                    <FileText className="h-5 w-5 text-[#84CC16]" />
+              {/* Callout 2: Metrics Summary Row */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 items-center">
+                {/* TOTAL INVOICED */}
+                <div className="rounded-2xl border border-slate-100 p-4 bg-white dark:bg-slate-800 shadow-sm">
+                  <div className="flex items-center gap-2 mb-1.5">
+                    <div className="flex items-center justify-center w-6 h-6 rounded-lg bg-blue-50 text-blue-600 dark:bg-blue-950/40">
+                      <Receipt size={14} />
+                    </div>
+                    <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">
+                      TOTAL INVOICED
+                    </span>
+                  </div>
+                  <p className="text-xl font-black text-slate-900 dark:text-white">
+                    {formatCurrency(customerInvoicesSummary.totalInvoiced)}
+                  </p>
+                </div>
+
+                {/* TOTAL PAID */}
+                <div className="rounded-2xl border border-emerald-100 bg-emerald-50/30 p-4 dark:bg-emerald-950/10 shadow-sm">
+                  <div className="flex items-center gap-2 mb-1.5">
+                    <div className="flex items-center justify-center w-6 h-6 rounded-lg bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300">
+                      <Wallet size={14} />
+                    </div>
+                    <span className="text-[10px] font-black uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
+                      TOTAL PAID
+                    </span>
+                  </div>
+                  <p className="text-xl font-black text-emerald-600 dark:text-emerald-400">
+                    {formatCurrency(customerInvoicesSummary.totalPaid)}
+                  </p>
+                </div>
+
+                {/* TOTAL DUE */}
+                <div className="rounded-2xl border border-rose-100 bg-rose-50/30 p-4 dark:bg-rose-950/10 shadow-sm">
+                  <div className="flex items-center gap-2 mb-1.5">
+                    <div className="flex items-center justify-center w-6 h-6 rounded-lg bg-rose-100 text-rose-600 dark:bg-rose-900/40 dark:text-rose-300">
+                      <Clock3 size={14} />
+                    </div>
+                    <span className="text-[10px] font-black uppercase tracking-wider text-rose-500 dark:text-rose-400">
+                      TOTAL DUE
+                    </span>
+                  </div>
+                  <p className="text-xl font-black text-rose-600 dark:text-rose-400">
+                    {formatCurrency(customerInvoicesSummary.totalDue)}
+                  </p>
+                </div>
+
+                {/* PAYMENT STATUS */}
+                <div className="rounded-2xl border border-slate-100 p-4 bg-white dark:bg-slate-800 shadow-sm">
+                  <div className="flex items-center gap-2 mb-1.5">
+                    <div className="flex items-center justify-center w-6 h-6 rounded-lg bg-amber-50 text-amber-600 dark:bg-amber-950/40">
+                      <AlertTriangle size={14} />
+                    </div>
+                    <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">
+                      PAYMENT STATUS
+                    </span>
+                  </div>
+                  <div className="mt-1">
+                    <span
+                      className={`inline-flex px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider ${
+                        customerInvoicesSummary.paymentStatus === "paid"
+                          ? "bg-emerald-100 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800"
+                          : customerInvoicesSummary.paymentStatus === "partial"
+                            ? "bg-amber-100 text-amber-700 border border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800"
+                            : "bg-rose-100 text-rose-700 border border-rose-200 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-800"
+                      }`}
+                    >
+                      {customerInvoicesSummary.paymentStatus === "paid"
+                        ? "PAID"
+                        : customerInvoicesSummary.paymentStatus === "partial"
+                          ? "PART-PAID"
+                          : "DUE"}
+                    </span>
+                  </div>
+                </div>
+
+                {/* RECORD PAYMENT BUTTON */}
+                <div className="flex items-center justify-center sm:col-span-2 lg:col-span-1">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      toast.info(
+                        `Record payment active for ${selectedCustomer.firstName}`,
+                      )
+                    }
+                    className="w-full h-14 bg-[#84CC16] hover:bg-[#65A30D] text-white font-black text-xs uppercase tracking-wider rounded-2xl flex items-center justify-center gap-2 shadow-sm transition-all"
+                  >
+                    <CreditCard size={16} />
+                    RECORD PAYMENT
+                  </button>
+                </div>
+              </div>
+
+              {/* Callout 3 & 4: Invoice History Section */}
+              <div className="overflow-hidden rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm">
+                <div className="flex flex-col gap-2 border-b border-slate-100 bg-slate-50/80 px-6 py-4 dark:border-slate-700 dark:bg-slate-800/70 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="flex items-center gap-2.5">
+                    <div className="flex items-center justify-center w-7 h-7 rounded-lg bg-lime-50 text-[#84CC16]">
+                      <FileText size={18} />
+                    </div>
                     <h3 className="text-base font-black text-slate-900 dark:text-white">
                       Invoice History
                     </h3>
                   </div>
-                  <span className="text-xs font-black uppercase tracking-wider text-slate-500">
-                    Total: {selectedCustomerInvoices.length}
-                  </span>
+                  <div className="flex items-center gap-1.5 text-xs font-black text-[#84CC16] tracking-wider uppercase">
+                    <span>●</span>
+                    <span>TOTAL: {customerInvoicesList.length}</span>
+                  </div>
                 </div>
 
-                {isInvoicesLoading ? (
-                  <div className="flex h-32 items-center justify-center gap-2 text-sm font-bold text-slate-500">
-                    <Loader2 className="h-4 w-4 animate-spin" />
+                {isCustomerInvoicesLoading ? (
+                  <div className="flex h-36 items-center justify-center gap-2 text-sm font-bold text-slate-500">
+                    <Loader2 className="h-5 w-5 animate-spin text-[#84CC16]" />
                     Loading invoices...
                   </div>
-                ) : selectedCustomerInvoices.length > 0 ? (
+                ) : customerInvoicesList.length > 0 ? (
                   <div className="overflow-x-auto">
                     <Table>
                       <TableHeader className="bg-white dark:bg-card">
-                        <TableRow>
-                          <TableHead className="px-5 py-3 text-xs font-black uppercase tracking-wider text-slate-500">
-                            Invoice ID
+                        <TableRow className="hover:bg-transparent border-b border-slate-100 dark:border-slate-800">
+                          <TableHead className="px-6 py-3 text-xs font-black uppercase tracking-wider text-slate-500">
+                            INVOICE ID
                           </TableHead>
-                          <TableHead className="px-5 py-3 text-xs font-black uppercase tracking-wider text-slate-500">
-                            Type
+                          <TableHead className="px-6 py-3 text-xs font-black uppercase tracking-wider text-slate-500">
+                            TYPE
                           </TableHead>
-                          <TableHead className="px-5 py-3 text-xs font-black uppercase tracking-wider text-slate-500">
-                            Date
+                          <TableHead className="px-6 py-3 text-xs font-black uppercase tracking-wider text-slate-500">
+                            DATE
                           </TableHead>
-                          <TableHead className="px-5 py-3 text-xs font-black uppercase tracking-wider text-slate-500">
-                            Payment
+                          <TableHead className="px-6 py-3 text-xs font-black uppercase tracking-wider text-slate-500">
+                            PAYMENT METHOD
                           </TableHead>
-                          <TableHead className="px-5 py-3 text-xs font-black uppercase tracking-wider text-slate-500">
-                            Amount
+                          <TableHead className="px-6 py-3 text-xs font-black uppercase tracking-wider text-slate-500">
+                            INVOICE AMOUNT
                           </TableHead>
-                          <TableHead className="px-5 py-3 text-right text-xs font-black uppercase tracking-wider text-slate-500">
-                            Actions
+                          <TableHead className="px-6 py-3 text-xs font-black uppercase tracking-wider text-slate-500">
+                            PAID
+                          </TableHead>
+                          <TableHead className="px-6 py-3 text-xs font-black uppercase tracking-wider text-slate-500">
+                            DUE
+                          </TableHead>
+                          <TableHead className="px-6 py-3 text-xs font-black uppercase tracking-wider text-slate-500 text-center">
+                            STATUS
                           </TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {selectedCustomerInvoices.map((invoice) => (
-                          <TableRow key={invoice._id}>
-                            <TableCell className="px-5 py-4 font-mono text-xs font-bold text-slate-600 dark:text-slate-300">
-                              {invoice.invoiceNumber ||
-                                `INV-${invoice._id.slice(-8).toUpperCase()}`}
-                            </TableCell>
-                            <TableCell className="px-5 py-4">
-                              <span className="inline-flex rounded-full border border-orange-100 bg-orange-50 px-2.5 py-1 text-xs font-bold text-orange-700">
-                                {invoice.type || "N/A"}
-                              </span>
-                            </TableCell>
-                            <TableCell className="px-5 py-4 text-sm font-bold text-slate-500">
-                              <span className="flex items-center gap-1.5">
-                                <Calendar className="h-3.5 w-3.5 text-slate-400" />
-                                {formatDate(invoice.createdAt)}
-                              </span>
-                            </TableCell>
-                            <TableCell className="px-5 py-4">
-                              <div className="min-w-36">
-                                <div className="flex items-center gap-2">
-                                  <span className="inline-flex rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-black uppercase text-slate-700">
-                                    {invoice.paymentMethod || "Not recorded"}
+                        {customerInvoicesList.map(
+                          (invoice: CustomerInvoiceItem) => {
+                            const invAmount =
+                              Number(
+                                invoice.totalAmount ?? invoice.invoiceAmount,
+                              ) || 0;
+                            const paidAmt =
+                              Number(
+                                invoice.paidAmount ??
+                                  invoice.amountPaid ??
+                                  (invoice.paymentStatus === "paid"
+                                    ? invAmount
+                                    : 0),
+                              ) || 0;
+                            const dueAmt =
+                              invoice.dueAmount !== null &&
+                              invoice.dueAmount !== undefined
+                                ? Number(invoice.dueAmount)
+                                : Math.max(0, invAmount - paidAmt);
+                            const derivedStatus =
+                              dueAmt <= 0
+                                ? "paid"
+                                : paidAmt > 0
+                                  ? "partial"
+                                  : "due";
+
+                            const isDelivery = String(invoice.type || "")
+                              .toLowerCase()
+                              .includes("delivery");
+
+                            return (
+                              <TableRow
+                                key={invoice._id}
+                                className="hover:bg-slate-50/60 dark:hover:bg-slate-800/40 transition-colors border-b border-slate-100 dark:border-slate-800 cursor-pointer"
+                                onClick={() =>
+                                  invoice.invoice?.url &&
+                                  window.open(
+                                    invoice.invoice.url,
+                                    "_blank",
+                                    "noopener,noreferrer",
+                                  )
+                                }
+                              >
+                                <TableCell className="px-6 py-4 font-black text-xs text-slate-900 dark:text-white">
+                                  {invoice.invoiceNumber ||
+                                    `INV-${String(invoice._id).slice(-4).toUpperCase()}`}
+                                </TableCell>
+                                <TableCell className="px-6 py-4">
+                                  <span
+                                    className={`inline-flex rounded-full px-3 py-1 text-xs font-bold capitalize ${
+                                      isDelivery
+                                        ? "border border-blue-100 bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-800"
+                                        : "border border-orange-100 bg-orange-50 text-orange-700 dark:bg-orange-950/40 dark:text-orange-300 dark:border-orange-800"
+                                    }`}
+                                  >
+                                    {invoice.type || "Custom Invoice"}
                                   </span>
-                                  {invoice.paymentStatus && (
-                                    <span
-                                      className={`text-[10px] font-black uppercase ${
-                                        invoice.paymentStatus === "paid"
-                                          ? "text-lime-600"
-                                          : "text-orange-600"
-                                      }`}
-                                    >
-                                      {invoice.paymentStatus}
-                                    </span>
-                                  )}
-                                </div>
-                                {getInvoicePaymentDetail(invoice) && (
-                                  <p className="mt-1 max-w-60 break-words text-[10px] font-semibold text-slate-500">
-                                    {getInvoicePaymentDetail(invoice)}
-                                  </p>
-                                )}
-                              </div>
-                            </TableCell>
-                            <TableCell className="px-5 py-4">
-                              <p className="text-sm font-black text-slate-900 dark:text-white">
-                                {formatInvoiceAmount(
-                                  invoice.totalAmount,
-                                  invoice.currency,
-                                )}
-                              </p>
-                              {!!invoice.dueAmount && invoice.dueAmount > 0 && (
-                                <p className="mt-1 text-[10px] font-black text-orange-600">
-                                  Due{" "}
-                                  {formatInvoiceAmount(
-                                    invoice.dueAmount,
-                                    invoice.currency,
-                                  )}
-                                </p>
-                              )}
-                            </TableCell>
-                            <TableCell className="px-5 py-4 text-right">
-                              <div className="flex items-center justify-end gap-2">
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  className="rounded-xl text-xs font-bold"
-                                  onClick={() =>
-                                    window.open(
-                                      invoice.invoice.url,
-                                      "_blank",
-                                      "noopener,noreferrer",
-                                    )
-                                  }
-                                >
-                                  <Eye className="h-3.5 w-3.5" />
-                                  View
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  className="rounded-xl text-xs font-bold"
-                                  onClick={() =>
-                                    handleDownload(
-                                      invoice.invoice.url,
-                                      `${invoice.invoiceNumber || `invoice_${invoice._id.slice(-6)}`}.pdf`,
-                                    )
-                                  }
-                                >
-                                  <Download className="h-3.5 w-3.5" />
-                                  Download
-                                </Button>
-                              </div>
-                            </TableCell>
-                          </TableRow>
-                        ))}
+                                </TableCell>
+                                <TableCell className="px-6 py-4 text-xs font-semibold text-slate-600 dark:text-slate-300">
+                                  <span className="flex items-center gap-1.5">
+                                    <Calendar className="h-3.5 w-3.5 text-slate-400" />
+                                    {formatDate(invoice.createdAt)}
+                                  </span>
+                                </TableCell>
+                                <TableCell className="px-6 py-4">
+                                  <span className="inline-flex rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-700 dark:bg-slate-800 dark:text-slate-300">
+                                    {invoice.paymentMethod || "On Account"}
+                                  </span>
+                                </TableCell>
+                                <TableCell className="px-6 py-4 text-xs font-black text-slate-900 dark:text-white">
+                                  {formatCurrency(invAmount)}
+                                </TableCell>
+                                <TableCell className="px-6 py-4 text-xs font-black text-emerald-600 dark:text-emerald-400">
+                                  {formatCurrency(paidAmt)}
+                                </TableCell>
+                                <TableCell className="px-6 py-4 text-xs font-black text-rose-600 dark:text-rose-400">
+                                  {formatCurrency(dueAmt)}
+                                </TableCell>
+                                <TableCell className="px-6 py-4 text-center">
+                                  <span
+                                    className={`inline-flex rounded-full px-3 py-0.5 text-xs font-black uppercase tracking-wider ${
+                                      derivedStatus === "paid"
+                                        ? "bg-emerald-100 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300"
+                                        : derivedStatus === "partial"
+                                          ? "bg-amber-100 text-amber-700 border border-amber-200 dark:bg-amber-950/40 dark:text-amber-300"
+                                          : "bg-rose-100 text-rose-700 border border-rose-200 dark:bg-rose-950/40 dark:text-rose-300"
+                                    }`}
+                                  >
+                                    {derivedStatus === "paid"
+                                      ? "PAID"
+                                      : derivedStatus === "partial"
+                                        ? "PART-PAID"
+                                        : "DUE"}
+                                  </span>
+                                </TableCell>
+                              </TableRow>
+                            );
+                          },
+                        )}
                       </TableBody>
                     </Table>
+
+                    {/* Table Footer Summary */}
+                    <div className="px-6 py-3.5 bg-slate-50/80 dark:bg-slate-800/80 border-t border-slate-100 dark:border-slate-700 text-xs font-bold text-slate-500 flex flex-wrap items-center gap-2">
+                      <span>{customerInvoicesList.length} invoices</span>
+                      <span>•</span>
+                      <span>
+                        {formatCurrency(customerInvoicesSummary.totalInvoiced)}{" "}
+                        invoiced
+                      </span>
+                      <span>•</span>
+                      <span>
+                        {formatCurrency(customerInvoicesSummary.totalPaid)} paid
+                      </span>
+                      <span>•</span>
+                      <span>
+                        {formatCurrency(customerInvoicesSummary.totalDue)} due
+                      </span>
+                    </div>
                   </div>
                 ) : (
-                  <div className="flex h-32 flex-col items-center justify-center text-center">
+                  <div className="flex h-36 flex-col items-center justify-center text-center p-6">
                     <FileText className="mb-2 h-8 w-8 text-slate-300" />
                     <p className="text-sm font-bold text-slate-500">
                       No invoices found for this customer.
                     </p>
                   </div>
                 )}
+              </div>
+
+              {/* Callout 5: Payment Activity Section */}
+              <div className="rounded-2xl border border-slate-100 p-5 bg-white dark:bg-slate-800 shadow-sm space-y-3">
+                <div className="flex items-center gap-2">
+                  <div className="flex items-center justify-center w-6 h-6 rounded-full bg-blue-50 text-blue-600 dark:bg-blue-950/40">
+                    <Clock3 size={14} />
+                  </div>
+                  <h4 className="text-sm font-black text-slate-900 dark:text-white">
+                    Payment Activity
+                  </h4>
+                </div>
+
+                <div className="space-y-2">
+                  {customerPaymentActivities.length > 0 ? (
+                    customerPaymentActivities.map((act) => (
+                      <div
+                        key={act.id}
+                        className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-100 dark:border-slate-800"
+                      >
+                        <div className="flex items-center gap-2 text-xs font-semibold text-slate-700 dark:text-slate-300">
+                          <Calendar
+                            size={14}
+                            className="text-slate-400 shrink-0"
+                          />
+                          <span>
+                            {formatDate(act.date)} •{" "}
+                            {formatCurrency(act.amount)}{" "}
+                            {act.paymentMethod.toLowerCase()} allocated to{" "}
+                            {act.invoiceNumber}
+                          </span>
+                        </div>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() =>
+                            toast.info(
+                              `Viewing customer ledger for ${selectedCustomer.firstName}`,
+                            )
+                          }
+                          className="rounded-xl text-xs font-bold h-8 border-slate-200 text-emerald-700 hover:bg-emerald-50 hover:text-emerald-800 self-start sm:self-auto"
+                        >
+                          <FileText className="w-3.5 h-3.5 mr-1" />
+                          VIEW LEDGER
+                        </Button>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-100 dark:border-slate-800">
+                      <div className="flex items-center gap-2 text-xs font-medium text-slate-500">
+                        <Calendar
+                          size={14}
+                          className="text-slate-400 shrink-0"
+                        />
+                        <span>No payments from other customers are shown.</span>
+                      </div>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() =>
+                          toast.info(
+                            `Viewing customer ledger for ${selectedCustomer.firstName}`,
+                          )
+                        }
+                        className="rounded-xl text-xs font-bold h-8 border-slate-200 text-emerald-700 hover:bg-emerald-50 hover:text-emerald-800 self-start sm:self-auto"
+                      >
+                        <FileText className="w-3.5 h-3.5 mr-1" />
+                        VIEW LEDGER
+                      </Button>
+                    </div>
+                  )}
+                </div>
+
+                <p className="text-[11px] font-medium text-slate-400">
+                  No payments from other customers are shown.
+                </p>
               </div>
             </div>
           )}

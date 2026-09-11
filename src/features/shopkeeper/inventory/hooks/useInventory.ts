@@ -15,6 +15,8 @@ import {
   createFromBarcodeBulk,
   createInvoice,
   getMyInvoiceHistory,
+  getCustomerInvoices,
+  type CustomerInvoicesResponse,
   createCustomer,
   updateCustomer,
   deleteCustomer,
@@ -251,6 +253,23 @@ export function useMyInvoiceHistory(
     queryFn: () => getMyInvoiceHistory(id, { page, limit }),
 
     enabled: !!id && enabled,
+  });
+}
+
+export function useCustomerInvoices(
+  customerId: string,
+  enabled = true,
+  params?: { shopId?: string; shopkeeperId?: string },
+) {
+  const shopId = params?.shopId ?? getActiveShopId() ?? undefined;
+  return useQuery<CustomerInvoicesResponse>({
+    queryKey: ["customer-invoices", customerId, shopId, params?.shopkeeperId],
+    queryFn: () =>
+      getCustomerInvoices(customerId, {
+        shopId,
+        shopkeeperId: params?.shopkeeperId,
+      }),
+    enabled: !!customerId && enabled,
   });
 }
 
