@@ -427,6 +427,16 @@ export type Customer = {
   salesMethod?: string;
   actualSalePrice?: number;
   repairCount?: number;
+  invoicesCount?: number;
+  totalInvoiced?: number;
+  totalPaid?: number;
+  dueAmount?: number;
+  paymentStatus?: "paid" | "partial" | "due";
+  lastInvoice?: {
+    createdAt: string;
+    invoiceNumber: string;
+    type?: string;
+  };
 
   createdAt: string;
   updatedAt: string;

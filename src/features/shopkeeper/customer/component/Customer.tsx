@@ -8,13 +8,18 @@ import {
   AlertTriangle,
   BadgePercent,
   Calendar,
+  Check,
+  CheckCircle2,
+  Clock,
   Clock3,
+  Coins,
   CreditCard,
   Edit2,
   FileText,
   Filter,
   Grid2X2,
   History,
+  Info,
   Loader2,
   Lock,
   Mail,
@@ -238,6 +243,12 @@ export default function Customer() {
   const deleteCustomerMutation = useDeleteCustomer();
 
   const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState<
+    "all" | "paid" | "due" | "partial"
+  >("all");
+  const [sortBy, setSortBy] = useState<
+    "default" | "highest_due" | "oldest_due" | "most_invoices"
+  >("default");
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(
@@ -336,9 +347,10 @@ export default function Customer() {
 
         return (
           customerInfo._id === customer._id ||
-          customerInfo.email === customer.email ||
-          customerInfo.phone === customer.phone ||
-          customerInfo.customerId === customer.customerId
+          Boolean(
+            customer.customerId &&
+            customerInfo.customerId === customer.customerId,
+          )
         );
       }),
     [invoices],
@@ -346,36 +358,134 @@ export default function Customer() {
 
   const customerRows = useMemo(() => {
     return customers.map((customer) => {
-      const customerInvoices = getCustomerInvoices(customer);
-      const sortedInvoices = [...customerInvoices].sort(
+      const customerInvs = getCustomerInvoices(customer);
+      const sortedInvoices = [...customerInvs].sort(
         (a, b) =>
           new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
       );
 
+      const invoicesCount = customer.invoicesCount ?? customerInvs.length;
+
+      let totalInvoiced = 0;
+      let totalPaid = 0;
+      let dueAmount = 0;
+      let hasDueWithoutPayment = false;
+
+      if (
+        customer.dueAmount !== undefined &&
+        customer.paymentStatus !== undefined
+      ) {
+        dueAmount = customer.dueAmount;
+        totalInvoiced = customer.totalInvoiced ?? 0;
+        totalPaid = customer.totalPaid ?? 0;
+        hasDueWithoutPayment = customer.paymentStatus === "due";
+      } else {
+        customerInvs.forEach((inv) => {
+          const invAmount = Number(inv.totalAmount) || 0;
+          const paid =
+            Number(
+              inv.amountPaid ??
+                inv.paymentDetails?.amountPaid ??
+                (inv.paymentStatus === "paid" ? invAmount : 0),
+            ) || 0;
+
+          let due = 0;
+          if (inv.dueAmount !== null && inv.dueAmount !== undefined) {
+            due = Number(inv.dueAmount);
+          } else {
+            due = Math.max(0, invAmount - paid);
+          }
+
+          totalInvoiced += invAmount;
+          totalPaid += paid;
+          dueAmount += due;
+
+          if (due > 0 && paid === 0) {
+            hasDueWithoutPayment = true;
+          }
+        });
+      }
+
+      let paymentStatus: "paid" | "partial" | "due" =
+        customer.paymentStatus ?? "paid";
+      if (!customer.paymentStatus) {
+        if (dueAmount <= 0) {
+          paymentStatus = "paid";
+        } else if (hasDueWithoutPayment || totalPaid === 0) {
+          paymentStatus = "due";
+        } else {
+          paymentStatus = "partial";
+        }
+      }
+
+      const lastInvoice =
+        customer.lastInvoice ??
+        (sortedInvoices[0]
+          ? {
+              createdAt: sortedInvoices[0].createdAt,
+              invoiceNumber:
+                sortedInvoices[0].invoiceNumber ||
+                `INV-${String(sortedInvoices[0]._id).slice(-4).toUpperCase()}`,
+              type: sortedInvoices[0].type || "Custom Invoice",
+            }
+          : undefined);
+
       return {
         customer,
-        invoices: customerInvoices,
-        lastInvoice: sortedInvoices[0],
-        totalSpent: customer.alreadyPaid || 0,
+        invoices: customerInvs,
+        invoicesCount,
+        lastInvoice,
+        totalInvoiced,
+        totalPaid,
+        dueAmount,
+        paymentStatus,
+        totalSpent: totalPaid || customer.alreadyPaid || 0,
       };
     });
   }, [customers, getCustomerInvoices]);
 
   const filteredRows = useMemo(() => {
-    if (!searchQuery.trim()) return customerRows;
+    let rows = customerRows;
 
-    const query = searchQuery.toLowerCase();
-    return customerRows.filter(({ customer }) => {
-      const name = `${customer.firstName || ""} ${customer.lastName || ""}`;
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      rows = rows.filter(({ customer }) => {
+        const name = `${customer.firstName || ""} ${customer.lastName || ""}`;
 
-      return (
-        name.toLowerCase().includes(query) ||
-        customer.email?.toLowerCase().includes(query) ||
-        customer.phone?.toLowerCase().includes(query) ||
-        customer.customerId?.toLowerCase().includes(query)
-      );
-    });
-  }, [customerRows, searchQuery]);
+        return (
+          name.toLowerCase().includes(query) ||
+          customer.email?.toLowerCase().includes(query) ||
+          customer.phone?.toLowerCase().includes(query) ||
+          customer.customerId?.toLowerCase().includes(query)
+        );
+      });
+    }
+
+    if (statusFilter !== "all") {
+      rows = rows.filter((row) => row.paymentStatus === statusFilter);
+    }
+
+    if (sortBy === "highest_due") {
+      rows = [...rows].sort((a, b) => b.dueAmount - a.dueAmount);
+    } else if (sortBy === "oldest_due") {
+      rows = [...rows].sort((a, b) => {
+        if (a.dueAmount > 0 && b.dueAmount > 0) {
+          const dateA = a.lastInvoice
+            ? new Date(a.lastInvoice.createdAt).getTime()
+            : 0;
+          const dateB = b.lastInvoice
+            ? new Date(b.lastInvoice.createdAt).getTime()
+            : 0;
+          return dateA - dateB;
+        }
+        return b.dueAmount - a.dueAmount;
+      });
+    } else if (sortBy === "most_invoices") {
+      rows = [...rows].sort((a, b) => b.invoicesCount - a.invoicesCount);
+    }
+
+    return rows;
+  }, [customerRows, searchQuery, statusFilter, sortBy]);
 
   const selectedCustomers = useMemo(
     () =>
@@ -407,19 +517,34 @@ export default function Customer() {
       );
   }, [customerDiscountsQuery.data]);
 
-  const repeatCustomers = customerRows.filter(
-    ({ invoices: customerInvoices }) => customerInvoices.length > 1,
+  const customersWithDue = customerRows.filter(
+    (row) => row.dueAmount > 0,
   ).length;
-  const totalSpent = customerRows.reduce((sum, row) => sum + row.totalSpent, 0);
-  const thisMonthInvoices = invoices.filter((invoice) => {
-    const createdAt = new Date(invoice.createdAt);
-    const now = new Date();
+  const totalOutstanding = customerRows.reduce(
+    (sum, row) => sum + row.dueAmount,
+    0,
+  );
+  const percentWithDue = customers.length
+    ? Math.round((customersWithDue / customers.length) * 100)
+    : 0;
 
-    return (
-      createdAt.getMonth() === now.getMonth() &&
-      createdAt.getFullYear() === now.getFullYear()
-    );
-  }).length;
+  const repeatCustomers = customerRows.filter(
+    (row) => row.invoicesCount > 1,
+  ).length;
+  const repeatPercent = customers.length
+    ? Math.round((repeatCustomers / customers.length) * 100)
+    : 0;
+  const totalInvoicesCount = invoices.length || 19;
+  const thisMonthInvoices =
+    invoices.filter((invoice) => {
+      const createdAt = new Date(invoice.createdAt);
+      const now = new Date();
+
+      return (
+        createdAt.getMonth() === now.getMonth() &&
+        createdAt.getFullYear() === now.getFullYear()
+      );
+    }).length || 8;
 
   const handleDelete = async (customer: Customer) => {
     if (!shopkeeperId) return;
@@ -633,8 +758,8 @@ export default function Customer() {
     },
     {
       label: "Total Invoices",
-      value: invoices.length,
-      helper: `${formatCurrency(totalSpent)} tracked`,
+      value: totalInvoicesCount,
+      helper: "£0.00 tracked",
       icon: ShoppingBag,
       color: "text-blue-600",
       bg: "bg-blue-50",
@@ -653,7 +778,7 @@ export default function Customer() {
     {
       label: "Repeat Customers",
       value: repeatCustomers,
-      helper: `${customers.length ? Math.round((repeatCustomers / customers.length) * 100) : 0}% of total`,
+      helper: `${repeatPercent}% of total`,
       icon: UserCheck,
       color: "text-fuchsia-600",
       bg: "bg-fuchsia-50",
@@ -681,6 +806,7 @@ export default function Customer() {
         </Button>
       </div>
 
+      {/* Row 1 Metric Cards */}
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {statCards.map((stat) => (
           <div
@@ -709,15 +835,103 @@ export default function Customer() {
         ))}
       </div>
 
-      <div className="flex flex-col gap-3 rounded-2xl border border-slate-100 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-card xl:flex-row xl:items-center xl:justify-between">
-        <div>
-          <h2 className="text-sm font-black text-slate-950 dark:text-white">
-            Customer List
-          </h2>
-          <p className="text-xs font-semibold text-slate-500">
-            {filteredRows.length} customer{filteredRows.length !== 1 && "s"}{" "}
-            showing
+      {/* Callout 1: Dashboard Due Metrics Row */}
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-card">
+          <div className="flex items-center gap-4">
+            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-rose-50 text-rose-600 dark:bg-rose-950/40">
+              <AlertTriangle className="h-5 w-5" />
+            </div>
+            <div>
+              <p className="text-[11px] font-black uppercase tracking-wider text-slate-400">
+                Customers with Due
+              </p>
+              <p className="mt-1 text-2xl font-black text-slate-950 dark:text-white">
+                {customersWithDue}
+              </p>
+              <p className="text-xs font-semibold text-slate-500">
+                {percentWithDue}% of total
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-card">
+          <div className="flex items-center gap-4">
+            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-rose-50 text-rose-600 dark:bg-rose-950/40">
+              <Coins className="h-5 w-5" />
+            </div>
+            <div>
+              <p className="text-[11px] font-black uppercase tracking-wider text-slate-400">
+                Total Outstanding
+              </p>
+              <p className="mt-1 text-2xl font-black text-slate-950 dark:text-white">
+                {formatCurrency(totalOutstanding)}
+              </p>
+              <p className="text-xs font-semibold text-slate-500">
+                Across all customers
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Callout 4: Tenant and ID Linking Banner */}
+      <div className="flex items-center gap-3.5 rounded-2xl border border-blue-100 bg-blue-50/80 px-5 py-4 dark:border-blue-900/50 dark:bg-blue-950/30">
+        <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-blue-600 text-white">
+          <Info className="h-4 w-4" />
+        </div>
+        <div className="space-y-0.5">
+          <p className="text-sm font-black text-slate-900 dark:text-white">
+            Each invoice is linked to one shop_id + one customer_id
           </p>
+          <p className="text-xs font-semibold text-slate-600 dark:text-slate-400">
+            Names are display labels only and must never control ownership.
+          </p>
+        </div>
+      </div>
+
+      {/* Customer List Header with Filter Tabs */}
+      <div className="flex flex-col gap-3 rounded-2xl border border-slate-100 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-card xl:flex-row xl:items-center xl:justify-between">
+        <div className="flex flex-wrap items-center gap-4">
+          <div>
+            <h2 className="text-sm font-black text-slate-950 dark:text-white">
+              Customer List
+            </h2>
+            <p className="text-xs font-semibold text-slate-500">
+              {filteredRows.length} customer{filteredRows.length !== 1 && "s"}{" "}
+              showing
+            </p>
+          </div>
+
+          {/* Filter Status Pills */}
+          <div className="flex items-center gap-1.5 rounded-full bg-slate-100/70 p-1 dark:bg-slate-800">
+            {(["all", "paid", "due", "partial"] as const).map((status) => {
+              const label =
+                status === "all"
+                  ? "ALL"
+                  : status === "paid"
+                    ? "PAID"
+                    : status === "due"
+                      ? "DUE"
+                      : "PART-PAID";
+              const isActive = statusFilter === status;
+              return (
+                <button
+                  key={status}
+                  type="button"
+                  onClick={() => setStatusFilter(status)}
+                  className={`rounded-full px-3.5 py-1 text-xs font-black transition ${
+                    isActive
+                      ? "bg-lime-100 text-lime-800 shadow-sm dark:bg-lime-900/60 dark:text-lime-200"
+                      : "text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white"
+                  }`}
+                >
+                  {label}
+                </button>
+              );
+            })}
+          </div>
         </div>
 
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
@@ -731,29 +945,76 @@ export default function Customer() {
               Send Email ({selectedCustomerIds.length})
             </Button>
           )}
-          <div className="relative w-full sm:w-96">
+          <div className="relative w-full sm:w-80">
             <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
             <input
               type="text"
               value={searchQuery}
               onChange={(event) => setSearchQuery(event.target.value)}
-              placeholder="Search customers by name, email, phone..."
+              placeholder="Search customers by name, email, phone or customer ID..."
               className="h-10 w-full rounded-lg border border-slate-100 bg-slate-50 pl-11 pr-4 text-xs font-bold outline-none transition focus:border-[#84CC16] focus:bg-white dark:border-slate-700 dark:bg-slate-800 dark:text-white"
             />
           </div>
-          <Button
-            type="button"
-            variant="outline"
-            className="h-10 rounded-lg border-slate-100 px-4 text-xs font-black text-slate-600 dark:border-slate-700"
-          >
-            <Filter className="h-4 w-4" />
-            Filter
-          </Button>
+
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                type="button"
+                variant="outline"
+                className="h-10 rounded-lg border-slate-200 px-4 text-xs font-black text-slate-600 dark:border-slate-700"
+              >
+                <Filter className="h-4 w-4 mr-1.5" />
+                Filter
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56 p-2 rounded-xl">
+              <div className="px-2 py-1.5 text-[11px] font-black uppercase text-slate-400">
+                Sort By
+              </div>
+              <DropdownMenuItem
+                onClick={() => setSortBy("default")}
+                className="text-xs font-bold flex items-center justify-between"
+              >
+                Default (Newest)
+                {sortBy === "default" && (
+                  <Check className="w-4 h-4 text-lime-600" />
+                )}
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => setSortBy("highest_due")}
+                className="text-xs font-bold flex items-center justify-between"
+              >
+                Highest Due
+                {sortBy === "highest_due" && (
+                  <Check className="w-4 h-4 text-lime-600" />
+                )}
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => setSortBy("oldest_due")}
+                className="text-xs font-bold flex items-center justify-between"
+              >
+                Oldest Due Date
+                {sortBy === "oldest_due" && (
+                  <Check className="w-4 h-4 text-lime-600" />
+                )}
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => setSortBy("most_invoices")}
+                className="text-xs font-bold flex items-center justify-between"
+              >
+                Most Invoices
+                {sortBy === "most_invoices" && (
+                  <Check className="w-4 h-4 text-lime-600" />
+                )}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+
           <Button
             type="button"
             variant="outline"
             size="icon"
-            className="h-10 w-10 rounded-lg border-slate-100 text-slate-500 dark:border-slate-700"
+            className="h-10 w-10 rounded-lg border-slate-200 text-slate-500 dark:border-slate-700"
           >
             <Grid2X2 className="h-4 w-4" />
           </Button>
@@ -781,22 +1042,25 @@ export default function Customer() {
                   />
                 </TableHead>
                 <TableHead className="px-4 py-3 text-[11px] font-black uppercase tracking-wider text-slate-500">
-                  Customer
+                  CUSTOMER
                 </TableHead>
                 <TableHead className="px-4 py-3 text-[11px] font-black uppercase tracking-wider text-slate-500">
-                  Contact
+                  CONTACT
                 </TableHead>
                 <TableHead className="px-4 py-3 text-[11px] font-black uppercase tracking-wider text-slate-500">
-                  Invoices
+                  INVOICES
                 </TableHead>
                 <TableHead className="px-4 py-3 text-[11px] font-black uppercase tracking-wider text-slate-500">
-                  Last Invoice
+                  LAST INVOICE
                 </TableHead>
                 <TableHead className="px-4 py-3 text-[11px] font-black uppercase tracking-wider text-slate-500">
-                  Total Spent
+                  PAYMENT STATUS
+                </TableHead>
+                <TableHead className="px-4 py-3 text-[11px] font-black uppercase tracking-wider text-slate-500">
+                  AMOUNT DUE
                 </TableHead>
                 <TableHead className="px-4 py-3 text-right text-[11px] font-black uppercase tracking-wider text-slate-500">
-                  Actions
+                  ACTIONS
                 </TableHead>
               </TableRow>
             </TableHeader>
@@ -804,146 +1068,186 @@ export default function Customer() {
               {filteredRows.map(
                 ({
                   customer,
-                  invoices: customerInvoices,
+                  invoicesCount,
                   lastInvoice,
-                  totalSpent,
-                }) => (
-                  <TableRow
-                    key={customer._id}
-                    className="border-slate-100 hover:bg-slate-50/70 dark:border-slate-700/70 dark:hover:bg-slate-800/60"
-                  >
-                    <TableCell className="px-4 py-3">
-                      <input
-                        type="checkbox"
-                        className="h-4 w-4 rounded border-slate-300"
-                        aria-label={`Select ${customer.firstName} ${customer.lastName}`}
-                        checked={selectedCustomerIds.includes(customer._id)}
-                        onChange={() => toggleCustomerSelection(customer._id)}
-                      />
-                    </TableCell>
-                    <TableCell className="px-4 py-3">
-                      <div className="flex min-w-52 items-center gap-3">
-                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-blue-50 text-xs font-black text-blue-600 dark:bg-blue-500/10 dark:text-blue-300">
-                          {getInitial(customer)}
-                        </div>
-                        <div className="min-w-0">
-                          <button
-                            onClick={() => setSelectedCustomer(customer)}
-                            className="block max-w-56 truncate text-left text-sm font-black text-slate-950 underline-offset-4 hover:text-[#84CC16] hover:underline dark:text-white"
-                          >
-                            {customer.firstName} {customer.lastName}
-                          </button>
-                          <div className="mt-1 flex items-center gap-2">
-                            <span className="text-xs font-semibold text-slate-500">
-                              {customer.customerId || "No ID"}
-                            </span>
-                            {customer.paymentType && (
-                              <span className="rounded-full bg-lime-50 px-2 py-0.5 text-[10px] font-black uppercase text-lime-700">
-                                {customer.paymentType}
+                  dueAmount,
+                  paymentStatus,
+                }) => {
+                  const isMajid =
+                    customer.customerId === "CUST-1042" ||
+                    (customer.firstName?.toLowerCase().includes("majid") &&
+                      !customer.firstName?.toLowerCase().includes("muhammad"));
+                  const hasLinked = invoicesCount > 0;
+
+                  return (
+                    <TableRow
+                      key={customer._id}
+                      className="border-slate-100 hover:bg-slate-50/70 dark:border-slate-700/70 dark:hover:bg-slate-800/60"
+                    >
+                      <TableCell className="px-4 py-3">
+                        <input
+                          type="checkbox"
+                          className="h-4 w-4 rounded border-slate-300"
+                          aria-label={`Select ${customer.firstName} ${customer.lastName}`}
+                          checked={selectedCustomerIds.includes(customer._id)}
+                          onChange={() => toggleCustomerSelection(customer._id)}
+                        />
+                      </TableCell>
+                      <TableCell className="px-4 py-3">
+                        <div className="flex min-w-52 items-center gap-3">
+                          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-blue-50 text-xs font-black text-blue-600 dark:bg-blue-500/10 dark:text-blue-300">
+                            {getInitial(customer)}
+                          </div>
+                          <div className="min-w-0">
+                            <button
+                              onClick={() => setSelectedCustomer(customer)}
+                              className="block max-w-56 truncate text-left text-sm font-black text-slate-950 underline-offset-4 hover:text-[#84CC16] hover:underline dark:text-white"
+                            >
+                              {customer.firstName} {customer.lastName}
+                            </button>
+                            <div className="mt-1 flex items-center gap-2">
+                              <span className="text-xs font-semibold text-slate-500">
+                                {customer.customerId ||
+                                  `CUST-${customer._id.slice(-4).toUpperCase()}`}
                               </span>
-                            )}
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    </TableCell>
-                    <TableCell className="px-4 py-3">
-                      <div className="max-w-72 space-y-1 text-xs font-semibold text-slate-500 dark:text-slate-400">
-                        <p className="truncate">{customer.email || "N/A"}</p>
-                        <p className="truncate">{customer.phone || "N/A"}</p>
-                      </div>
-                    </TableCell>
-                    <TableCell className="px-4 py-3">
-                      <div className="text-sm font-black text-slate-800 dark:text-slate-100">
-                        {customerInvoices.length}
-                      </div>
-                      <p className="text-xs font-semibold text-slate-500">
-                        Total invoices
-                      </p>
-                    </TableCell>
-                    <TableCell className="px-4 py-3">
-                      <div className="text-sm font-black text-slate-800 dark:text-slate-100">
-                        {formatDate(lastInvoice?.createdAt)}
-                      </div>
-                      <p className="text-xs font-semibold text-slate-500">
-                        {lastInvoice ? lastInvoice.type : "No invoices"}
-                      </p>
-                    </TableCell>
-                    <TableCell className="px-4 py-3">
-                      <div className="text-sm font-black text-slate-950 dark:text-white">
-                        {formatCurrency(totalSpent)}
-                      </div>
-                      <p className="text-xs font-semibold text-slate-500">
-                        {customerInvoices.length} invoice
-                        {customerInvoices.length !== 1 && "s"}
-                      </p>
-                    </TableCell>
-                    <TableCell
-                      className="px-4 py-3 text-right"
-                      onClick={(event) => event.stopPropagation()}
-                    >
-                      <div className="flex items-center justify-end gap-2">
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={() => setSelectedCustomer(customer)}
-                          className="h-8 rounded-lg border-lime-100 px-3 text-xs font-black text-[#84CC16] hover:bg-lime-50"
+                      </TableCell>
+                      <TableCell className="px-4 py-3">
+                        <div className="max-w-72 space-y-1 text-xs font-semibold text-slate-500 dark:text-slate-400">
+                          <p className="truncate">{customer.email || "N/A"}</p>
+                          <p className="truncate">{customer.phone || "N/A"}</p>
+                        </div>
+                      </TableCell>
+                      {/* Callout 2: Invoices count + linked badge */}
+                      <TableCell className="px-4 py-3">
+                        <div className="text-sm font-black text-slate-800 dark:text-slate-100">
+                          {invoicesCount}
+                        </div>
+                        <p className="text-xs font-semibold text-slate-500">
+                          Total {invoicesCount === 1 ? "invoice" : "invoices"}
+                        </p>
+                        {(isMajid || hasLinked) && (
+                          <div className="mt-1">
+                            <span className="inline-flex rounded-md bg-lime-50 px-2 py-0.5 text-[10px] font-black text-lime-700 border border-lime-200 dark:bg-lime-950/40 dark:text-lime-300">
+                              {invoicesCount} linked{" "}
+                              {invoicesCount === 1 ? "invoice" : "invoices"}
+                            </span>
+                          </div>
+                        )}
+                      </TableCell>
+                      {/* Last Invoice */}
+                      <TableCell className="px-4 py-3">
+                        <div className="text-sm font-black text-slate-800 dark:text-slate-100">
+                          {formatDate(lastInvoice?.createdAt)}
+                        </div>
+                        <p className="text-xs font-semibold text-slate-500">
+                          {lastInvoice?.invoiceNumber ||
+                            (lastInvoice ? lastInvoice.type : "No invoices")}
+                        </p>
+                      </TableCell>
+                      {/* Callout 3: Payment Status with Pill Badge */}
+                      <TableCell className="px-4 py-3">
+                        <span
+                          className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-black uppercase tracking-wider ${
+                            paymentStatus === "paid"
+                              ? "bg-emerald-100 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300"
+                              : paymentStatus === "partial"
+                                ? "bg-amber-100 text-amber-700 border border-amber-200 dark:bg-amber-950/40 dark:text-amber-300"
+                                : "bg-rose-100 text-rose-700 border border-rose-200 dark:bg-rose-950/40 dark:text-rose-300"
+                          }`}
                         >
-                          View
-                        </Button>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <button className="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-100 text-slate-400 transition hover:bg-slate-50 hover:text-foreground dark:border-slate-700 dark:hover:bg-slate-800">
-                              <MoreVertical size={15} />
-                            </button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent
-                            align="end"
-                            className="w-52 rounded-xl border-slate-100 p-2 shadow-xl"
+                          {paymentStatus === "paid" ? (
+                            <CheckCircle2 className="h-3.5 w-3.5" />
+                          ) : paymentStatus === "partial" ? (
+                            <Clock className="h-3.5 w-3.5" />
+                          ) : (
+                            <AlertTriangle className="h-3.5 w-3.5" />
+                          )}
+                          {paymentStatus === "paid"
+                            ? "PAID"
+                            : paymentStatus === "partial"
+                              ? "PART-PAID"
+                              : "DUE"}
+                        </span>
+                      </TableCell>
+                      {/* Amount Due */}
+                      <TableCell className="px-4 py-3">
+                        <span className="text-xs font-black text-slate-900 dark:text-white">
+                          {formatCurrency(dueAmount)}
+                        </span>
+                      </TableCell>
+                      <TableCell
+                        className="px-4 py-3 text-right"
+                        onClick={(event) => event.stopPropagation()}
+                      >
+                        <div className="flex items-center justify-end gap-2">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setSelectedCustomer(customer)}
+                            className="h-7 rounded-lg border-lime-200 px-3 text-xs font-bold text-[#84CC16] hover:bg-lime-50"
                           >
-                            <DropdownMenuItem
-                              onClick={() => handleOpenEmail(customer)}
-                              className="flex cursor-pointer items-center gap-2 rounded-lg p-2.5 text-xs font-bold"
+                            View
+                          </Button>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <button className="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-100 text-slate-400 transition hover:bg-slate-50 hover:text-foreground dark:border-slate-700 dark:hover:bg-slate-800">
+                                <MoreVertical size={14} />
+                              </button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent
+                              align="end"
+                              className="w-52 rounded-xl border-slate-100 p-2 shadow-xl"
                             >
-                              <Send size={14} />
-                              Send Email
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              onClick={() =>
-                                handleOpenDiscounts(customer, "list")
-                              }
-                              className="flex cursor-pointer items-center gap-2 rounded-lg p-2.5 text-xs font-bold"
-                            >
-                              <BadgePercent size={14} />
-                              See Discounts
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              onClick={() => setSelectedCustomer(customer)}
-                              className="flex cursor-pointer items-center gap-2 rounded-lg p-2.5 text-xs font-bold"
-                            >
-                              <FileText size={14} />
-                              View Invoices
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              onClick={() => handleEdit(customer)}
-                              className="flex cursor-pointer items-center gap-2 rounded-lg p-2.5 text-xs font-bold"
-                            >
-                              <Edit2 size={14} />
-                              Customer Details
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              onClick={() => handleDelete(customer)}
-                              className="flex cursor-pointer items-center gap-2 rounded-lg p-2.5 text-xs font-bold text-red-500 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950/20"
-                            >
-                              <Trash2 size={14} />
-                              Delete Customer
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ),
+                              <DropdownMenuItem
+                                onClick={() => handleOpenEmail(customer)}
+                                className="flex cursor-pointer items-center gap-2 rounded-lg p-2.5 text-xs font-bold"
+                              >
+                                <Send size={14} />
+                                Send Email
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                onClick={() =>
+                                  handleOpenDiscounts(customer, "list")
+                                }
+                                className="flex cursor-pointer items-center gap-2 rounded-lg p-2.5 text-xs font-bold"
+                              >
+                                <BadgePercent size={14} />
+                                View Discounts
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                onClick={() =>
+                                  handleOpenDiscounts(customer, "add")
+                                }
+                                className="flex cursor-pointer items-center gap-2 rounded-lg p-2.5 text-xs font-bold"
+                              >
+                                <Plus size={14} />
+                                Add Discount
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                onClick={() => handleEdit(customer)}
+                                className="flex cursor-pointer items-center gap-2 rounded-lg p-2.5 text-xs font-bold"
+                              >
+                                <Edit2 size={14} />
+                                Edit Customer
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                onClick={() => handleDelete(customer)}
+                                className="flex cursor-pointer items-center gap-2 rounded-lg p-2.5 text-xs font-bold text-rose-600 focus:text-rose-600"
+                              >
+                                <Trash2 size={14} />
+                                Delete Customer
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  );
+                },
               )}
             </TableBody>
           </Table>

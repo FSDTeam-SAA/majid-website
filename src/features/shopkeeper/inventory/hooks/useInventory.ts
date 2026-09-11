@@ -327,10 +327,14 @@ export function useDeleteCustomer() {
   });
 }
 
-export function useCustomersByShopkeeper(shopkeeperId: string) {
+export function useCustomersByShopkeeper(
+  shopkeeperId: string,
+  params?: { shopId?: string },
+) {
+  const shopId = params?.shopId ?? getActiveShopId() ?? undefined;
   return useQuery<CustomersResponse>({
-    queryKey: ["customers", shopkeeperId],
-    queryFn: () => getCustomersByShopkeeper(shopkeeperId),
+    queryKey: ["customers", shopkeeperId, shopId],
+    queryFn: () => getCustomersByShopkeeper(shopkeeperId, { shopId }),
     enabled: !!shopkeeperId,
     staleTime: 1000 * 60,
   });

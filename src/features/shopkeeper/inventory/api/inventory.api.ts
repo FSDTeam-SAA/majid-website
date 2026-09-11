@@ -464,8 +464,13 @@ export const deleteCustomer = async (id: string) => {
 
 export const getCustomersByShopkeeper = async (
   shopkeeperId: string,
+  params?: {
+    shopId?: string;
+  },
 ): Promise<CustomersResponse> => {
-  const response = await api.get(`/customer/shopkeeper/${shopkeeperId}`);
+  const response = await api.get(`/customer/shopkeeper/${shopkeeperId}`, {
+    params,
+  });
   return response.data;
 };
 
