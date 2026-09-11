@@ -23,6 +23,7 @@ import {
   Loader2,
   UserPlus,
   AlertCircle,
+  Info,
   PencilLine,
   Tag,
   Banknote,
@@ -929,6 +930,7 @@ export default function Checkout() {
         deliveryTo: "",
         selectedCartItemIds: [],
       }));
+      setCheckoutMode("walk-in");
       setIsPaymentModalOpen(false);
 
       if (!cartCleared) {
@@ -963,32 +965,6 @@ export default function Checkout() {
   // Helper to select variant for browse card
   const handleVariantChange = (itemId: string, variantId: string) => {
     setSelectedVariants((prev) => ({ ...prev, [itemId]: variantId }));
-  };
-
-  // Helper buttons for Services/Products
-  const handleAddProductClick = () => {
-    handleBrowseCategoryChange(null);
-    if (searchInputRef.current) {
-      searchInputRef.current.focus();
-      searchInputRef.current.scrollIntoView({
-        behavior: "smooth",
-        block: "center",
-      });
-    }
-    toast.info("Browse or search inventory items below!");
-  };
-
-  const handleAddServiceClick = () => {
-    // Find category ID for Repairing
-    const repairingCat = categories.find((cat: any) =>
-      cat.name?.toLowerCase().includes("repair"),
-    );
-    if (repairingCat) {
-      handleBrowseCategoryChange(repairingCat._id);
-    } else {
-      handleBrowseCategoryChange("repairing");
-    }
-    toast.info("Showing repair services from inventory!");
   };
 
   const handlePriceInputChange = (cartItemId: string, value: string) => {
@@ -1086,6 +1062,15 @@ export default function Checkout() {
             </div>
           </div>
         )}
+
+        {/* Callout 4: Guidance Banner */}
+        <div className="flex items-center gap-3 px-5 py-3.5 bg-[#84CC16]/10 border border-[#84CC16]/20 rounded-2xl text-xs font-bold text-[#3f6212] shadow-sm">
+          <Info className="w-5 h-5 text-[#84CC16] shrink-0" />
+          <span>
+            Choose a ready repair order or select products below to add them to
+            checkout.
+          </span>
+        </div>
 
         {/* Browse Inventory */}
         <div className="bg-white border border-slate-100 rounded-[28px] p-6 shadow-sm space-y-6">
@@ -1429,28 +1414,34 @@ export default function Checkout() {
           </button>
         </div>
 
-        {/* Checkout Modes (Walk-In, Repair, Delivery, Online, Return) */}
-        <div className="flex flex-wrap gap-1.5 p-1 bg-slate-100 rounded-xl mt-4">
-          {(["walk-in", "repair", "delivery", "online", "return"] as const).map(
-            (mode) => (
-              <button
-                key={mode}
-                onClick={() => {
-                  setCheckoutMode(mode);
-                  if (mode === "return") {
-                    setIsReturnModalOpen(true);
-                  }
-                }}
-                className={`flex-1 min-w-[70px] py-2 text-[10px] font-black uppercase tracking-wider rounded-lg transition-all ${
-                  checkoutMode === mode
-                    ? "bg-[#84CC16] text-white shadow shadow-lime-500/20"
-                    : "text-slate-500 hover:text-slate-900"
-                }`}
-              >
-                {mode}
-              </button>
-            ),
-          )}
+        {/* Callout 1: Checkout Type (Walk-In, Repair, Online, Return) */}
+        <div className="mt-4 space-y-2">
+          <label className="text-xs font-black text-slate-700 uppercase tracking-wider block">
+            Checkout Type
+          </label>
+          <div className="grid grid-cols-2 gap-2">
+            {(["walk-in", "repair", "online", "return"] as const).map(
+              (mode) => (
+                <button
+                  key={mode}
+                  type="button"
+                  onClick={() => {
+                    setCheckoutMode(mode);
+                    if (mode === "return") {
+                      setIsReturnModalOpen(true);
+                    }
+                  }}
+                  className={`py-3 px-3 text-xs font-black uppercase tracking-wider rounded-xl transition-all text-center ${
+                    checkoutMode === mode
+                      ? "bg-[#84CC16] text-white shadow shadow-lime-500/20"
+                      : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                  }`}
+                >
+                  {mode}
+                </button>
+              ),
+            )}
+          </div>
         </div>
 
         <ReturnInvoiceModal
@@ -1771,32 +1762,17 @@ export default function Checkout() {
               );
             })
           ) : (
+            /* Callout 2: Empty Cart Guidance */
             <div className="flex flex-col items-center justify-center py-12 text-center text-slate-400">
-              <ShoppingCart size={32} className="text-slate-300 mb-2" />
-              <p className="text-xs font-black">Cart is empty</p>
-              <p className="text-[10px] font-medium mt-1">
-                Add items from the inventory to sell.
+              <div className="flex items-center justify-center w-12 h-12 rounded-2xl bg-slate-100 text-slate-300 mb-3">
+                <ShoppingCart size={24} className="text-slate-400" />
+              </div>
+              <p className="text-sm font-black text-slate-900">Cart is empty</p>
+              <p className="text-xs font-medium text-slate-500 mt-1 max-w-[240px]">
+                Select a ready order or choose an item from Browse Inventory.
               </p>
             </div>
           )}
-        </div>
-
-        {/* Quick Add Buttons */}
-        <div className="grid grid-cols-2 gap-3 mt-6 border-t border-slate-100 pt-5">
-          <button
-            onClick={handleAddServiceClick}
-            className="flex items-center justify-center gap-1.5 py-3 border border-[#CDE7B0] bg-[#F8FFF0] rounded-2xl text-xs font-black text-[#65A30D] hover:border-[#84CC16] hover:bg-lime-50/40 transition-all active:scale-[0.98]"
-          >
-            <Plus size={14} className="text-[#84CC16]" strokeWidth={3} />
-            Add more items
-          </button>
-          <button
-            onClick={handleAddProductClick}
-            className="flex items-center justify-center gap-1.5 py-3 border border-slate-200 rounded-2xl text-xs font-black text-slate-700 hover:border-[#84CC16] hover:bg-lime-50/20 transition-all active:scale-[0.98]"
-          >
-            <Plus size={14} className="text-[#84CC16]" strokeWidth={3} />
-            Add Product
-          </button>
         </div>
 
         {checkoutMode === "delivery" && (
