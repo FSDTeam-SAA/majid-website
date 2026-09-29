@@ -236,6 +236,7 @@ export function useCreateInvoice() {
         quantity: number;
         variantId?: string;
       }>;
+      invoiceTemplate?: string;
     }) => createInvoice(input),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: INVENTORY_KEYS.all });

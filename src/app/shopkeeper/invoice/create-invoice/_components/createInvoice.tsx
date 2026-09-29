@@ -3,15 +3,12 @@
 import React, { useMemo, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { StructuredAddressFields } from "@/components/ui/structured-address-fields";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import {
   User,
   Package,
   Loader2,
   Search,
-  ChevronLeft,
-  ChevronRight,
   Plus,
   Trash2,
   CreditCard,
@@ -57,10 +54,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { InventoryItemsCard } from "../../_components/inventoryItemsCard";
 import { InvoiceDateTimeSection } from "../../_components/InvoiceDateTimeSection";
-
-const INVENTORY_PAGE_SIZE = 10;
+import { SalesInvoicePdfDocument } from "@/features/shopkeeper/invoice/templates/SalesInvoiceRenderer";
 
 const createInvoicePdfStyles = StyleSheet.create({
   page: {
@@ -481,9 +476,64 @@ export const InvoicePDF = ({
   invoiceDate,
   shopkeeperInfoLabel,
   currency = "USD",
+  templateId,
 }: any) => {
+  const effectiveTemplate =
+    templateId || shopkeeper?.invoiceTemplate || "default";
+
+  if (effectiveTemplate !== "default") {
+    return (
+      <SalesInvoicePdfDocument
+        customer={customer}
+        items={items}
+        total={total}
+        shopkeeper={shopkeeper}
+        alreadyPaid={alreadyPaid}
+        dueAmount={dueAmount}
+        paymentType={paymentType}
+        card={card}
+        InvoiceName={InvoiceName}
+        customerInfoLabel={customerInfoLabel}
+        invoiceDate={invoiceDate}
+        shopkeeperInfoLabel={shopkeeperInfoLabel}
+        currency={currency}
+        templateId={effectiveTemplate}
+      />
+    );
+  }
+
   const pdfFormatCurrency = (value: number) => {
-    return baseFormatCurrency(value, currency || "GBP");
+    const rawCode = (currency || "USD").toUpperCase();
+    const formatted = baseFormatCurrency(value, rawCode);
+
+    if (rawCode === "USD" || formatted.startsWith("$")) {
+      return `$${value.toFixed(2)}`;
+    }
+    if (rawCode === "GBP" || formatted.startsWith("£")) {
+      return `£${value.toFixed(2)}`;
+    }
+    if (rawCode === "EUR" || formatted.startsWith("€")) {
+      return `EUR ${value.toFixed(2)}`;
+    }
+    if (rawCode === "BDT" || formatted.includes("৳")) {
+      return `BDT ${value.toFixed(2)}`;
+    }
+    if (rawCode === "INR" || formatted.includes("₹")) {
+      return `INR ${value.toFixed(2)}`;
+    }
+    if (rawCode === "PKR" || formatted.includes("₨")) {
+      return `PKR ${value.toFixed(2)}`;
+    }
+    if (rawCode === "AED" || formatted.includes("د.إ")) {
+      return `AED ${value.toFixed(2)}`;
+    }
+    if (rawCode === "SAR" || formatted.includes("﷼")) {
+      return `SAR ${value.toFixed(2)}`;
+    }
+    if (rawCode === "AUD") return `A$${value.toFixed(2)}`;
+    if (rawCode === "CAD") return `C$${value.toFixed(2)}`;
+
+    return `${rawCode} ${value.toFixed(2)}`;
   };
   const date = invoiceDate ? new Date(invoiceDate) : new Date();
   const balance = Number(dueAmount || 0);
@@ -518,7 +568,7 @@ export const InvoicePDF = ({
                 </Text>
               </View>
               <Text style={pdfStyles.shopAddress}>
-                {shopkeeper?.shopAddress || "N/A"} •{" "}
+                {shopkeeper?.shopAddress || "N/A"} |{" "}
                 {shopkeeper?.phone || "N/A"}
               </Text>
             </View>
@@ -531,7 +581,7 @@ export const InvoicePDF = ({
             <View style={pdfStyles.metaBlock}>
               <Text style={pdfStyles.metaLabel}>Invoice Date</Text>
               <Text style={pdfStyles.metaText}>
-                {date.toLocaleDateString("en-GB")} •{" "}
+                {date.toLocaleDateString("en-GB")} |{" "}
                 {date.toLocaleTimeString("en-US", {
                   hour: "2-digit",
                   minute: "2-digit",
@@ -577,7 +627,7 @@ export const InvoicePDF = ({
                 {balance > 0 ? "Status: Payment due" : "Status: Fully paid"}
               </Text>
               {paymentType === "card" && card ? (
-                <Text style={pdfStyles.detailText}>Card: •••• {card}</Text>
+                <Text style={pdfStyles.detailText}>Card: **** {card}</Text>
               ) : null}
             </View>
           </View>
@@ -602,7 +652,7 @@ export const InvoicePDF = ({
                 <Text style={pdfStyles.productSub}>
                   {[item.storage, item.color, item.condition]
                     .filter(Boolean)
-                    .join(" • ") || "Inventory item"}
+                    .join(" | ") || "Inventory item"}
                 </Text>
               </View>
               <Text style={pdfStyles.colId}>{item.imeiNumber || "N/A"}</Text>
@@ -644,7 +694,7 @@ export const InvoicePDF = ({
 };
 
 export default function CreateInvoice() {
-  const { data: inventoryData, isLoading, isError } = useMyInventory();
+  const { data: inventoryData } = useMyInventory();
   const { data: profileData } = useMyProfile();
   const { currency, formatCurrency } = useCurrency();
   const { mutate: createInvoice, isPending } = useCreateInvoice();
@@ -685,10 +735,7 @@ export default function CreateInvoice() {
 
   const [paymentType, setPaymentType] = useState("cash");
   const [alreadyPaid, setAlreadyPaid] = useState<number>(0);
-  const [cardLastFour, setCardLastFour] = useState("");
-  const [transactionReference, setTransactionReference] = useState("");
-  const [bankName, setBankName] = useState("");
-  const [cardholderName, setCardholderName] = useState("");
+  const [cardLastFour] = useState("");
 
   const items = useMemo(() => {
     return (inventoryData?.data || []).filter(
@@ -793,6 +840,7 @@ export default function CreateInvoice() {
           card={cardLastFour}
           invoiceDate={invoiceDate}
           currency={currency}
+          templateId={profileData?.data?.invoiceTemplate || "default"}
         />
       );
 
@@ -815,6 +863,7 @@ export default function CreateInvoice() {
           invoice: file,
           itemsIds: invoiceItems.map((i) => i.id).filter(Boolean),
           dueAmount: finalDueAmount,
+          invoiceTemplate: profileData?.data?.invoiceTemplate || "default",
         },
         {
           onSuccess: () => {

@@ -304,6 +304,7 @@ export const createInvoice = async (input: {
   discountAmount?: number;
   allocations?: Array<{ invoiceId: string; amountApplied: number }> | string;
   lineItems?: Array<{ itemId: string; quantity: number; variantId?: string }>;
+  invoiceTemplate?: string;
 }) => {
   const formData = new FormData();
 
@@ -311,6 +312,9 @@ export const createInvoice = async (input: {
   formData.append("type", input.type);
   formData.append("invoice", input.invoice);
 
+  if (input.invoiceTemplate) {
+    formData.append("invoiceTemplate", input.invoiceTemplate);
+  }
   if (input.customerInfo) formData.append("customerInfo", input.customerInfo);
   if (input.totalAmount !== undefined) {
     formData.append("totalAmount", String(input.totalAmount));

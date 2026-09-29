@@ -72,6 +72,7 @@ export interface UserProfile {
     public_id: string;
   };
   logoSettings?: LogoSettings;
+  invoiceTemplate?: string;
   balance: number;
   createdAt: string;
   updatedAt: string;

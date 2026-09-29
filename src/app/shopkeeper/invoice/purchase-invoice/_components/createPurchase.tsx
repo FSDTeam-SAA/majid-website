@@ -58,6 +58,7 @@ import {
   useCategories,
   useMyInventory,
 } from "@/features/shopkeeper/inventory/hooks/useInventory";
+import { PurchaseInvoicePdfDocument } from "@/features/shopkeeper/invoice/templates/PurchaseInvoiceTemplateRenderer";
 import {
   searchDeviceCatalog,
   COMMON_STORAGES,
@@ -366,9 +367,57 @@ const PurchaseReceiptPDF = ({
   total,
   invoiceDate,
   currency = "USD",
+  templateId,
 }: any) => {
+  const effectiveTemplate =
+    templateId || shopkeeper?.invoiceTemplate || "default";
+
+  if (effectiveTemplate !== "default") {
+    return (
+      <PurchaseInvoicePdfDocument
+        customer={customer}
+        items={items}
+        shopkeeper={shopkeeper}
+        total={total}
+        invoiceDate={invoiceDate}
+        currency={currency}
+        templateId={effectiveTemplate}
+      />
+    );
+  }
+
   const pdfFormatCurrency = (value: number) => {
-    return baseFormatCurrency(value, currency || "GBP");
+    const rawCode = (currency || "USD").toUpperCase();
+    const formatted = baseFormatCurrency(value, rawCode);
+
+    if (rawCode === "USD" || formatted.startsWith("$")) {
+      return `$${value.toFixed(2)}`;
+    }
+    if (rawCode === "GBP" || formatted.startsWith("£")) {
+      return `£${value.toFixed(2)}`;
+    }
+    if (rawCode === "EUR" || formatted.startsWith("€")) {
+      return `EUR ${value.toFixed(2)}`;
+    }
+    if (rawCode === "BDT" || formatted.includes("৳")) {
+      return `BDT ${value.toFixed(2)}`;
+    }
+    if (rawCode === "INR" || formatted.includes("₹")) {
+      return `INR ${value.toFixed(2)}`;
+    }
+    if (rawCode === "PKR" || formatted.includes("₨")) {
+      return `PKR ${value.toFixed(2)}`;
+    }
+    if (rawCode === "AED" || formatted.includes("د.إ")) {
+      return `AED ${value.toFixed(2)}`;
+    }
+    if (rawCode === "SAR" || formatted.includes("﷼")) {
+      return `SAR ${value.toFixed(2)}`;
+    }
+    if (rawCode === "AUD") return `A$${value.toFixed(2)}`;
+    if (rawCode === "CAD") return `C$${value.toFixed(2)}`;
+
+    return `${rawCode} ${value.toFixed(2)}`;
   };
 
   const receiptDate = invoiceDate ? new Date(invoiceDate) : new Date();
@@ -423,10 +472,9 @@ const PurchaseReceiptPDF = ({
               ) : (
                 <Text style={pdfStyles.logoFallback}>{shopName}</Text>
               )}
-              <Text style={pdfStyles.checkDot}>✓</Text>
             </View>
             <Text style={pdfStyles.shopAddress}>
-              {shopAddress} • {contactPhone}
+              {shopAddress} | {contactPhone}
             </Text>
           </View>
           <Text style={pdfStyles.invoiceTitle}>PURCHASE RECEIPT</Text>
@@ -522,7 +570,7 @@ const PurchaseReceiptPDF = ({
               <View style={pdfStyles.colProduct}>
                 <Text style={pdfStyles.productName}>{item.name}</Text>
                 <Text style={pdfStyles.modelText}>
-                  {item.storage} • {item.color}
+                  {item.storage} | {item.color}
                 </Text>
               </View>
               <Text style={pdfStyles.colQty}>{item.quantity}</Text>
@@ -530,7 +578,7 @@ const PurchaseReceiptPDF = ({
                 {item.serials?.length ? (
                   item.serials.map((serial: string, idx: number) => (
                     <Text key={idx} style={pdfStyles.serialText}>
-                      • {serial}
+                      - {serial}
                     </Text>
                   ))
                 ) : (
@@ -1519,6 +1567,7 @@ export default function CreatePurchaseReceipt() {
         invoiceDate={invoiceDate}
         currency={currency}
         payment={payment}
+        templateId={profileData?.data?.invoiceTemplate || "default"}
       />
     );
     const blob = await pdf(doc).toBlob();
@@ -1570,6 +1619,7 @@ export default function CreatePurchaseReceipt() {
         paymentDetails: payment?.details,
         currency,
         invoiceNumber: generatedReceiptNumber,
+        invoiceTemplate: profileData?.data?.invoiceTemplate || "default",
       });
 
       const invoiceData = (invoiceRes as any)?.data || invoiceRes;

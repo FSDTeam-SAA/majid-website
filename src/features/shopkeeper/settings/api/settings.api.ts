@@ -7,7 +7,7 @@ export const getMyProfile = async (): Promise<ProfileResponse> => {
 };
 
 export const updateProfile = async (
-  data: FormData,
+  data: FormData | Record<string, unknown>,
 ): Promise<ProfileResponse> => {
   const response = await api.put("/user/update-profile", data);
   return response.data;
