@@ -165,7 +165,7 @@ export default function DeviceReportVerification() {
     (reportData?.deviceStatus ?? "clean").toLowerCase() === "clean";
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 py-10 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 pt-28 pb-16 md:pt-36 md:pb-24 px-4 sm:px-6 lg:px-8">
       <div className="max-w-5xl mx-auto space-y-8">
         {/* Loading State */}
         {loading && (
