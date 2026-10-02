@@ -305,12 +305,17 @@ export const createInvoice = async (input: {
   allocations?: Array<{ invoiceId: string; amountApplied: number }> | string;
   lineItems?: Array<{ itemId: string; quantity: number; variantId?: string }>;
   invoiceTemplate?: string;
+  tradeInConsentId?: string;
 }) => {
   const formData = new FormData();
 
   formData.append("shopkeeperId", input.shopkeeperId);
   formData.append("type", input.type);
   formData.append("invoice", input.invoice);
+
+  if (input.tradeInConsentId) {
+    formData.append("tradeInConsentId", input.tradeInConsentId);
+  }
 
   if (input.invoiceTemplate) {
     formData.append("invoiceTemplate", input.invoiceTemplate);

@@ -213,6 +213,34 @@ export const useCertificateDownload = () => {
               height: pageHeight,
               windowWidth: pageWidth,
               windowHeight: pageHeight,
+              onclone: (clonedDoc) => {
+                try {
+                  const styleElements = clonedDoc.getElementsByTagName("style");
+                  for (let i = 0; i < styleElements.length; i++) {
+                    const style = styleElements[i];
+                    if (
+                      style.textContent &&
+                      style.textContent.includes("oklch")
+                    ) {
+                      style.textContent = style.textContent.replace(
+                        /oklch\([^)]+\)/g,
+                        "#000000",
+                      );
+                    }
+                  }
+                  const elementsWithStyle =
+                    clonedDoc.querySelectorAll("[style*='oklch']");
+                  elementsWithStyle.forEach((el) => {
+                    const styleAttr = el.getAttribute("style") || "";
+                    el.setAttribute(
+                      "style",
+                      styleAttr.replace(/oklch\([^)]+\)/g, "#000000"),
+                    );
+                  });
+                } catch {
+                  // Ignore fallback style sanitization errors
+                }
+              },
             });
 
             pdf = addCanvasToPdf(pdf, canvas, pageWidth, pageHeight);

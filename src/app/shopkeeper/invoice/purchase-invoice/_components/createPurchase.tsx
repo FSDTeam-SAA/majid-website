@@ -75,6 +75,11 @@ import {
   CheckoutPaymentForm,
   CheckoutPaymentResult,
 } from "@/features/shopkeeper/checkout/component/checkoutPayment";
+import {
+  CustomerConsentCard,
+  CustomerConsentModal,
+  ConsentRecord,
+} from "@/features/shopkeeper/consent";
 
 interface OcrResponse {
   success: boolean;
@@ -1025,6 +1030,17 @@ export default function CreatePurchaseReceipt() {
     idNumber: "",
   });
 
+  // Customer Consent State Block
+  const [tradeInConsent, setTradeInConsent] = useState<ConsentRecord | null>(
+    null,
+  );
+  const [isConsentModalOpen, setIsConsentModalOpen] = useState(false);
+  const [consentSnapshot, setConsentSnapshot] = useState<{
+    customerName: string;
+    agreedValue: number;
+    itemName: string;
+  } | null>(null);
+
   // New state for NID camera capture
   const [showNidCamera, setShowNidCamera] = useState<boolean>(false);
   const [nidSide, setNidSide] = useState<"front" | "back">("front");
@@ -1457,6 +1473,40 @@ export default function CreatePurchaseReceipt() {
   );
   const isSubmitting = isCreatingInvoice || isCreatingInventory;
 
+  const tradeInCustomerName = useMemo(() => {
+    const typed = [customer.firstName, customer.lastName]
+      .filter(Boolean)
+      .join(" ")
+      .trim();
+    return typed;
+  }, [customer.firstName, customer.lastName]);
+
+  const tradeInItemName = useMemo(() => {
+    const names = items.map((item: any) => item.name).filter(Boolean);
+    return names.length > 0 ? names.join(", ") : "Device";
+  }, [items]);
+
+  const hasTradeInConsent = Boolean(
+    tradeInConsent && tradeInConsent.status === "approved",
+  );
+
+  const consentDetailsChanged = Boolean(
+    hasTradeInConsent &&
+    consentSnapshot &&
+    (consentSnapshot.customerName !== tradeInCustomerName ||
+      consentSnapshot.agreedValue !== total ||
+      consentSnapshot.itemName !== tradeInItemName),
+  );
+
+  const handleConsentApproved = (approved: ConsentRecord) => {
+    setTradeInConsent(approved);
+    setConsentSnapshot({
+      customerName: tradeInCustomerName,
+      agreedValue: total,
+      itemName: tradeInItemName,
+    });
+  };
+
   const validItems = useMemo(
     () => items.filter((i) => Boolean(String(i.name || "").trim())),
     [items],
@@ -1620,6 +1670,7 @@ export default function CreatePurchaseReceipt() {
         currency,
         invoiceNumber: generatedReceiptNumber,
         invoiceTemplate: profileData?.data?.invoiceTemplate || "default",
+        tradeInConsentId: tradeInConsent?.consentId || tradeInConsent?.id,
       });
 
       const invoiceData = (invoiceRes as any)?.data || invoiceRes;
@@ -1646,6 +1697,8 @@ export default function CreatePurchaseReceipt() {
         address: "",
         idNumber: "",
       });
+      setTradeInConsent(null);
+      setConsentSnapshot(null);
       setSelectedCustomerId("");
       setCustomerSearchQuery("");
       setValidationAttempted(false);
@@ -1924,6 +1977,31 @@ export default function CreatePurchaseReceipt() {
                       onChange={(address) =>
                         setCustomer({ ...customer, address })
                       }
+                    />
+                  </div>
+
+                  {/* CUSTOMER CONSENT CARD */}
+                  <div className="md:col-span-2">
+                    <CustomerConsentCard
+                      consent={tradeInConsent}
+                      hasConsent={hasTradeInConsent}
+                      needsFreshConsent={consentDetailsChanged}
+                      onRequestConsent={() => {
+                        if (
+                          !customer.firstName.trim() &&
+                          !customer.lastName.trim()
+                        ) {
+                          toast.error("Please enter customer name first");
+                          return;
+                        }
+                        if (!customer.email.trim() && !customer.phone.trim()) {
+                          toast.error(
+                            "Please enter customer email or phone number first",
+                          );
+                          return;
+                        }
+                        setIsConsentModalOpen(true);
+                      }}
                     />
                   </div>
 
@@ -2628,6 +2706,22 @@ export default function CreatePurchaseReceipt() {
         isPending={isSubmitting}
         isDueDisabled={!customer.firstName && !customer.phone}
         confirmButtonText="Confirm & Print Receipt"
+      />
+
+      <CustomerConsentModal
+        isOpen={isConsentModalOpen}
+        onClose={() => setIsConsentModalOpen(false)}
+        onApproved={handleConsentApproved}
+        initialData={{
+          customerName: tradeInCustomerName,
+          customerEmail: customer.email,
+          customerPhone: customer.phone,
+          itemName: tradeInItemName,
+          agreedValue: total,
+          currency: currency || "USD",
+          paymentMethod: paymentForm?.method || "cash",
+          customerId: selectedCustomerId,
+        }}
       />
     </div>
   );

@@ -56,6 +56,11 @@ import {
 } from "@/components/ui/select";
 import { InvoiceDateTimeSection } from "../../_components/InvoiceDateTimeSection";
 import { SalesInvoicePdfDocument } from "@/features/shopkeeper/invoice/templates/SalesInvoiceRenderer";
+import {
+  CustomerConsentCard,
+  CustomerConsentModal,
+  ConsentRecord,
+} from "@/features/shopkeeper/consent";
 
 const createInvoicePdfStyles = StyleSheet.create({
   page: {
@@ -790,6 +795,51 @@ export default function CreateInvoice() {
     return calculatedDue < 0 ? 0 : calculatedDue;
   }, [totalPrice, alreadyPaid]);
 
+  // Customer Consent State Block
+  const [tradeInConsent, setTradeInConsent] = useState<ConsentRecord | null>(
+    null,
+  );
+  const [isConsentModalOpen, setIsConsentModalOpen] = useState(false);
+  const [consentSnapshot, setConsentSnapshot] = useState<{
+    customerName: string;
+    agreedValue: number;
+    itemName: string;
+  } | null>(null);
+
+  const tradeInCustomerName = useMemo(() => {
+    const typed = [customer.firstName, customer.lastName]
+      .filter(Boolean)
+      .join(" ")
+      .trim();
+    return typed || "Customer";
+  }, [customer.firstName, customer.lastName]);
+
+  const tradeInItemName = useMemo(() => {
+    const names = invoiceItems.map((item: any) => item.name).filter(Boolean);
+    return names.length > 0 ? names.join(", ") : "Product";
+  }, [invoiceItems]);
+
+  const hasTradeInConsent = Boolean(
+    tradeInConsent && tradeInConsent.status === "approved",
+  );
+
+  const consentDetailsChanged = Boolean(
+    hasTradeInConsent &&
+    consentSnapshot &&
+    (consentSnapshot.customerName !== tradeInCustomerName ||
+      consentSnapshot.agreedValue !== totalPrice ||
+      consentSnapshot.itemName !== tradeInItemName),
+  );
+
+  const handleConsentApproved = (approved: ConsentRecord) => {
+    setTradeInConsent(approved);
+    setConsentSnapshot({
+      customerName: tradeInCustomerName,
+      agreedValue: totalPrice,
+      itemName: tradeInItemName,
+    });
+  };
+
   const handleCreateInvoice = async () => {
     if (!selectedDevicesData.length) return;
 
@@ -864,6 +914,7 @@ export default function CreateInvoice() {
           itemsIds: invoiceItems.map((i) => i.id).filter(Boolean),
           dueAmount: finalDueAmount,
           invoiceTemplate: profileData?.data?.invoiceTemplate || "default",
+          tradeInConsentId: tradeInConsent?.consentId || tradeInConsent?.id,
         },
         {
           onSuccess: () => {
@@ -1097,6 +1148,31 @@ export default function CreateInvoice() {
                   required
                   value={customer.address}
                   onChange={(address) => setCustomer({ ...customer, address })}
+                />
+              </div>
+
+              {/* Customer Consent Section */}
+              <div className="sm:col-span-2 pt-2">
+                <CustomerConsentCard
+                  consent={tradeInConsent}
+                  hasConsent={hasTradeInConsent}
+                  needsFreshConsent={consentDetailsChanged}
+                  onRequestConsent={() => {
+                    if (
+                      !customer.firstName.trim() &&
+                      !customer.lastName.trim()
+                    ) {
+                      toast.error("Please enter customer name first");
+                      return;
+                    }
+                    if (!customer.email.trim() && !customer.phone.trim()) {
+                      toast.error(
+                        "Please enter customer email or phone number first",
+                      );
+                      return;
+                    }
+                    setIsConsentModalOpen(true);
+                  }}
                 />
               </div>
             </div>
@@ -1526,6 +1602,22 @@ export default function CreateInvoice() {
           </form>
         </DialogContent>
       </Dialog>
+
+      <CustomerConsentModal
+        isOpen={isConsentModalOpen}
+        onClose={() => setIsConsentModalOpen(false)}
+        onApproved={handleConsentApproved}
+        initialData={{
+          customerName: tradeInCustomerName,
+          customerEmail: customer.email,
+          customerPhone: customer.phone,
+          itemName: tradeInItemName,
+          agreedValue: totalPrice,
+          currency: profileData?.data?.currency || "GBP",
+          paymentMethod: paymentType || "cash",
+          customerId: selectedCustomerId,
+        }}
+      />
     </div>
   );
 }

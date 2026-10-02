@@ -21,6 +21,11 @@ import { useSession } from "next-auth/react";
 import { useCurrency } from "@/hooks/useCurrency";
 import { formatCurrency as baseFormatCurrency } from "@/lib/currency";
 import { StructuredAddressFields } from "@/components/ui/structured-address-fields";
+import {
+  CustomerConsentCard,
+  CustomerConsentModal,
+  ConsentRecord,
+} from "@/features/shopkeeper/consent";
 
 interface InvoiceModalProps {
   isOpen: boolean;
@@ -52,6 +57,7 @@ export interface InvoiceFormData {
     isReceiving: boolean;
   };
   customerId?: string;
+  tradeInConsentId?: string;
 }
 
 const SMART_INVOICE_CURRENCY_KEY = "smart-invoice-selected-currency";
@@ -101,6 +107,10 @@ export const InvoiceModal = ({
     paymentStatus: "paid",
     customerId: "",
   });
+  const [tradeInConsent, setTradeInConsent] = useState<ConsentRecord | null>(
+    null,
+  );
+  const [isConsentModalOpen, setIsConsentModalOpen] = useState(false);
   const [tradeInValue, setTradeInValue] = useState<number>(0);
   const [bankAccountNumber, setBankAccountNumber] = useState("");
   const previousOpenRef = useRef(false);
@@ -321,16 +331,6 @@ export const InvoiceModal = ({
     }
   };
 
-  const handleTradeInChange = (value: number) => {
-    const validValue = Math.max(0, value);
-    setTradeInValue(validValue);
-    setFormData({
-      ...formData,
-      tradeInDetails: buildTradeInDetails(formData.price, validValue),
-    });
-    clearFieldError("tradeIn");
-  };
-
   const handleBankDetailsChange = (accountNumber: string) => {
     setBankAccountNumber(accountNumber);
     const maskedNumber =
@@ -397,6 +397,7 @@ export const InvoiceModal = ({
       const invoiceData: InvoiceFormData = {
         ...formData,
         currency: selectedCurrency,
+        tradeInConsentId: tradeInConsent?.consentId || tradeInConsent?.id,
       };
       onGenerate(invoiceData);
       onClose();
@@ -414,6 +415,7 @@ export const InvoiceModal = ({
           ...formData,
           currency: selectedCurrency,
           customerId: result.customerId,
+          tradeInConsentId: tradeInConsent?.consentId || tradeInConsent?.id,
         };
         onGenerate(invoiceData);
         onClose();
@@ -429,9 +431,6 @@ export const InvoiceModal = ({
       setIsCreatingCustomer(false);
     }
   };
-
-  const remainingAmount = formData.tradeInDetails?.remainingAmount || 0;
-  const isReceiving = formData.tradeInDetails?.isReceiving || false;
 
   const getFieldError = (field: string): string | undefined => {
     return fieldErrors.find((e) => e.field === field)?.message;
@@ -611,6 +610,31 @@ export const InvoiceModal = ({
                     </div>
                   </div>
                 </div>
+
+                <div className="pt-3">
+                  <CustomerConsentCard
+                    consent={tradeInConsent}
+                    hasConsent={Boolean(
+                      tradeInConsent && tradeInConsent.status === "approved",
+                    )}
+                    onRequestConsent={() => {
+                      if (!formData.customerName.trim()) {
+                        setCustomerError("Please enter customer name first");
+                        return;
+                      }
+                      if (
+                        !formData.customerEmail.trim() &&
+                        !formData.customerPhone.trim()
+                      ) {
+                        setCustomerError(
+                          "Please enter customer email or phone first",
+                        );
+                        return;
+                      }
+                      setIsConsentModalOpen(true);
+                    }}
+                  />
+                </div>
               </div>
 
               {/* Price */}
@@ -788,6 +812,22 @@ export const InvoiceModal = ({
           </motion.div>
         </div>
       )}
+
+      <CustomerConsentModal
+        isOpen={isConsentModalOpen}
+        onClose={() => setIsConsentModalOpen(false)}
+        onApproved={(approved) => setTradeInConsent(approved)}
+        initialData={{
+          customerName: formData.customerName,
+          customerEmail: formData.customerEmail,
+          customerPhone: formData.customerPhone,
+          itemName: deviceName,
+          agreedValue: formData.price,
+          currency: selectedCurrency,
+          paymentMethod: formData.paymentMethod,
+          customerId: formData.customerId,
+        }}
+      />
     </AnimatePresence>
   );
 };

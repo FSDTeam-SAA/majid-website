@@ -1550,6 +1550,7 @@ export const SingleResultView = ({
           amountPaid: formData.paymentStatus === "paid" ? formData.price : 0,
           paymentMethod: formData.paymentMethod,
           paymentStatus: formData.paymentStatus === "paid" ? "paid" : "due",
+          tradeInConsentId: formData.tradeInConsentId,
         });
       }
 

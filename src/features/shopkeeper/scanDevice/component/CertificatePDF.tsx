@@ -535,38 +535,56 @@ export const CertificatePDF = React.forwardRef<
           Risk Analysis (AI Powered)
         </div>
         <div style={{ padding: "22px 24px" }}>
-          <div style={{ display: "flex", alignItems: "center" }}>
-            <CheckCircle2
-              size={18}
-              color="#F97316"
-              style={{ marginRight: "12px", flexShrink: 0, display: "block" }}
-            />
-            <span
-              style={{
-                fontSize: "12px",
-                fontWeight: 900,
-                marginRight: "12px",
-                lineHeight: "18px",
-              }}
-            >
-              Overall Risk Level:
-            </span>
-            <span
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                background: colors.yellowLine,
-                borderRadius: "999px",
-                padding: "4px 14px",
-                fontSize: "10px",
-                fontWeight: 900,
-                color: "#92400E",
-                lineHeight: 1,
-              }}
-            >
-              {riskLabel.toUpperCase()} ({riskScore}/100)
-            </span>
-          </div>
+          <table
+            cellPadding="0"
+            cellSpacing="0"
+            style={{ borderCollapse: "collapse", margin: 0 }}
+          >
+            <tbody>
+              <tr>
+                <td style={{ verticalAlign: "middle", paddingRight: "10px" }}>
+                  <CheckCircle2
+                    size={18}
+                    color="#F97316"
+                    style={{ display: "block" }}
+                  />
+                </td>
+                <td
+                  style={{
+                    verticalAlign: "middle",
+                    paddingRight: "12px",
+                    fontSize: "12px",
+                    fontWeight: 900,
+                    color: colors.ink,
+                    lineHeight: "18px",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  Overall Risk Level:
+                </td>
+                <td style={{ verticalAlign: "middle" }}>
+                  <span
+                    style={{
+                      display: "inline-block",
+                      verticalAlign: "middle",
+                      background: colors.yellowLine,
+                      borderRadius: "999px",
+                      padding: "4px 14px",
+                      fontSize: "10px",
+                      fontWeight: 900,
+                      color: "#92400E",
+                      lineHeight: "13px",
+                      textAlign: "center",
+                      boxSizing: "border-box",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    {riskLabel.toUpperCase()} ({riskScore}/100)
+                  </span>
+                </td>
+              </tr>
+            </tbody>
+          </table>
 
           <p
             style={{

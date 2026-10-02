@@ -285,6 +285,7 @@ AI Insight: ${scanResult.aiInsight?.message || "N/A"}
           amountPaid: formData.paymentStatus === "paid" ? formData.price : 0,
           paymentMethod: formData.paymentMethod,
           paymentStatus: formData.paymentStatus === "paid" ? "paid" : "due",
+          tradeInConsentId: formData.tradeInConsentId,
         });
       }
     } catch (error) {
