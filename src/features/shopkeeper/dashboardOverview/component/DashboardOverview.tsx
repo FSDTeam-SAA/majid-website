@@ -94,6 +94,19 @@ const periodLabel: Record<DashboardFilter, string> = {
   yearly: "Year",
 };
 
+const getStatusBadgeStyle = (status: string) => {
+  const s = status?.toLowerCase();
+  if (s === "excellent")
+    return "text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-800/50";
+  if (s === "good")
+    return "text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-950/40 border-blue-200 dark:border-blue-800/50";
+  if (s === "fair")
+    return "text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/40 border-amber-200 dark:border-amber-800/50";
+  if (s === "needs improvement")
+    return "text-orange-700 dark:text-orange-300 bg-orange-50 dark:bg-orange-950/40 border-orange-200 dark:border-orange-800/50";
+  return "text-rose-700 dark:text-rose-300 bg-rose-50 dark:bg-rose-950/40 border-rose-200 dark:border-rose-800/50";
+};
+
 export default function DashboardOverview() {
   const [period, setPeriod] = useState<DashboardFilter>("monthly");
   const { formatCurrency } = useCurrency();
@@ -502,14 +515,21 @@ export default function DashboardOverview() {
                                 <span className="text-[14px] font-bold text-slate-700 dark:text-slate-200 block">
                                   {style.name}
                                 </span>
-                                <span className="text-[12px] font-semibold text-slate-400 mt-0.5 block">
+                                <span
+                                  className={`text-[11px] font-bold px-2 py-0.5 rounded-full border mt-1 inline-block ${getStatusBadgeStyle(metric.status)}`}
+                                >
                                   {metric.status || "Good"}
                                 </span>
                               </div>
                             </div>
-                            <span className="text-lg font-black text-slate-900 dark:text-white">
-                              {Math.round(metric.score)}
-                            </span>
+                            <div className="flex items-baseline gap-1">
+                              <span className="text-lg font-black text-slate-900 dark:text-white">
+                                {Math.round(metric.score)}
+                              </span>
+                              <span className="text-[11px] font-bold text-slate-400">
+                                /100
+                              </span>
+                            </div>
                           </div>
                         );
                       })

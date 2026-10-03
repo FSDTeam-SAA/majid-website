@@ -31,7 +31,7 @@ import { toast } from "sonner";
 
 interface BulkResultViewProps {
   batchResult: BatchImeiResponse | null;
-  onClear: () => void;
+  onClear?: () => void;
   onBack: () => void;
   onDownloadCertificate: (
     elementIds: string[],
@@ -93,12 +93,6 @@ const getRiskBadgeColor = (score: number): string => {
   if (score <= RISK_THRESHOLDS.LOW) return "bg-emerald-100 text-emerald-700";
   if (score <= RISK_THRESHOLDS.MEDIUM) return "bg-amber-100 text-amber-700";
   return "bg-red-100 text-red-700";
-};
-
-const getRiskLabel = (score: number): string => {
-  if (score <= RISK_THRESHOLDS.LOW) return "Low Risk";
-  if (score <= RISK_THRESHOLDS.MEDIUM) return "Moderate Risk";
-  return "High Risk";
 };
 
 // Extract device data from a single batch item - UPDATED with all missing fields
@@ -507,7 +501,6 @@ const extractBatchDeviceData = (item: BatchImeiItemResult | null) => {
 
 export const BulkResultView = ({
   batchResult,
-  onClear,
   onDownloadCertificate,
   isDownloading,
   onBack,
@@ -527,7 +520,7 @@ export const BulkResultView = ({
   const { status, data: session } = useSession();
   const isGuest = status === "unauthenticated";
   const { downloadCertificatePdf } = useCertificateDownload();
-  const { mutate: createInvoice } = useCreateInvoice();
+  const { mutateAsync: createInvoiceAsync } = useCreateInvoice();
 
   const batchRows = useMemo(() => batchResult?.data ?? [], [batchResult]);
 
@@ -543,71 +536,6 @@ export const BulkResultView = ({
   );
 
   const {
-    deviceName,
-    deviceId,
-    deviceConfiguration,
-    imeiValue,
-    imei2Value,
-    meidValue,
-    serialNumber,
-    eidNumber,
-    warrantyStatus,
-    coverageStatus,
-    purchaseDate,
-    productionDate,
-    coverageEndDate,
-    coverageStartDate,
-    applecareDescription,
-    notice,
-    replacedDevice,
-    activationStatus,
-    deviceActivation,
-    coverageBenefits,
-    registrationStatus,
-    tempCoverage,
-    openRepair,
-    serialKey,
-    iCloudLock,
-    iCloudStatus,
-    mdmLock,
-    unlockStatus,
-    simlockStatus,
-    simlock,
-    carrierName,
-    sim1Carrier,
-    manufacturer,
-    fullName,
-    productDescription,
-    materialNumber,
-    basicMaterial,
-    modelNumber,
-    partNumber,
-    doNumber,
-    partCountry,
-    capacity,
-    color,
-    limitedWarranty,
-    incidentsAvailable,
-    initialUnbrick,
-    productVersion,
-    soldToName,
-    salesBuyerCode,
-    salesBuyerName,
-    soldByCountry,
-    shipToCountry,
-    purchaseCountry,
-    purchaseCountryCode,
-    soldDate,
-    shipDate,
-    gsxReplacementHistory,
-    initialActivationPolicyDescription,
-    lastActivationPolicyDescription,
-    nextActivationPolicyDescription,
-    nextTetherPolicy,
-    knoxGuard,
-    blacklistStatus,
-    attStatus,
-    errorR01,
     riskScore,
     riskLevel,
     marketValue,
@@ -615,12 +543,199 @@ export const BulkResultView = ({
     aiInsight,
     provider,
     oldGenerated,
-    hasError,
     errorMessage,
   } = extractedData;
 
+  const handleGenerateInvoice = useCallback(
+    async (formData: InvoiceFormData) => {
+      const validItems = batchRows
+        .map((row, index) => ({ row, index }))
+        .filter(({ row }) => row?.ok && row?.data);
+
+      if (validItems.length === 0) {
+        toast.error("No valid scan results to generate invoices.");
+        return;
+      }
+
+      setIsInvoiceGenerating(true);
+      setInvoiceFormData(formData);
+      setIsInvoiceModalOpen(false);
+
+      const toastId = "bulk-invoice-generation";
+      toast.loading(
+        `Preparing to generate ${validItems.length} invoice${validItems.length > 1 ? "s" : ""}...`,
+        { id: toastId },
+      );
+
+      try {
+        // Allow React to mount all SmartInvoicePDF instances with the updated form data
+        await new Promise((resolve) => {
+          requestAnimationFrame(() => requestAnimationFrame(resolve));
+        });
+        await new Promise((resolve) => setTimeout(resolve, 400));
+
+        const shopkeeperId =
+          (session?.user as any)?.shopkeeperId ||
+          (session?.user as any)?.id ||
+          "unknown";
+
+        let successCount = 0;
+        let failCount = 0;
+
+        for (let i = 0; i < validItems.length; i++) {
+          const { row, index } = validItems[i];
+          const itemImei =
+            row.imei ||
+            (row.data as any)?.imei ||
+            (row.data as any)?.parsedProviderData?.imei_number ||
+            `device_${i + 1}`;
+
+          toast.loading(
+            `Generating invoice ${i + 1} of ${validItems.length} (${itemImei})...`,
+            { id: toastId },
+          );
+
+          try {
+            let invoiceBlob: Blob | undefined;
+            await downloadCertificatePdf(
+              [`smart-invoice-pdf-bulk-${index}`],
+              `Invoice_${itemImei}.pdf`,
+              undefined,
+              {
+                download: true,
+                onPdfReady: (pdf) => {
+                  invoiceBlob = pdf;
+                },
+              },
+            );
+
+            if (invoiceBlob && formData.customerId) {
+              const file = new File([invoiceBlob], `invoice_${itemImei}.pdf`, {
+                type: "application/pdf",
+              });
+
+              await createInvoiceAsync({
+                shopkeeperId,
+                customerInfo: formData.customerId,
+                type: "Smart invoice",
+                invoice: file,
+                totalAmount: formData.price,
+                dueAmount:
+                  formData.paymentStatus === "paid" ? 0 : formData.price,
+                amountPaid:
+                  formData.paymentStatus === "paid" ? formData.price : 0,
+                paymentMethod: formData.paymentMethod,
+                paymentStatus:
+                  formData.paymentStatus === "paid" ? "paid" : "due",
+                tradeInConsentId: formData.tradeInConsentId,
+                nid_front: formData.nidFrontFile || undefined,
+                nid_back: formData.nidBackFile || undefined,
+              });
+            }
+            successCount++;
+          } catch (itemError) {
+            console.error(
+              `Invoice generation failed for IMEI ${itemImei}:`,
+              itemError,
+            );
+            failCount++;
+          }
+
+          // Brief delay between invoice generations for DOM and file buffer settling
+          await new Promise((resolve) => setTimeout(resolve, 250));
+        }
+
+        if (failCount === 0) {
+          toast.success(
+            `Successfully generated all ${successCount} smart invoice${successCount > 1 ? "s" : ""}!`,
+            { id: toastId },
+          );
+        } else {
+          toast.warning(
+            `Generated ${successCount} invoice(s), but ${failCount} failed.`,
+            { id: toastId },
+          );
+        }
+      } catch (error) {
+        console.error("Bulk invoice generation failed:", error);
+        toast.error("Failed to generate invoices", { id: toastId });
+      } finally {
+        setIsInvoiceGenerating(false);
+      }
+    },
+    [batchRows, downloadCertificatePdf, createInvoiceAsync, session],
+  );
+
   // Collect all non-empty fields for display
   const allFields = useMemo(() => {
+    const {
+      deviceName,
+      deviceId,
+      deviceConfiguration,
+      imeiValue: currentImei,
+      imei2Value,
+      meidValue,
+      serialNumber,
+      eidNumber,
+      warrantyStatus,
+      coverageStatus,
+      purchaseDate,
+      productionDate,
+      coverageEndDate,
+      coverageStartDate,
+      applecareDescription,
+      notice,
+      replacedDevice,
+      activationStatus,
+      deviceActivation,
+      coverageBenefits,
+      registrationStatus,
+      tempCoverage,
+      openRepair,
+      serialKey,
+      iCloudLock,
+      iCloudStatus,
+      mdmLock,
+      unlockStatus,
+      simlockStatus,
+      simlock,
+      carrierName,
+      sim1Carrier,
+      manufacturer,
+      fullName,
+      productDescription,
+      materialNumber,
+      basicMaterial,
+      modelNumber,
+      partNumber,
+      doNumber,
+      partCountry,
+      capacity,
+      color,
+      limitedWarranty,
+      incidentsAvailable,
+      initialUnbrick,
+      productVersion,
+      soldToName,
+      salesBuyerCode,
+      salesBuyerName,
+      soldByCountry,
+      shipToCountry,
+      purchaseCountry,
+      purchaseCountryCode,
+      soldDate,
+      shipDate,
+      gsxReplacementHistory,
+      initialActivationPolicyDescription,
+      lastActivationPolicyDescription,
+      nextActivationPolicyDescription,
+      nextTetherPolicy,
+      knoxGuard,
+      blacklistStatus,
+      attStatus,
+      errorR01,
+    } = extractedData;
+
     const fields: { label: string; value: any; condition?: boolean }[] = [
       // Basic Info
       { label: "Device Name", value: deviceName },
@@ -634,7 +749,7 @@ export const BulkResultView = ({
       { label: "Manufacturer", value: manufacturer, condition: !!manufacturer },
 
       // Identifiers
-      { label: "IMEI", value: imeiValue },
+      { label: "IMEI", value: currentImei },
       { label: "IMEI2", value: imei2Value, condition: !!imei2Value },
       { label: "MEID", value: meidValue, condition: !!meidValue },
       { label: "Serial Number", value: serialNumber },
@@ -909,62 +1024,6 @@ export const BulkResultView = ({
     }
   };
 
-  const handleGenerateInvoice = async (formData: InvoiceFormData) => {
-    setIsInvoiceGenerating(true);
-    setInvoiceFormData(formData);
-    setIsInvoiceModalOpen(false);
-
-    try {
-      await new Promise((resolve) => {
-        requestAnimationFrame(() => requestAnimationFrame(resolve));
-      });
-      let invoiceBlob: Blob | undefined;
-      await downloadCertificatePdf(
-        [`smart-invoice-pdf-bulk-${selectedBatchIndex}`],
-        `Invoice_${imeiValue}.pdf`,
-        undefined,
-        {
-          download: true,
-          onPdfReady: (pdf) => {
-            invoiceBlob = pdf;
-          },
-        },
-      );
-
-      if (invoiceBlob && formData.customerId) {
-        const file = new File([invoiceBlob], `invoice_${imeiValue}.pdf`, {
-          type: "application/pdf",
-        });
-        const shopkeeperId =
-          (session?.user as any)?.shopkeeperId ||
-          (session?.user as any)?.id ||
-          "unknown";
-
-        createInvoice({
-          shopkeeperId,
-          customerInfo: formData.customerId,
-          type: "Smart invoice",
-          invoice: file,
-          totalAmount: formData.price,
-          dueAmount: formData.paymentStatus === "paid" ? 0 : formData.price,
-          amountPaid: formData.paymentStatus === "paid" ? formData.price : 0,
-          paymentMethod: formData.paymentMethod,
-          paymentStatus: formData.paymentStatus === "paid" ? "paid" : "due",
-          tradeInConsentId: formData.tradeInConsentId,
-          nid_front: formData.nidFrontFile || undefined,
-          nid_back: formData.nidBackFile || undefined,
-        });
-      }
-
-      toast.success("Invoice generated successfully!");
-    } catch (error) {
-      console.error("Invoice generation failed:", error);
-      toast.error("Failed to generate invoice");
-    } finally {
-      setIsInvoiceGenerating(false);
-    }
-  };
-
   const handleDownloadCertificate = () => {
     if (!selectedBatchRow?.ok || !selectedBatchRow.data) return;
     onDownloadCertificate(
@@ -1201,6 +1260,7 @@ export const BulkResultView = ({
                 {/* Device Image */}
                 {image && (
                   <div className="flex justify-center mb-2">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                       src={image}
                       alt="Device"
@@ -1313,22 +1373,24 @@ export const BulkResultView = ({
       {/* Hidden PDF Containers */}
       <div className="fixed top-0 left-[-10000px] w-[1100px] pointer-events-none z-0">
         {selectedBatchRow?.ok && selectedBatchRow.data && (
-          <>
-            <CertificatePDF
-              data={selectedBatchRow.data}
-              id={`certificate-pdf-bulk-${selectedBatchIndex}`}
-              providerName={selectedBatchRow.provider}
-              serviceId={selectedBatchRow.serviceId}
-            />
-            {invoiceFormData && (
+          <CertificatePDF
+            data={selectedBatchRow.data}
+            id={`certificate-pdf-bulk-${selectedBatchIndex}`}
+            providerName={selectedBatchRow.provider}
+            serviceId={selectedBatchRow.serviceId}
+          />
+        )}
+        {invoiceFormData &&
+          batchRows.map((row, index) =>
+            row?.ok && row.data ? (
               <SmartInvoicePDF
-                data={selectedBatchRow.data}
-                id={`smart-invoice-pdf-bulk-${selectedBatchIndex}`}
+                key={`smart-invoice-pdf-bulk-${index}-${row.imei || index}`}
+                data={row.data}
+                id={`smart-invoice-pdf-bulk-${index}`}
                 invoiceData={invoiceFormData}
               />
-            )}
-          </>
-        )}
+            ) : null,
+          )}
       </div>
 
       {/* Invoice Modal */}
