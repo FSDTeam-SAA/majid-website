@@ -1018,6 +1018,7 @@ export default function CreatePurchaseReceipt() {
   const fileInputRefs = useRef<{ [key: number]: HTMLInputElement | null }>({});
   const videoRefs = useRef<{ [key: number]: HTMLVideoElement | null }>({});
   const nidVideoRef = useRef<HTMLVideoElement | null>(null);
+  const nidFileInputRef = useRef<HTMLInputElement | null>(null);
   const codeReaderRef = useRef<BrowserMultiFormatReader | null>(null);
 
   // Customer ID State Management Configuration Block
@@ -1041,11 +1042,15 @@ export default function CreatePurchaseReceipt() {
     itemName: string;
   } | null>(null);
 
-  // New state for NID camera capture
+  // NID camera capture & file upload state
   const [showNidCamera, setShowNidCamera] = useState<boolean>(false);
   const [nidSide, setNidSide] = useState<"front" | "back">("front");
   const [, setCapturedImage] = useState<string | null>(null);
   const [nidStream, setNidStream] = useState<MediaStream | null>(null);
+  const [nidFrontFile, setNidFrontFile] = useState<File | null>(null);
+  const [nidBackFile, setNidBackFile] = useState<File | null>(null);
+  const [nidFrontPreview, setNidFrontPreview] = useState<string | null>(null);
+  const [nidBackPreview, setNidBackPreview] = useState<string | null>(null);
 
   const [ocrLoading, setOcrLoading] = useState<boolean>(false);
   const [ocrStatus, setOcrStatus] = useState<{
@@ -1192,16 +1197,44 @@ export default function CreatePurchaseReceipt() {
         // Convert dataURL to File and trigger OCR
         const file = dataURLtoFile(imageDataUrl, `nid_${nidSide}.jpg`);
         if (nidSide === "front") {
-          // For front side, we can trigger OCR immediately if we have both sides?
-          // According to new requirement, either side can be used alone.
-          // We'll process this single side
-          triggerOcrScan(file);
+          setNidFrontFile(file);
+          setNidFrontPreview(imageDataUrl);
         } else {
-          // For back side, process this single side
-          triggerOcrScan(file);
+          setNidBackFile(file);
+          setNidBackPreview(imageDataUrl);
         }
+        triggerOcrScan(file);
       }
     }
+  };
+
+  const handleNidFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      toast.error("Please select a valid image file");
+      return;
+    }
+    const previewUrl = URL.createObjectURL(file);
+    if (!nidFrontFile) {
+      setNidFrontFile(file);
+      setNidFrontPreview(previewUrl);
+    } else {
+      setNidBackFile(file);
+      setNidBackPreview(previewUrl);
+    }
+    triggerOcrScan(file);
+    e.target.value = "";
+  };
+
+  const removeNidFront = () => {
+    setNidFrontFile(null);
+    setNidFrontPreview(null);
+  };
+
+  const removeNidBack = () => {
+    setNidBackFile(null);
+    setNidBackPreview(null);
   };
 
   const cancelNidCamera = () => {
@@ -1226,29 +1259,24 @@ export default function CreatePurchaseReceipt() {
     return new File([u8arr], filename, { type: mime });
   };
 
-  // --- AUTOMATED CUSTOMER NID SCANNING (OCR API GATEWAY) - UPDATED FOR SINGLE SIDE ---
+  // --- AUTOMATED CUSTOMER NID SCANNING (OCR API GATEWAY) ---
   const triggerOcrScan = async (imageFile: File) => {
     setOcrLoading(true);
     setOcrStatus(null);
     const toastId = toast.loading("Processing NID image...");
 
     const formData = new FormData();
-    // Send the same image as both front and back, or just one?
-    // The backend might expect both. We'll send the same image for both fields
-    // to satisfy the API requirement, but the backend should ideally accept single side.
-    // Alternatively, we can modify the API call. Assuming backend can handle single image,
-    // but to be safe, we send the captured image for both fields.
     formData.append("nid_front", imageFile);
     formData.append("nid_back", imageFile);
 
     try {
-      const response = await fetch(
-        "http://localhost:5000/api/v1/ocr/extract-nid",
-        {
-          method: "POST",
-          body: formData,
-        },
-      );
+      const apiUrl =
+        process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, "") ||
+        "http://localhost:5000/api/v1";
+      const response = await fetch(`${apiUrl}/ocr/extract-nid`, {
+        method: "POST",
+        body: formData,
+      });
 
       if (!response.ok)
         throw new Error(
@@ -1257,28 +1285,28 @@ export default function CreatePurchaseReceipt() {
 
       const result: OcrResponse = await response.json();
 
-      if (result.success && result.data.isValid) {
+      if (result.success && result.data.isValid && result.data.nidNumber) {
         setCustomer((prev) => ({ ...prev, idNumber: result.data.nidNumber }));
         setOcrStatus({
           type: "success",
-          message: `${result.message || "NID extracted successfully"} (${result.data.processingTime}ms)`,
+          message: `${result.message || "NID extracted successfully"} (${result.data.processingTime || 0}ms)`,
         });
-        toast.success("Identity profile parsed and populated!");
+        toast.success("NID number extracted successfully!");
       } else {
         setOcrStatus({
           type: "error",
           message:
-            result.data.message ||
-            "Verification pipeline rejected structure validity bounds.",
+            result.data?.message ||
+            "ID processed. Enter number manually if needed.",
         });
-        toast.error("OCR server failed validating document parameters.");
+        toast.info("Image attached. Enter NID number manually if unread.");
       }
     } catch {
       setOcrStatus({
         type: "error",
-        message: "Unable to connect to dynamic validation server context.",
+        message: "Unable to connect to OCR service.",
       });
-      toast.error("OCR endpoint connection timeout flag.");
+      toast.info("Image attached. You can enter NID number manually.");
     } finally {
       setOcrLoading(false);
       toast.dismiss(toastId);
@@ -1671,6 +1699,8 @@ export default function CreatePurchaseReceipt() {
         invoiceNumber: generatedReceiptNumber,
         invoiceTemplate: profileData?.data?.invoiceTemplate || "default",
         tradeInConsentId: tradeInConsent?.consentId || tradeInConsent?.id,
+        nid_front: nidFrontFile || undefined,
+        nid_back: nidBackFile || undefined,
       });
 
       const invoiceData = (invoiceRes as any)?.data || invoiceRes;
@@ -1697,6 +1727,10 @@ export default function CreatePurchaseReceipt() {
         address: "",
         idNumber: "",
       });
+      setNidFrontFile(null);
+      setNidBackFile(null);
+      setNidFrontPreview(null);
+      setNidBackPreview(null);
       setTradeInConsent(null);
       setConsentSnapshot(null);
       setSelectedCustomerId("");
@@ -2005,15 +2039,22 @@ export default function CreatePurchaseReceipt() {
                     />
                   </div>
 
-                  {/* MANUAL OR AUTOMATIC IDENTITY SECTOR BLOCK - UPDATED WITH CAMERA BUTTONS */}
+                  {/* MANUAL OR AUTOMATIC IDENTITY SECTOR BLOCK - WITH UPLOAD & CAMERA */}
                   <div className="md:col-span-2 space-y-2">
                     <label className="font-bold text-sm text-muted-foreground ml-1">
                       Customer ID Number / NID Field (Optional)
                     </label>
-                    <div className="relative flex gap-2">
+                    <input
+                      type="file"
+                      ref={nidFileInputRef}
+                      accept="image/*"
+                      onChange={handleNidFileUpload}
+                      className="hidden"
+                    />
+                    <div className="relative flex flex-wrap sm:flex-nowrap gap-2">
                       <Input
-                        placeholder="Type manually or capture NID via camera..."
-                        className="rounded-2xl h-12 border-primary bg-background font-bold flex-1"
+                        placeholder="Type manually, upload picture or capture NID..."
+                        className="rounded-2xl h-12 border-primary bg-background font-bold flex-1 min-w-[200px]"
                         value={customer.idNumber}
                         onChange={(e) =>
                           setCustomer({ ...customer, idNumber: e.target.value })
@@ -2022,11 +2063,21 @@ export default function CreatePurchaseReceipt() {
                       <Button
                         type="button"
                         variant="outline"
-                        className="rounded-2xl h-12 px-4 gap-2"
+                        className="rounded-2xl h-12 px-4 gap-2 shrink-0 border-primary/40 hover:bg-primary/5 cursor-pointer"
+                        onClick={() => nidFileInputRef.current?.click()}
+                        disabled={ocrLoading}
+                      >
+                        <Upload size={18} className="text-primary" />
+                        Upload Picture
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="rounded-2xl h-12 px-4 gap-2 shrink-0 border-primary/40 hover:bg-primary/5 cursor-pointer"
                         onClick={() => startNidCamera("front")}
                         disabled={ocrLoading}
                       >
-                        <Camera size={18} />
+                        <Camera size={18} className="text-primary" />
                         Capture NID
                       </Button>
                       {ocrLoading && (
@@ -2035,9 +2086,66 @@ export default function CreatePurchaseReceipt() {
                         </div>
                       )}
                     </div>
+
+                    {/* NID Preview Chips if uploaded/captured */}
+                    {(nidFrontPreview || nidBackPreview) && (
+                      <div className="flex flex-wrap gap-3 pt-2">
+                        {nidFrontPreview && (
+                          <div className="relative flex items-center gap-2 p-2 bg-primary/5 border border-primary/20 rounded-xl">
+                            <img
+                              src={nidFrontPreview}
+                              alt="NID Front"
+                              className="w-12 h-9 object-cover rounded-lg border border-border"
+                            />
+                            <div className="text-xs">
+                              <p className="font-semibold text-foreground">
+                                NID Front
+                              </p>
+                              <p className="text-[10px] text-muted-foreground">
+                                {nidFrontFile?.name || "Captured Image"}
+                              </p>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={removeNidFront}
+                              className="p-1 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-full transition ml-1 cursor-pointer"
+                              title="Remove front image"
+                            >
+                              <X size={14} />
+                            </button>
+                          </div>
+                        )}
+                        {nidBackPreview && (
+                          <div className="relative flex items-center gap-2 p-2 bg-primary/5 border border-primary/20 rounded-xl">
+                            <img
+                              src={nidBackPreview}
+                              alt="NID Back"
+                              className="w-12 h-9 object-cover rounded-lg border border-border"
+                            />
+                            <div className="text-xs">
+                              <p className="font-semibold text-foreground">
+                                NID Back
+                              </p>
+                              <p className="text-[10px] text-muted-foreground">
+                                {nidBackFile?.name || "Captured Image"}
+                              </p>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={removeNidBack}
+                              className="p-1 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-full transition ml-1 cursor-pointer"
+                              title="Remove back image"
+                            >
+                              <X size={14} />
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
                     <p className="text-xs text-muted-foreground ml-1">
-                      Capture either front or back side of NID (both sides not
-                      required)
+                      Upload or capture NID picture (front or back). OCR will
+                      auto-detect ID number.
                     </p>
                   </div>
                 </div>

@@ -238,6 +238,8 @@ export function useCreateInvoice() {
       }>;
       invoiceTemplate?: string;
       tradeInConsentId?: string;
+      nid_front?: File | Blob | null;
+      nid_back?: File | Blob | null;
     }) => createInvoice(input),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: INVENTORY_KEYS.all });

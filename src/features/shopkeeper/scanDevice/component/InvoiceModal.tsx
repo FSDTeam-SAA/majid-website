@@ -13,6 +13,9 @@ import {
   CreditCard,
   Mail,
   AlertCircle,
+  Camera,
+  Upload,
+  FileText,
 } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import { IMEIResult } from "../../scanDevice/types/scanDevice.types";
@@ -21,6 +24,7 @@ import { useSession } from "next-auth/react";
 import { useCurrency } from "@/hooks/useCurrency";
 import { formatCurrency as baseFormatCurrency } from "@/lib/currency";
 import { StructuredAddressFields } from "@/components/ui/structured-address-fields";
+import { toast } from "sonner";
 import {
   CustomerConsentCard,
   CustomerConsentModal,
@@ -57,6 +61,9 @@ export interface InvoiceFormData {
     isReceiving: boolean;
   };
   customerId?: string;
+  idNumber?: string;
+  nidFrontFile?: File | null;
+  nidBackFile?: File | null;
   tradeInConsentId?: string;
 }
 
@@ -107,6 +114,18 @@ export const InvoiceModal = ({
     paymentStatus: "paid",
     customerId: "",
   });
+  const [idNumber, setIdNumber] = useState("");
+  const [nidFrontFile, setNidFrontFile] = useState<File | null>(null);
+  const [nidBackFile, setNidBackFile] = useState<File | null>(null);
+  const [nidFrontPreview, setNidFrontPreview] = useState<string | null>(null);
+  const [nidBackPreview, setNidBackPreview] = useState<string | null>(null);
+  const [showNidCamera, setShowNidCamera] = useState(false);
+  const [nidSide, setNidSide] = useState<"front" | "back">("front");
+  const [nidStream, setNidStream] = useState<MediaStream | null>(null);
+  const [ocrLoading, setOcrLoading] = useState(false);
+  const nidFileInputRef = useRef<HTMLInputElement | null>(null);
+  const nidVideoRef = useRef<HTMLVideoElement | null>(null);
+
   const [tradeInConsent, setTradeInConsent] = useState<ConsentRecord | null>(
     null,
   );
@@ -138,6 +157,14 @@ export const InvoiceModal = ({
     );
   }, [selectedCurrency]);
 
+  useEffect(() => {
+    return () => {
+      if (nidStream) {
+        nidStream.getTracks().forEach((track) => track.stop());
+      }
+    };
+  }, [nidStream]);
+
   // Reset form when modal opens with new scanResult
   useEffect(() => {
     const scanId = scanResult?.imei || null;
@@ -165,6 +192,11 @@ export const InvoiceModal = ({
           paymentStatus: "paid",
           customerId: "",
         });
+        setIdNumber("");
+        setNidFrontFile(null);
+        setNidBackFile(null);
+        setNidFrontPreview(null);
+        setNidBackPreview(null);
         setTradeInValue(0);
         setBankAccountNumber("");
         setFieldErrors([]);
@@ -251,13 +283,146 @@ export const InvoiceModal = ({
     return errors.length === 0;
   };
 
-  // Create customer API call
+  // Helper to convert dataURL to File
+  const dataURLtoFile = (dataurl: string, filename: string): File => {
+    const arr = dataurl.split(",");
+    const mime = arr[0].match(/:(.*?);/)?.[1];
+    const bstr = atob(arr[1]);
+    let n = bstr.length;
+    const u8arr = new Uint8Array(n);
+    while (n--) {
+      u8arr[n] = bstr.charCodeAt(n);
+    }
+    return new File([u8arr], filename, { type: mime });
+  };
+
+  const startNidCamera = async (side: "front" | "back" = "front") => {
+    setNidSide(side);
+    setShowNidCamera(true);
+    try {
+      if (nidStream) {
+        nidStream.getTracks().forEach((track) => track.stop());
+      }
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+      setNidStream(stream);
+      if (nidVideoRef.current) {
+        nidVideoRef.current.srcObject = stream;
+      }
+      toast.info(`Position ${side} side of NID in front of camera`);
+    } catch {
+      toast.error("Could not access camera. Please check permissions.");
+      setShowNidCamera(false);
+    }
+  };
+
+  const captureNidImage = () => {
+    if (nidVideoRef.current && nidStream) {
+      const video = nidVideoRef.current;
+      const canvas = document.createElement("canvas");
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      const ctx = canvas.getContext("2d");
+      if (ctx) {
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        const imageDataUrl = canvas.toDataURL("image/jpeg", 0.8);
+        nidStream.getTracks().forEach((track) => track.stop());
+        setNidStream(null);
+        setShowNidCamera(false);
+
+        const file = dataURLtoFile(imageDataUrl, `nid_${nidSide}.jpg`);
+        if (nidSide === "front") {
+          setNidFrontFile(file);
+          setNidFrontPreview(imageDataUrl);
+        } else {
+          setNidBackFile(file);
+          setNidBackPreview(imageDataUrl);
+        }
+        triggerOcrScan(file);
+      }
+    }
+  };
+
+  const cancelNidCamera = () => {
+    if (nidStream) {
+      nidStream.getTracks().forEach((track) => track.stop());
+      setNidStream(null);
+    }
+    setShowNidCamera(false);
+  };
+
+  const handleNidFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      toast.error("Please select a valid image file");
+      return;
+    }
+    const previewUrl = URL.createObjectURL(file);
+    if (!nidFrontFile) {
+      setNidFrontFile(file);
+      setNidFrontPreview(previewUrl);
+    } else {
+      setNidBackFile(file);
+      setNidBackPreview(previewUrl);
+    }
+    triggerOcrScan(file);
+    e.target.value = "";
+  };
+
+  const removeNidFront = () => {
+    setNidFrontFile(null);
+    setNidFrontPreview(null);
+  };
+
+  const removeNidBack = () => {
+    setNidBackFile(null);
+    setNidBackPreview(null);
+  };
+
+  const triggerOcrScan = async (imageFile: File) => {
+    setOcrLoading(true);
+    const toastId = toast.loading("Processing NID image with OCR...");
+    const formData = new FormData();
+    formData.append("nid_front", imageFile);
+    formData.append("nid_back", imageFile);
+
+    try {
+      const apiUrl =
+        process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, "") ||
+        "http://localhost:5000/api/v1";
+      const response = await fetch(`${apiUrl}/ocr/extract-nid`, {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!response.ok) throw new Error("OCR pipeline connection exception");
+
+      const result = await response.json();
+      if (result.success && result.data?.isValid && result.data?.nidNumber) {
+        setIdNumber(result.data.nidNumber);
+        toast.success("NID number extracted successfully!");
+      } else {
+        toast.info(
+          "Image attached. You can enter NID number manually if needed.",
+        );
+      }
+    } catch {
+      toast.info("Image attached. You can enter NID number manually.");
+    } finally {
+      setOcrLoading(false);
+      toast.dismiss(toastId);
+    }
+  };
+
+  // Create customer API call (or reuse existing if email exists)
   const createCustomer = async (): Promise<{
     success: boolean;
     customerId?: string;
     error?: string;
   }> => {
     const { firstName, lastName } = parseCustomerName(formData.customerName);
+    const shopkeeperId =
+      (session?.user as any)?.shopkeeperId || (session?.user as any)?.id;
 
     const payload = {
       firstName,
@@ -265,42 +430,79 @@ export const InvoiceModal = ({
       email: formData.customerEmail,
       phone: formData.customerPhone,
       address: formData.customerAddress,
-      shopkeeperId:
-        (session?.user as any)?.shopkeeperId || (session?.user as any)?.id,
+      shopkeeperId,
+      idNumber: idNumber.trim() || undefined,
+      customerId: idNumber.trim() || undefined,
     };
 
     try {
       const response = await axiosInstance.post("/customer/create", payload);
 
-      if (response.data?.success || response.data?.data?._id) {
+      if (
+        response.data?.success ||
+        response.data?.data?._id ||
+        response.data?.data?.id
+      ) {
         const customerId = response.data.data?._id || response.data?.data?.id;
         return { success: true, customerId };
       }
 
-      if (response.data?.message?.includes("already exists")) {
-        return {
-          success: false,
-          error:
-            "Customer with this email already exists. Please use a different email.",
-        };
+      // If backend reports customer already exists, retrieve existing customer ID seamlessly
+      if (
+        response.data?.message?.includes("already exists") ||
+        response.data?.error?.includes("already exists")
+      ) {
+        const existingRes = await axiosInstance.get(
+          `/customer/shopkeeper/${shopkeeperId}`,
+        );
+        const customersList = Array.isArray(existingRes.data?.data)
+          ? existingRes.data.data
+          : Array.isArray(existingRes.data)
+            ? existingRes.data
+            : [];
+        const matched = customersList.find(
+          (c: any) =>
+            c.email?.toLowerCase().trim() ===
+            formData.customerEmail.toLowerCase().trim(),
+        );
+        if (matched?._id || matched?.id) {
+          return { success: true, customerId: matched._id || matched.id };
+        }
       }
 
       return {
         success: false,
-        error: response.data?.message || "Failed to create customer",
+        error: response.data?.message || "Failed to process customer",
       };
     } catch (error: any) {
+      // If error is 409 conflict or contains "already exists", retrieve existing customer ID seamlessly
       if (
+        error.response?.status === 409 ||
         error.response?.data?.message?.includes("already exists") ||
         error.response?.data?.errorSources?.[0]?.message?.includes(
           "already exists",
         )
       ) {
-        return {
-          success: false,
-          error:
-            "Customer with this email already exists. Please use a different email address.",
-        };
+        try {
+          const existingRes = await axiosInstance.get(
+            `/customer/shopkeeper/${shopkeeperId}`,
+          );
+          const customersList = Array.isArray(existingRes.data?.data)
+            ? existingRes.data.data
+            : Array.isArray(existingRes.data)
+              ? existingRes.data
+              : [];
+          const matched = customersList.find(
+            (c: any) =>
+              c.email?.toLowerCase().trim() ===
+              formData.customerEmail.toLowerCase().trim(),
+          );
+          if (matched?._id || matched?.id) {
+            return { success: true, customerId: matched._id || matched.id };
+          }
+        } catch (fetchErr) {
+          console.error("Error looking up existing customer:", fetchErr);
+        }
       }
 
       return {
@@ -308,7 +510,7 @@ export const InvoiceModal = ({
         error:
           error.response?.data?.message ||
           error.message ||
-          "Failed to create customer. Please try again.",
+          "Failed to process customer. Please try again.",
       };
     }
   };
@@ -398,6 +600,9 @@ export const InvoiceModal = ({
         ...formData,
         currency: selectedCurrency,
         tradeInConsentId: tradeInConsent?.consentId || tradeInConsent?.id,
+        idNumber: idNumber.trim() || undefined,
+        nidFrontFile,
+        nidBackFile,
       };
       onGenerate(invoiceData);
       onClose();
@@ -416,6 +621,9 @@ export const InvoiceModal = ({
           currency: selectedCurrency,
           customerId: result.customerId,
           tradeInConsentId: tradeInConsent?.consentId || tradeInConsent?.id,
+          idNumber: idNumber.trim() || undefined,
+          nidFrontFile,
+          nidBackFile,
         };
         onGenerate(invoiceData);
         onClose();
@@ -592,22 +800,119 @@ export const InvoiceModal = ({
                       </p>
                     )}
                   </div>
-                  <div>
-                    <div className="relative">
-                      <User
-                        size={16}
-                        className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
-                      />
-                      <input
-                        type="text"
-                        placeholder="Customer ID (Optional)"
-                        value={formData.customerId || ""}
-                        onChange={(e) =>
-                          handleInputChange("customerId", e.target.value)
-                        }
-                        className={`w-full pl-10 pr-4 py-2.5 border bg-background text-foreground rounded-xl focus:ring-2 focus:ring-[#84CC16]/20 outline-none transition border-gray-200 dark:border-input focus:border-[#84CC16]`}
-                      />
+                  {/* Customer ID / NID with Picture Upload & Camera */}
+                  <div className="space-y-2 pt-1">
+                    <label className="text-[11px] font-semibold text-gray-500 dark:text-muted-foreground block">
+                      Customer ID Number / NID Field (Optional)
+                    </label>
+                    <input
+                      type="file"
+                      ref={nidFileInputRef}
+                      accept="image/*"
+                      onChange={handleNidFileUpload}
+                      className="hidden"
+                    />
+                    <div className="relative flex flex-wrap sm:flex-nowrap gap-2">
+                      <div className="relative flex-1 min-w-[180px]">
+                        <FileText
+                          size={16}
+                          className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+                        />
+                        <input
+                          type="text"
+                          placeholder="Type NID, upload picture or capture..."
+                          value={idNumber}
+                          onChange={(e) => setIdNumber(e.target.value)}
+                          className="w-full pl-10 pr-4 py-2.5 border bg-background text-foreground rounded-xl focus:ring-2 focus:ring-[#84CC16]/20 outline-none transition border-gray-200 dark:border-input focus:border-[#84CC16]"
+                        />
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => nidFileInputRef.current?.click()}
+                        disabled={ocrLoading}
+                        className="px-3 py-2 border border-gray-200 dark:border-input rounded-xl hover:bg-gray-50 dark:hover:bg-muted text-xs font-semibold text-foreground flex items-center gap-1.5 shrink-0 transition cursor-pointer disabled:opacity-50"
+                        title="Upload NID picture from device"
+                      >
+                        <Upload size={14} className="text-[#84CC16]" />
+                        Upload
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => startNidCamera("front")}
+                        disabled={ocrLoading}
+                        className="px-3 py-2 border border-gray-200 dark:border-input rounded-xl hover:bg-gray-50 dark:hover:bg-muted text-xs font-semibold text-foreground flex items-center gap-1.5 shrink-0 transition cursor-pointer disabled:opacity-50"
+                        title="Capture NID photo via camera"
+                      >
+                        <Camera size={14} className="text-[#84CC16]" />
+                        Camera
+                      </button>
                     </div>
+
+                    {ocrLoading && (
+                      <div className="flex items-center gap-2 text-xs text-primary pt-1">
+                        <Loader2
+                          size={13}
+                          className="animate-spin text-[#84CC16]"
+                        />
+                        <span>Processing NID image with OCR...</span>
+                      </div>
+                    )}
+
+                    {/* Previews for uploaded/captured NID */}
+                    {(nidFrontPreview || nidBackPreview) && (
+                      <div className="flex flex-wrap gap-2 pt-1">
+                        {nidFrontPreview && (
+                          <div className="flex items-center gap-2 p-1.5 bg-gray-50 dark:bg-muted/40 border border-gray-200 dark:border-border rounded-xl">
+                            <img
+                              src={nidFrontPreview}
+                              alt="NID Front"
+                              className="w-10 h-7 object-cover rounded-lg border border-border"
+                            />
+                            <div className="text-[11px]">
+                              <p className="font-semibold text-foreground">
+                                Front Side
+                              </p>
+                              <p className="text-[9px] text-muted-foreground">
+                                {nidFrontFile?.name || "Captured Image"}
+                              </p>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={removeNidFront}
+                              className="p-1 text-muted-foreground hover:text-red-500 rounded-full transition cursor-pointer"
+                              title="Remove front image"
+                            >
+                              <X size={13} />
+                            </button>
+                          </div>
+                        )}
+                        {nidBackPreview && (
+                          <div className="flex items-center gap-2 p-1.5 bg-gray-50 dark:bg-muted/40 border border-gray-200 dark:border-border rounded-xl">
+                            <img
+                              src={nidBackPreview}
+                              alt="NID Back"
+                              className="w-10 h-7 object-cover rounded-lg border border-border"
+                            />
+                            <div className="text-[11px]">
+                              <p className="font-semibold text-foreground">
+                                Back Side
+                              </p>
+                              <p className="text-[9px] text-muted-foreground">
+                                {nidBackFile?.name || "Captured Image"}
+                              </p>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={removeNidBack}
+                              className="p-1 text-muted-foreground hover:text-red-500 rounded-full transition cursor-pointer"
+                              title="Remove back image"
+                            >
+                              <X size={13} />
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -810,6 +1115,55 @@ export const InvoiceModal = ({
               </button>
             </div>
           </motion.div>
+        </div>
+      )}
+
+      {/* Camera Capture Modal for NID */}
+      {showNidCamera && (
+        <div className="fixed inset-0 z-[250] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+          <div className="bg-background rounded-3xl w-full max-w-md overflow-hidden shadow-2xl border border-border">
+            <div className="p-4 border-b flex justify-between items-center">
+              <h3 className="font-bold text-base">
+                Capture {nidSide === "front" ? "Front" : "Back"} Side of NID
+              </h3>
+              <button
+                type="button"
+                onClick={cancelNidCamera}
+                className="p-1 text-gray-500 hover:text-foreground rounded-full transition cursor-pointer"
+              >
+                <X size={18} />
+              </button>
+            </div>
+            <div className="relative bg-black aspect-video">
+              <video
+                ref={nidVideoRef}
+                autoPlay
+                playsInline
+                muted
+                className="w-full h-full object-cover"
+              />
+              <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                <div className="w-4/5 h-4/5 border-2 border-dashed border-[#84CC16] rounded-xl" />
+              </div>
+            </div>
+            <div className="p-4 flex justify-between gap-3">
+              <button
+                type="button"
+                onClick={cancelNidCamera}
+                className="flex-1 py-2.5 rounded-xl border border-border text-sm font-semibold hover:bg-muted transition cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={captureNidImage}
+                className="flex-1 py-2.5 rounded-xl bg-[#84CC16] text-white text-sm font-semibold hover:bg-[#76b813] transition flex items-center justify-center gap-2 cursor-pointer"
+              >
+                <Camera size={16} />
+                Capture
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

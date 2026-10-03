@@ -269,7 +269,9 @@ export const SmartInvoicePDF = React.forwardRef<
       <div
         style={{
           display: "grid",
-          gridTemplateColumns: "1fr 1fr 1fr",
+          gridTemplateColumns: invoiceData.idNumber
+            ? "1fr 1fr 1fr 1fr"
+            : "1fr 1fr 1fr",
           gap: "10px",
           marginTop: "16px",
         }}
@@ -278,6 +280,7 @@ export const SmartInvoicePDF = React.forwardRef<
           ["Customer", invoiceData.customerName],
           ["Phone", invoiceData.customerPhone],
           ["Email", invoiceData.customerEmail || "N/A"],
+          ...(invoiceData.idNumber ? [["NID / ID", invoiceData.idNumber]] : []),
         ].map(([label, value]) => (
           <div
             key={label}
@@ -359,6 +362,17 @@ export const SmartInvoicePDF = React.forwardRef<
             {invoiceData.customerPhone}
             {invoiceData.customerEmail ? ` | ${invoiceData.customerEmail}` : ""}
           </p>
+          {invoiceData.idNumber && (
+            <p
+              style={{
+                margin: "4px 0 0",
+                fontSize: "10px",
+                color: colors.muted,
+              }}
+            >
+              NID: {invoiceData.idNumber}
+            </p>
+          )}
         </div>
 
         <div
@@ -486,7 +500,7 @@ export const SmartInvoicePDF = React.forwardRef<
                   style={{ flexShrink: 0, display: "block" }}
                 />
                 <span style={{ fontSize: "9px", fontWeight: 800 }}>
-                  AI checked
+                  Device Assessment
                 </span>
               </div>
               <p
@@ -551,7 +565,7 @@ export const SmartInvoicePDF = React.forwardRef<
         }}
       >
         <p style={{ margin: "0 0 8px", fontSize: "10px", fontWeight: 900 }}>
-          IMEI API Response Summary
+          Device check summary
         </p>
         <div
           style={{
@@ -566,7 +580,7 @@ export const SmartInvoicePDF = React.forwardRef<
             ["Replaced", replacedDevice],
             ["Open Repair", openRepair],
             ["Risk", `${data.riskMeter?.score ?? 0}/100`],
-            ["AI", data.aiInsight?.title || "N/A"],
+            ["Device Assessment", data.aiInsight?.title || "N/A"],
           ].map(([label, value]) => (
             <div key={label}>
               <p
@@ -711,41 +725,58 @@ export const SmartInvoicePDF = React.forwardRef<
 
       <div
         style={{
-          display: "grid",
-          gridTemplateColumns: "1fr 1fr",
-          gap: "36px",
-          marginTop: "44px",
-          fontSize: "10px",
-          color: colors.muted,
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+          marginTop: "32px",
+          gap: "10px",
         }}
       >
-        <div>
-          <div
-            style={{ borderTop: `1px solid ${colors.ink}`, paddingTop: "8px" }}
+        <p
+          style={{
+            margin: 0,
+            textAlign: "center",
+            fontSize: "9px",
+            color: colors.muted,
+            lineHeight: 1.45,
+          }}
+        >
+          Thank you for your business. Please keep this invoice for your
+          warranty and records.
+        </p>
+
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: "8px",
+            marginTop: "6px",
+          }}
+        >
+          <span
+            style={{
+              fontSize: "10px",
+              fontWeight: 800,
+              color: colors.muted,
+              letterSpacing: "0.5px",
+            }}
           >
-            Seller Signature
-          </div>
-        </div>
-        <div>
-          <div
-            style={{ borderTop: `1px solid ${colors.ink}`, paddingTop: "8px" }}
-          >
-            Customer Signature
-          </div>
+            Verified by
+          </span>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/images/logo.png"
+            alt="imoscan logo"
+            style={{
+              height: "22px",
+              width: "auto",
+              objectFit: "contain",
+            }}
+          />
         </div>
       </div>
-
-      <p
-        style={{
-          margin: "26px 0 0",
-          textAlign: "center",
-          fontSize: "9px",
-          color: colors.muted,
-        }}
-      >
-        Thank you for your purchase. Keep this invoice for warranty and resale
-        records.
-      </p>
     </div>
   );
 });

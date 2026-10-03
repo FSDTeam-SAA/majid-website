@@ -306,12 +306,21 @@ export const createInvoice = async (input: {
   lineItems?: Array<{ itemId: string; quantity: number; variantId?: string }>;
   invoiceTemplate?: string;
   tradeInConsentId?: string;
+  nid_front?: File | Blob | null;
+  nid_back?: File | Blob | null;
 }) => {
   const formData = new FormData();
 
   formData.append("shopkeeperId", input.shopkeeperId);
   formData.append("type", input.type);
   formData.append("invoice", input.invoice);
+
+  if (input.nid_front) {
+    formData.append("nid_front", input.nid_front);
+  }
+  if (input.nid_back) {
+    formData.append("nid_back", input.nid_back);
+  }
 
   if (input.tradeInConsentId) {
     formData.append("tradeInConsentId", input.tradeInConsentId);
