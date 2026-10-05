@@ -1,261 +1,498 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { motion } from "framer-motion";
-import { Calculator, Percent, Save, Loader2, Info } from "lucide-react";
+import {
+  Calculator,
+  Percent,
+  Save,
+  Loader2,
+  Info,
+  HelpCircle,
+  Sparkles,
+} from "lucide-react";
 import { useShop } from "@/features/shopkeeper/shop/store/shop.store";
-import { updateShop } from "@/features/shopkeeper/shop/api/shop.api";
+import {
+  getMyShops,
+  updateShop,
+} from "@/features/shopkeeper/shop/api/shop.api";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
 
 export default function TaxSettingsCard() {
-  const { activeShop, refresh } = useShop();
+  const queryClient = useQueryClient();
+  const {
+    activeShop: storeActiveShop,
+    refresh: storeRefresh,
+    isLoading: isStoreLoading,
+  } = useShop();
 
-  const [isEditing, setIsEditing] = useState(false);
+  const {
+    data: myShops,
+    isLoading: isMyShopsLoading,
+    refetch: refetchMyShops,
+  } = useQuery({
+    queryKey: ["my-shops-tax-settings"],
+    queryFn: getMyShops,
+  });
+
+  const activeShop = storeActiveShop || myShops?.[0];
+  const isLoading = (isStoreLoading || isMyShopsLoading) && !activeShop;
+
   const [isSaving, setIsSaving] = useState(false);
+  const [customSettings, setCustomSettings] = useState<{
+    taxEnabled?: boolean;
+    taxName?: string;
+    taxPercentage?: number | "";
+    taxIncludedInPrice?: boolean;
+  } | null>(null);
 
-  const [taxEnabled, setTaxEnabled] = useState(false);
-  const [taxName, setTaxName] = useState("Tax");
-  const [taxPercentage, setTaxPercentage] = useState<number | "">(0);
-  const [taxIncludedInPrice, setTaxIncludedInPrice] = useState(false);
+  const taxEnabled =
+    customSettings?.taxEnabled !== undefined
+      ? customSettings.taxEnabled
+      : Boolean(activeShop?.taxEnabled);
+  const taxName =
+    customSettings?.taxName !== undefined
+      ? customSettings.taxName
+      : activeShop?.taxName || "Tax";
+  const taxPercentage =
+    customSettings?.taxPercentage !== undefined
+      ? customSettings.taxPercentage
+      : (activeShop?.taxPercentage ?? 0);
+  const taxIncludedInPrice =
+    customSettings?.taxIncludedInPrice !== undefined
+      ? customSettings.taxIncludedInPrice
+      : Boolean(activeShop?.taxIncludedInPrice);
 
-  const handleEdit = () => {
-    if (activeShop) {
-      setTaxEnabled(activeShop.taxEnabled ?? false);
-      setTaxName(activeShop.taxName ?? "Tax");
-      setTaxPercentage(activeShop.taxPercentage ?? 0);
-      setTaxIncludedInPrice(activeShop.taxIncludedInPrice ?? false);
+  const hasChanged = customSettings !== null;
+
+  const updateSetting = (
+    fields: Partial<{
+      taxEnabled: boolean;
+      taxName: string;
+      taxPercentage: number | "";
+      taxIncludedInPrice: boolean;
+    }>,
+  ) => {
+    setCustomSettings((prev) => ({
+      taxEnabled,
+      taxName,
+      taxPercentage,
+      taxIncludedInPrice,
+      ...prev,
+      ...fields,
+    }));
+  };
+
+  // Auto-scroll if navigated with #tax-settings hash
+  const cardRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (
+      typeof window !== "undefined" &&
+      window.location.hash === "#tax-settings"
+    ) {
+      setTimeout(() => {
+        cardRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      }, 200);
     }
-    setIsEditing(true);
-  };
-
-  const handleCancel = () => {
-    setIsEditing(false);
-  };
+  }, []);
 
   const handleSave = async () => {
-    if (!activeShop?._id) return;
+    const targetShopId = activeShop?._id || myShops?.[0]?._id;
+    if (!targetShopId) {
+      toast.error("No active shop found to update");
+      return;
+    }
 
     try {
       setIsSaving(true);
 
+      const parsedPercentage =
+        typeof taxPercentage === "number"
+          ? taxPercentage
+          : parseFloat(String(taxPercentage)) || 0;
+
       const payload = {
-        taxEnabled,
+        taxEnabled: Boolean(taxEnabled),
         taxName: taxName.trim() || "Tax",
-        taxPercentage: typeof taxPercentage === "number" ? taxPercentage : 0,
-        taxIncludedInPrice,
+        taxPercentage: Math.max(0, parsedPercentage),
+        taxIncludedInPrice: Boolean(taxIncludedInPrice),
       };
 
-      await updateShop(activeShop._id, payload);
+      await updateShop(targetShopId, payload);
 
-      toast.success("Tax settings updated successfully");
-      refresh();
-      setIsEditing(false);
-    } catch (error) {
-      console.error(error);
-      toast.error("Failed to update tax settings");
+      toast.success("Tax settings updated successfully!");
+      setCustomSettings(null);
+
+      // Refresh stores and query caches
+      storeRefresh();
+      refetchMyShops();
+      queryClient.invalidateQueries({ queryKey: ["shop"] });
+      queryClient.invalidateQueries({ queryKey: ["my-inventory"] });
+    } catch (error: any) {
+      console.error("Failed to update tax settings:", error);
+      toast.error(error?.message || "Failed to update tax settings");
     } finally {
       setIsSaving(false);
     }
   };
 
-  if (!activeShop) return null;
+  if (isLoading) {
+    return (
+      <div
+        id="tax-settings"
+        className="bg-card rounded-[32px] border border-border shadow-sm p-8 flex items-center justify-center min-h-[220px]"
+      >
+        <div className="flex flex-col items-center gap-3">
+          <Loader2 className="w-8 h-8 animate-spin text-[#84CC16]" />
+          <p className="text-sm font-semibold text-muted-foreground">
+            Loading tax settings...
+          </p>
+        </div>
+      </div>
+    );
+  }
 
-  const currentTaxEnabled = isEditing
-    ? taxEnabled
-    : (activeShop.taxEnabled ?? false);
-  const currentTaxName = isEditing ? taxName : (activeShop.taxName ?? "Tax");
-  const currentTaxPercentage = isEditing
-    ? taxPercentage
-    : (activeShop.taxPercentage ?? 0);
-  const currentTaxIncludedInPrice = isEditing
-    ? taxIncludedInPrice
-    : (activeShop.taxIncludedInPrice ?? false);
+  if (!activeShop) {
+    return (
+      <div
+        id="tax-settings"
+        className="bg-card rounded-[32px] border border-border shadow-sm p-8"
+      >
+        <div className="flex items-center gap-3 text-amber-600">
+          <Info className="w-5 h-5" />
+          <p className="text-sm font-bold">
+            No shop profile found. Please create or select a shop first to
+            configure tax settings.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <motion.div
+      ref={cardRef}
+      id="tax-settings"
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: 0.15 }}
-      className="bg-card rounded-[32px] border border-border shadow-sm overflow-hidden mt-8"
+      transition={{ delay: 0.1 }}
+      className={`bg-card rounded-[32px] border shadow-sm overflow-hidden transition-all duration-300 ${
+        hasChanged
+          ? "border-[#84CC16] ring-2 ring-[#84CC16]/20"
+          : "border-border"
+      }`}
     >
-      <div className="p-8 flex justify-between items-center border-b border-border/50">
+      {/* Header */}
+      <div className="p-6 sm:p-8 flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border/60 bg-surface/50">
         <div>
-          <h2 className="text-xl font-black text-foreground tracking-tight flex items-center gap-2">
-            <Calculator className="w-5 h-5 text-[#84CC16]" />
-            Tax Settings
-          </h2>
-          <p className="text-sm font-medium text-muted-foreground mt-1">
-            Configure how tax is calculated and displayed for{" "}
-            {activeShop.shopName}.
-          </p>
-        </div>
-        {!isEditing ? (
-          <button
-            type="button"
-            onClick={handleEdit}
-            className="px-6 py-2 bg-primary text-primary-foreground font-black text-sm rounded-xl hover:opacity-90 transition shadow-lg shadow-primary/20 active:scale-95 cursor-pointer"
-          >
-            Edit
-          </button>
-        ) : (
-          <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={handleCancel}
-              className="px-6 py-2 bg-muted text-muted-foreground font-black text-sm rounded-xl hover:opacity-90 transition active:scale-95 cursor-pointer"
-            >
-              Cancel
-            </button>
-            <button
-              type="button"
-              onClick={handleSave}
-              disabled={isSaving}
-              className="flex items-center gap-2 px-6 py-2 bg-primary text-primary-foreground font-black text-sm rounded-xl hover:opacity-90 transition shadow-lg shadow-primary/20 active:scale-95 cursor-pointer disabled:opacity-50"
-            >
-              {isSaving ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <Save className="w-4 h-4" />
-              )}
-              Save
-            </button>
+          <div className="flex items-center gap-2.5">
+            <div className="w-10 h-10 rounded-2xl bg-[#84CC16]/10 flex items-center justify-center text-[#84CC16]">
+              <Calculator className="w-5 h-5" />
+            </div>
+            <div>
+              <h2 className="text-xl font-black text-foreground tracking-tight flex items-center gap-2">
+                Tax & VAT Settings
+                {taxEnabled && Number(taxPercentage) > 0 && (
+                  <span className="text-xs font-black px-2.5 py-0.5 rounded-full bg-[#84CC16]/15 text-[#84CC16] border border-[#84CC16]/30">
+                    Active: {taxPercentage}% {taxName}
+                  </span>
+                )}
+              </h2>
+              <p className="text-xs font-medium text-muted-foreground mt-0.5">
+                Configure tax percentage and calculation rules for{" "}
+                <strong className="text-foreground">
+                  {activeShop.shopName}
+                </strong>
+                .
+              </p>
+            </div>
           </div>
-        )}
+        </div>
+
+        <Button
+          type="button"
+          onClick={handleSave}
+          disabled={isSaving}
+          className="h-11 px-6 bg-[#84CC16] hover:bg-[#84CC16]/90 text-white font-black text-sm rounded-xl transition shadow-lg shadow-lime-500/20 active:scale-95 disabled:opacity-50 shrink-0"
+        >
+          {isSaving ? (
+            <Loader2 className="w-4 h-4 animate-spin mr-2" />
+          ) : (
+            <Save className="w-4 h-4 mr-2" />
+          )}
+          {hasChanged ? "Save Changes" : "Save Tax Settings"}
+        </Button>
       </div>
 
-      <div className="p-8 space-y-8">
-        {/* Enable Tax Toggle */}
-        <div className="flex items-center justify-between p-5 rounded-2xl bg-slate-50 border border-slate-100 dark:bg-slate-800/50 dark:border-slate-700">
-          <div>
-            <h3 className="font-bold text-foreground">
-              Enable Tax Calculation
-            </h3>
-            <p className="text-sm text-muted-foreground">
-              Automatically compute tax during checkout and display on invoices.
+      <div className="p-6 sm:p-8 space-y-8 font-poppins">
+        {/* Step 1: Enable Tax Switch */}
+        <div className="p-5 sm:p-6 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-700/80 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <span className="w-6 h-6 rounded-full bg-[#84CC16] text-white text-xs font-black flex items-center justify-center">
+                1
+              </span>
+              <h3 className="font-bold text-foreground text-sm sm:text-base">
+                Enable Sales Tax Calculation
+              </h3>
+              <span
+                className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-full ${
+                  taxEnabled
+                    ? "bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300"
+                    : "bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300"
+                }`}
+              >
+                {taxEnabled ? "Enabled" : "Disabled"}
+              </span>
+            </div>
+            <p className="text-xs text-muted-foreground pl-8">
+              When enabled, your selling transactions and Tax Season dashboard
+              will apply this tax rate.
             </p>
           </div>
+
           <button
             type="button"
             role="switch"
-            aria-checked={currentTaxEnabled}
-            disabled={!isEditing}
-            onClick={() => setTaxEnabled(!currentTaxEnabled)}
-            className={`relative inline-flex h-7 w-12 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-[#84CC16] focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 ${
-              currentTaxEnabled
-                ? "bg-[#84CC16]"
-                : "bg-slate-300 dark:bg-slate-600"
+            aria-checked={taxEnabled}
+            onClick={() => {
+              const next = !taxEnabled;
+              updateSetting({
+                taxEnabled: next,
+                ...(next && (!taxPercentage || Number(taxPercentage) === 0)
+                  ? { taxPercentage: 10 }
+                  : {}),
+              });
+            }}
+            className={`relative inline-flex h-8 w-14 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-[#84CC16] focus:ring-offset-2 self-start sm:self-center ${
+              taxEnabled ? "bg-[#84CC16]" : "bg-slate-300 dark:bg-slate-600"
             }`}
           >
             <span
-              className={`pointer-events-none inline-block h-6 w-6 transform rounded-full bg-white shadow-md ring-0 transition duration-200 ease-in-out ${
-                currentTaxEnabled ? "translate-x-5" : "translate-x-0"
+              className={`pointer-events-none inline-block h-7 w-7 transform rounded-full bg-white shadow-md ring-0 transition duration-200 ease-in-out ${
+                taxEnabled ? "translate-x-6" : "translate-x-0"
               }`}
             />
           </button>
         </div>
 
-        {/* Settings Grid */}
-        <div
-          className={`grid grid-cols-1 md:grid-cols-2 gap-8 transition-opacity duration-300 ${!currentTaxEnabled ? "opacity-40 pointer-events-none" : "opacity-100"}`}
-        >
-          {/* Tax Name */}
-          <div className="space-y-2">
-            <label className="text-[13px] font-black text-foreground ml-1">
-              Tax Name
-            </label>
-            <input
-              type="text"
-              disabled={!isEditing}
-              value={currentTaxName}
-              onChange={(e) => setTaxName(e.target.value)}
-              placeholder="e.g. VAT, GST, Sales Tax"
-              className="w-full px-6 py-4 bg-background border border-border rounded-2xl outline-none focus:border-primary focus:ring-4 focus:ring-primary/5 transition-all text-sm font-semibold text-muted-foreground disabled:opacity-70"
-            />
+        {/* Step 2: Tax Details Grid */}
+        <div className="space-y-4">
+          <div className="flex items-center gap-2">
+            <span className="w-6 h-6 rounded-full bg-[#84CC16] text-white text-xs font-black flex items-center justify-center">
+              2
+            </span>
+            <h3 className="font-bold text-foreground text-sm sm:text-base">
+              Set Tax Percentage & Name
+            </h3>
           </div>
 
-          {/* Tax Percentage */}
-          <div className="space-y-2">
-            <label className="text-[13px] font-black text-foreground ml-1 flex items-center gap-2">
-              <Percent size={14} /> Tax Percentage
-            </label>
-            <input
-              type="number"
-              disabled={!isEditing}
-              value={currentTaxPercentage}
-              onChange={(e) => {
-                const val = e.target.value;
-                setTaxPercentage(val === "" ? "" : Number(val));
-              }}
-              min="0"
-              max="100"
-              step="0.01"
-              placeholder="0.00"
-              className="w-full px-6 py-4 bg-background border border-border rounded-2xl outline-none focus:border-primary focus:ring-4 focus:ring-primary/5 transition-all text-sm font-semibold text-muted-foreground disabled:opacity-70"
-            />
-          </div>
-
-          {/* Tax Inclusion Toggle */}
-          <div className="space-y-2 md:col-span-2">
-            <label className="text-[13px] font-black text-foreground ml-1">
-              Pricing Model
-            </label>
-            <div className="flex flex-col sm:flex-row gap-4 mt-2">
-              <label
-                className={`flex-1 flex items-start gap-3 p-4 rounded-2xl border-2 transition-all cursor-pointer ${!currentTaxIncludedInPrice ? "border-primary bg-primary/5" : "border-border bg-background"}`}
-              >
-                <input
-                  type="radio"
-                  name="taxModel"
-                  className="mt-1 accent-primary"
-                  checked={!currentTaxIncludedInPrice}
-                  onChange={() => isEditing && setTaxIncludedInPrice(false)}
-                  disabled={!isEditing}
-                />
-                <div>
-                  <p className="font-bold text-foreground">
-                    Tax Excluded (Added on top)
-                  </p>
-                  <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
-                    Tax is added to the subtotal during checkout. If an item
-                    costs $100 and tax is 10%, the total will be $110.
-                  </p>
-                </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pl-0 sm:pl-8">
+            {/* Tax Percentage */}
+            <div className="space-y-2">
+              <label className="text-xs font-black uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                <Percent size={14} className="text-[#84CC16]" />
+                Tax Rate Percentage (%)
               </label>
-
-              <label
-                className={`flex-1 flex items-start gap-3 p-4 rounded-2xl border-2 transition-all cursor-pointer ${currentTaxIncludedInPrice ? "border-primary bg-primary/5" : "border-border bg-background"}`}
-              >
+              <div className="relative">
                 <input
-                  type="radio"
-                  name="taxModel"
-                  className="mt-1 accent-primary"
-                  checked={currentTaxIncludedInPrice}
-                  onChange={() => isEditing && setTaxIncludedInPrice(true)}
-                  disabled={!isEditing}
+                  type="number"
+                  value={taxPercentage}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    const nextVal = val === "" ? "" : Number(val);
+                    updateSetting({
+                      taxPercentage: nextVal,
+                      ...(Number(val) > 0 && !taxEnabled
+                        ? { taxEnabled: true }
+                        : {}),
+                    });
+                  }}
+                  min="0"
+                  max="100"
+                  step="0.01"
+                  placeholder="e.g. 10.00"
+                  className="w-full px-5 py-3.5 bg-background border border-border rounded-2xl outline-none focus:border-[#84CC16] focus:ring-4 focus:ring-[#84CC16]/10 transition-all text-base font-bold text-foreground placeholder:text-muted-foreground/50 shadow-sm"
                 />
-                <div>
-                  <p className="font-bold text-foreground">
-                    Tax Included (In the price)
-                  </p>
-                  <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
-                    Tax is already included in your item prices. If an item
-                    costs $110 and tax is 10%, the receipt will show $10 tax
-                    included.
-                  </p>
-                </div>
-              </label>
-            </div>
-            {currentTaxIncludedInPrice && (
-              <div className="mt-3 flex items-start gap-2 p-3 rounded-xl bg-blue-50 dark:bg-blue-950/30 text-blue-600 dark:text-blue-400">
-                <Info className="w-4 h-4 shrink-0 mt-0.5" />
-                <p className="text-xs font-medium">
-                  Your storefront prices will remain the same. The tax amount
-                  will simply be extracted from the total to display on the
-                  receipt.
-                </p>
+                <span className="absolute right-4 top-1/2 -translate-y-1/2 font-black text-muted-foreground text-sm">
+                  %
+                </span>
               </div>
-            )}
+              {/* Quick Preset Buttons */}
+              <div className="flex items-center gap-2 pt-1">
+                <span className="text-[11px] font-semibold text-muted-foreground">
+                  Quick Presets:
+                </span>
+                {[5, 10, 15, 20].map((preset) => (
+                  <button
+                    key={preset}
+                    type="button"
+                    onClick={() => {
+                      updateSetting({
+                        taxPercentage: preset,
+                        taxEnabled: true,
+                      });
+                    }}
+                    className={`px-2.5 py-1 rounded-lg text-xs font-bold transition ${
+                      Number(taxPercentage) === preset
+                        ? "bg-[#84CC16] text-white shadow-sm"
+                        : "bg-muted text-muted-foreground hover:bg-[#84CC16]/10 hover:text-[#84CC16]"
+                    }`}
+                  >
+                    {preset}%
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Tax Label / Name */}
+            <div className="space-y-2">
+              <label className="text-xs font-black uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                <HelpCircle size={14} className="text-[#84CC16]" />
+                Tax Label / Name
+              </label>
+              <input
+                type="text"
+                value={taxName}
+                onChange={(e) => {
+                  updateSetting({ taxName: e.target.value });
+                }}
+                placeholder="e.g. VAT, GST, Sales Tax"
+                className="w-full px-5 py-3.5 bg-background border border-border rounded-2xl outline-none focus:border-[#84CC16] focus:ring-4 focus:ring-[#84CC16]/10 transition-all text-base font-bold text-foreground placeholder:text-muted-foreground/50 shadow-sm"
+              />
+              <p className="text-[11px] font-medium text-muted-foreground pt-1">
+                This name will appear on tax receipts and the Tax Season
+                breakdown.
+              </p>
+            </div>
           </div>
+        </div>
+
+        {/* Step 3: Pricing Strategy */}
+        <div className="space-y-4">
+          <div className="flex items-center gap-2">
+            <span className="w-6 h-6 rounded-full bg-[#84CC16] text-white text-xs font-black flex items-center justify-center">
+              3
+            </span>
+            <h3 className="font-bold text-foreground text-sm sm:text-base">
+              Choose Pricing Model
+            </h3>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pl-0 sm:pl-8">
+            {/* Tax Excluded Card */}
+            <div
+              onClick={() => {
+                updateSetting({ taxIncludedInPrice: false });
+              }}
+              className={`p-5 rounded-2xl border-2 transition-all cursor-pointer relative ${
+                !taxIncludedInPrice
+                  ? "border-[#84CC16] bg-[#84CC16]/5 shadow-sm"
+                  : "border-border bg-card hover:border-border/80"
+              }`}
+            >
+              <div className="flex items-start justify-between">
+                <div>
+                  <h4 className="font-bold text-foreground text-sm">
+                    Tax Excluded (Added on Top)
+                  </h4>
+                  <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
+                    Tax is calculated and added on top of your item prices.
+                  </p>
+                </div>
+                <div
+                  className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 ${
+                    !taxIncludedInPrice
+                      ? "border-[#84CC16] bg-[#84CC16] text-white"
+                      : "border-muted-foreground/40"
+                  }`}
+                >
+                  {!taxIncludedInPrice && (
+                    <div className="w-2 h-2 rounded-full bg-white" />
+                  )}
+                </div>
+              </div>
+              <div className="mt-3 p-2.5 rounded-xl bg-background/80 border border-border text-[11px] font-medium text-muted-foreground">
+                Example: $100 item + {taxPercentage || 10}% tax ={" "}
+                <strong>
+                  ${100 + (100 * (Number(taxPercentage) || 10)) / 100} Total
+                </strong>
+              </div>
+            </div>
+
+            {/* Tax Included Card */}
+            <div
+              onClick={() => {
+                updateSetting({ taxIncludedInPrice: true });
+              }}
+              className={`p-5 rounded-2xl border-2 transition-all cursor-pointer relative ${
+                taxIncludedInPrice
+                  ? "border-[#84CC16] bg-[#84CC16]/5 shadow-sm"
+                  : "border-border bg-card hover:border-border/80"
+              }`}
+            >
+              <div className="flex items-start justify-between">
+                <div>
+                  <h4 className="font-bold text-foreground text-sm">
+                    Tax Included (In the Price)
+                  </h4>
+                  <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
+                    Tax is already included inside your item retail price.
+                  </p>
+                </div>
+                <div
+                  className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 ${
+                    taxIncludedInPrice
+                      ? "border-[#84CC16] bg-[#84CC16] text-white"
+                      : "border-muted-foreground/40"
+                  }`}
+                >
+                  {taxIncludedInPrice && (
+                    <div className="w-2 h-2 rounded-full bg-white" />
+                  )}
+                </div>
+              </div>
+              <div className="mt-3 p-2.5 rounded-xl bg-background/80 border border-border text-[11px] font-medium text-muted-foreground">
+                Example: $100 price includes{" "}
+                <strong>
+                  $
+                  {(
+                    100 -
+                    100 / (1 + (Number(taxPercentage) || 10) / 100)
+                  ).toFixed(2)}{" "}
+                  tax
+                </strong>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Step 4: Bottom Save Action Bar */}
+        <div className="pt-4 border-t border-border flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground">
+            <Sparkles className="w-4 h-4 text-[#84CC16]" />
+            <span>
+              Saving will immediately update your sales calculations and Tax
+              Season reporting.
+            </span>
+          </div>
+
+          <Button
+            type="button"
+            onClick={handleSave}
+            disabled={isSaving}
+            className="h-12 px-8 bg-[#84CC16] hover:bg-[#84CC16]/90 text-white font-black text-sm rounded-xl transition shadow-lg shadow-lime-500/20 active:scale-95 disabled:opacity-50"
+          >
+            {isSaving ? (
+              <Loader2 className="w-4 h-4 animate-spin mr-2" />
+            ) : (
+              <Save className="w-4 h-4 mr-2" />
+            )}
+            Save Tax Settings
+          </Button>
         </div>
       </div>
     </motion.div>

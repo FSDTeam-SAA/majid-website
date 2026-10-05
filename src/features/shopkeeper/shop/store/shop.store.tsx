@@ -38,9 +38,13 @@ const SHOP_KEYS = {
 
 export function ShopProvider({ children }: { children: ReactNode }) {
   const { data: session, status } = useSession();
-  const role = session?.user?.role;
+  const role = session?.user?.role?.toLowerCase();
   const isEligible =
-    status === "authenticated" && (role === "shopkeeper" || role === "staff");
+    status === "authenticated" &&
+    (role === "shopkeeper" ||
+      role === "staff" ||
+      role === "admin" ||
+      role === "super_admin");
 
   const [selectedShopId, setSelectedShopId] = useState<string | null>(() =>
     getActiveShopId(),

@@ -11,24 +11,26 @@ import {
   CreditCard,
   Banknote,
   Search,
-  Filter,
   Download,
   Info,
   Settings,
   X,
   FileText,
-  CheckCircle,
-  Clock,
-  ArrowDownRight,
   Loader2,
-  ChevronRight,
   ShieldCheck,
   TrendingUp,
+  Save,
+  SlidersHorizontal,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useMyProfile } from "@/features/shopkeeper/settings/hooks/useSettings";
 import { useMyInvoiceHistory } from "@/features/shopkeeper/inventory/hooks/useInventory";
 import { useShop } from "@/features/shopkeeper/shop/store/shop.store";
+import {
+  getMyShops,
+  updateShop,
+} from "@/features/shopkeeper/shop/api/shop.api";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCurrency } from "@/hooks/useCurrency";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -45,11 +47,18 @@ import CheckoutInvoicePDF from "@/features/shopkeeper/checkout/component/Checkou
 import { toast } from "sonner";
 
 export default function TaxSeason() {
+  const queryClient = useQueryClient();
   const { data: profileData } = useMyProfile();
   const shopkeeper = profileData?.data;
   const shopkeeperId = shopkeeper?._id;
 
-  const { activeShop } = useShop();
+  const { activeShop: storeActiveShop, refresh: refreshShop } = useShop();
+  const { data: myShops, refetch: refetchShops } = useQuery({
+    queryKey: ["my-shops-tax-season-fallback"],
+    queryFn: getMyShops,
+  });
+
+  const activeShop = storeActiveShop || myShops?.[0];
   const { formatCurrency, currency } = useCurrency();
 
   const [searchQuery, setSearchQuery] = useState("");
@@ -57,6 +66,51 @@ export default function TaxSeason() {
   const [selectedTaxInvoice, setSelectedTaxInvoice] = useState<any | null>(
     null,
   );
+
+  // Quick Tax Config Modal state derived without useEffect cascading renders
+  const [isTaxModalOpen, setIsTaxModalOpen] = useState(false);
+  const [customModalTax, setCustomModalTax] = useState<{
+    taxEnabled?: boolean;
+    taxName?: string;
+    taxPercentage?: number | "";
+    taxIncluded?: boolean;
+  } | null>(null);
+  const [isModalSaving, setIsModalSaving] = useState(false);
+
+  const modalTaxEnabled =
+    customModalTax?.taxEnabled !== undefined
+      ? customModalTax.taxEnabled
+      : Boolean(activeShop?.taxEnabled);
+  const modalTaxName =
+    customModalTax?.taxName !== undefined
+      ? customModalTax.taxName
+      : activeShop?.taxName || "Tax";
+  const modalTaxPercentage =
+    customModalTax?.taxPercentage !== undefined
+      ? customModalTax.taxPercentage
+      : (activeShop?.taxPercentage ?? 10);
+  const modalTaxIncluded =
+    customModalTax?.taxIncluded !== undefined
+      ? customModalTax.taxIncluded
+      : Boolean(activeShop?.taxIncludedInPrice);
+
+  const updateModalField = (
+    fields: Partial<{
+      taxEnabled: boolean;
+      taxName: string;
+      taxPercentage: number | "";
+      taxIncluded: boolean;
+    }>,
+  ) => {
+    setCustomModalTax((prev) => ({
+      taxEnabled: modalTaxEnabled,
+      taxName: modalTaxName,
+      taxPercentage: modalTaxPercentage,
+      taxIncluded: modalTaxIncluded,
+      ...prev,
+      ...fields,
+    }));
+  };
 
   const { data: response, isLoading } = useMyInvoiceHistory(
     shopkeeperId || "",
@@ -69,7 +123,6 @@ export default function TaxSeason() {
   const shopTaxPercentage = Number(activeShop?.taxPercentage || 0);
   const shopTaxName = (activeShop?.taxName || "Tax").trim();
   const shopTaxIncluded = Boolean(activeShop?.taxIncludedInPrice);
-  const isTaxActive = Boolean(activeShop?.taxEnabled && shopTaxPercentage > 0);
 
   // 1. Filter out purchase invoices (only customer selling invoices)
   const salesInvoices = useMemo(() => {
@@ -203,6 +256,44 @@ export default function TaxSeason() {
     };
   }, [filteredSales]);
 
+  // Save quick tax settings
+  const handleSaveQuickTax = async () => {
+    const targetShopId = activeShop?._id || myShops?.[0]?._id;
+    if (!targetShopId) {
+      toast.error("No active shop found");
+      return;
+    }
+
+    try {
+      setIsModalSaving(true);
+      const percentage =
+        typeof modalTaxPercentage === "number"
+          ? modalTaxPercentage
+          : parseFloat(String(modalTaxPercentage)) || 0;
+
+      const payload = {
+        taxEnabled: Boolean(modalTaxEnabled),
+        taxName: modalTaxName.trim() || "Tax",
+        taxPercentage: Math.max(0, percentage),
+        taxIncludedInPrice: Boolean(modalTaxIncluded),
+      };
+
+      await updateShop(targetShopId, payload);
+      toast.success("Tax percentage updated successfully!");
+      setCustomModalTax(null);
+      setIsTaxModalOpen(false);
+
+      refreshShop();
+      refetchShops();
+      queryClient.invalidateQueries({ queryKey: ["shop"] });
+      queryClient.invalidateQueries({ queryKey: ["my-inventory"] });
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to update tax settings");
+    } finally {
+      setIsModalSaving(false);
+    }
+  };
+
   // Receipt Generator
   const handleGenerateReceipt = async (transaction: any) => {
     try {
@@ -331,12 +422,21 @@ export default function TaxSeason() {
               )}
             </p>
           </div>
-          <Link
-            href="/shopkeeper/settings/invoice"
-            className="ml-2 px-3 py-1.5 bg-muted hover:bg-[#84CC16]/10 hover:text-[#84CC16] text-xs font-bold rounded-xl transition flex items-center gap-1.5"
+          <Button
+            type="button"
+            size="sm"
+            onClick={() => setIsTaxModalOpen(true)}
+            className="ml-2 h-9 px-3 bg-[#84CC16] hover:bg-[#84CC16]/90 text-white text-xs font-bold rounded-xl transition shadow-sm flex items-center gap-1.5"
           >
-            <Settings size={13} />
-            <span>Configure</span>
+            <SlidersHorizontal size={13} />
+            <span>Set Rate</span>
+          </Button>
+          <Link
+            href="/shopkeeper/settings/invoice#tax-settings"
+            className="p-2 text-muted-foreground hover:text-[#84CC16] rounded-xl hover:bg-muted transition"
+            title="Open Full Settings"
+          >
+            <Settings size={15} />
           </Link>
         </div>
       </div>
@@ -355,12 +455,21 @@ export default function TaxSeason() {
               currently calculate 0% tax.
             </p>
           </div>
-          <Link
-            href="/shopkeeper/settings/invoice"
-            className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs rounded-xl shadow-sm transition whitespace-nowrap text-center"
-          >
-            Set Tax Rate in Settings →
-          </Link>
+          <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              onClick={() => setIsTaxModalOpen(true)}
+              className="px-4 py-2 bg-[#84CC16] hover:bg-[#84CC16]/90 text-white font-bold text-xs rounded-xl shadow-sm transition whitespace-nowrap"
+            >
+              Set Tax Rate Now →
+            </Button>
+            <Link
+              href="/shopkeeper/settings/invoice#tax-settings"
+              className="px-3 py-2 bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs rounded-xl shadow-sm transition whitespace-nowrap text-center"
+            >
+              Go to Settings
+            </Link>
+          </div>
         </motion.div>
       )}
 
@@ -851,6 +960,215 @@ export default function TaxSeason() {
                   onClick={() => setSelectedTaxInvoice(null)}
                 >
                   Close
+                </Button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Quick Tax Rate Configuration Modal */}
+      <AnimatePresence>
+        {isTaxModalOpen && (
+          <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4 md:p-6">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsTaxModalOpen(false)}
+              className="absolute inset-0 bg-[#0F172A]/50 backdrop-blur-md"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="relative w-full max-w-lg bg-card rounded-[32px] shadow-2xl overflow-hidden border border-border p-6 sm:p-8 space-y-6"
+            >
+              {/* Header */}
+              <div className="flex justify-between items-start">
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 rounded-2xl bg-[#84CC16]/10 flex items-center justify-center text-[#84CC16]">
+                    <Percent size={24} strokeWidth={2.5} />
+                  </div>
+                  <div>
+                    <h2 className="text-xl font-black text-foreground tracking-tight">
+                      Quick Tax Rate Setup
+                    </h2>
+                    <p className="text-xs font-bold text-muted-foreground">
+                      Set tax rate for {activeShop?.shopName || "your shop"}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setIsTaxModalOpen(false)}
+                  className="p-2 hover:bg-muted rounded-xl transition text-muted-foreground hover:text-foreground"
+                >
+                  <X size={20} strokeWidth={2.5} />
+                </button>
+              </div>
+
+              {/* Form Content */}
+              <div className="space-y-5">
+                {/* Enable Switch */}
+                <div className="p-4 rounded-2xl bg-muted/40 border border-border/80 flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-bold text-foreground">
+                      Enable Tax Calculation
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      Apply tax across invoices and reports
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={modalTaxEnabled}
+                    onClick={() =>
+                      updateModalField({ taxEnabled: !modalTaxEnabled })
+                    }
+                    className={`relative inline-flex h-7 w-12 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out ${
+                      modalTaxEnabled
+                        ? "bg-[#84CC16]"
+                        : "bg-slate-300 dark:bg-slate-600"
+                    }`}
+                  >
+                    <span
+                      className={`pointer-events-none inline-block h-6 w-6 transform rounded-full bg-white shadow-md ring-0 transition duration-200 ease-in-out ${
+                        modalTaxEnabled ? "translate-x-5" : "translate-x-0"
+                      }`}
+                    />
+                  </button>
+                </div>
+
+                {/* Percentage & Presets */}
+                <div className="space-y-2">
+                  <label className="text-xs font-black uppercase tracking-wider text-muted-foreground">
+                    Tax Rate (%)
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="number"
+                      value={modalTaxPercentage}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        const nextVal = val === "" ? "" : Number(val);
+                        updateModalField({
+                          taxPercentage: nextVal,
+                          ...(Number(val) > 0 && !modalTaxEnabled
+                            ? { taxEnabled: true }
+                            : {}),
+                        });
+                      }}
+                      min="0"
+                      max="100"
+                      step="0.01"
+                      placeholder="e.g. 10.00"
+                      className="w-full px-4 py-3 bg-background border border-border rounded-xl text-base font-bold text-foreground outline-none focus:border-[#84CC16]"
+                    />
+                    <span className="absolute right-4 top-1/2 -translate-y-1/2 font-black text-muted-foreground text-sm">
+                      %
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2 pt-1">
+                    <span className="text-[11px] font-semibold text-muted-foreground">
+                      Presets:
+                    </span>
+                    {[5, 10, 15, 20].map((preset) => (
+                      <button
+                        key={preset}
+                        type="button"
+                        onClick={() => {
+                          updateModalField({
+                            taxPercentage: preset,
+                            taxEnabled: true,
+                          });
+                        }}
+                        className={`px-2.5 py-0.5 rounded-lg text-xs font-bold transition ${
+                          Number(modalTaxPercentage) === preset
+                            ? "bg-[#84CC16] text-white"
+                            : "bg-muted text-muted-foreground hover:bg-[#84CC16]/10"
+                        }`}
+                      >
+                        {preset}%
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Tax Name */}
+                <div className="space-y-2">
+                  <label className="text-xs font-black uppercase tracking-wider text-muted-foreground">
+                    Tax Name / Label
+                  </label>
+                  <input
+                    type="text"
+                    value={modalTaxName}
+                    onChange={(e) =>
+                      updateModalField({ taxName: e.target.value })
+                    }
+                    placeholder="e.g. VAT, GST, Tax"
+                    className="w-full px-4 py-3 bg-background border border-border rounded-xl text-sm font-bold text-foreground outline-none focus:border-[#84CC16]"
+                  />
+                </div>
+
+                {/* Pricing Strategy */}
+                <div className="space-y-2">
+                  <label className="text-xs font-black uppercase tracking-wider text-muted-foreground">
+                    Pricing Model
+                  </label>
+                  <div className="grid grid-cols-2 gap-3">
+                    <button
+                      type="button"
+                      onClick={() => updateModalField({ taxIncluded: false })}
+                      className={`p-3 rounded-xl border text-left transition ${
+                        !modalTaxIncluded
+                          ? "border-[#84CC16] bg-[#84CC16]/5 font-bold text-foreground"
+                          : "border-border text-muted-foreground"
+                      }`}
+                    >
+                      <p className="text-xs font-bold">Tax Excluded</p>
+                      <p className="text-[10px] text-muted-foreground mt-0.5">
+                        Added on top
+                      </p>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => updateModalField({ taxIncluded: true })}
+                      className={`p-3 rounded-xl border text-left transition ${
+                        modalTaxIncluded
+                          ? "border-[#84CC16] bg-[#84CC16]/5 font-bold text-foreground"
+                          : "border-border text-muted-foreground"
+                      }`}
+                    >
+                      <p className="text-xs font-bold">Tax Included</p>
+                      <p className="text-[10px] text-muted-foreground mt-0.5">
+                        In retail price
+                      </p>
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Modal Footer */}
+              <div className="flex gap-3 pt-2">
+                <Button
+                  className="flex-1 h-12 bg-[#84CC16] hover:bg-[#84CC16]/90 text-white font-bold rounded-xl shadow-lg shadow-lime-500/20"
+                  onClick={handleSaveQuickTax}
+                  disabled={isModalSaving}
+                >
+                  {isModalSaving ? (
+                    <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                  ) : (
+                    <Save className="w-4 h-4 mr-2" />
+                  )}
+                  Save Tax Rate
+                </Button>
+                <Button
+                  variant="outline"
+                  className="h-12 px-5 font-bold rounded-xl"
+                  onClick={() => setIsTaxModalOpen(false)}
+                >
+                  Cancel
                 </Button>
               </div>
             </motion.div>
