@@ -39,6 +39,7 @@ export function CashManagementCard({
     cashScore,
     aiInsight,
     availableCashToday,
+    previousSalesTotal,
     todayMetrics,
     yesterdayMetrics,
     lastWeekMetrics,
@@ -221,8 +222,7 @@ export function CashManagementCard({
                 {formatCurrency(availableCashToday)}
               </p>
               <p className="mt-1 text-xs font-semibold text-white/85">
-                Starting Float + Today&apos;s Cash Sales − Expenses − Banked to
-                Owner
+                Starting Float + Cash Sales − Banked to Owner
               </p>
             </div>
 
@@ -399,7 +399,7 @@ export function CashManagementCard({
               Previous Sales Total
             </span>
             <p className="mt-1 text-xl font-black text-[#84CC16]">
-              {formatCurrency(allTimeMetrics.cashSales)}
+              {formatCurrency(previousSalesTotal)}
             </p>
             <span className="text-[11px] font-bold text-slate-500">
               Cumulative cash sales

@@ -1,5 +1,6 @@
 import { api } from "@/lib/api";
 import type {
+  CashDrawerMetricsResponse,
   CashManagementInput,
   CashManagementResponse,
   DashboardFilter,
@@ -40,6 +41,19 @@ export const getCashManagementByShopkeeper = async (
 
     throw error;
   }
+};
+
+export const getCashDrawerMetrics = async (
+  shopkeeperId: string,
+  shopId?: string | null,
+): Promise<CashDrawerMetricsResponse> => {
+  const response = await api.get(
+    `/cash-management/shopkeeper/${shopkeeperId}/drawer-metrics`,
+    {
+      params: shopId ? { shopId } : undefined,
+    },
+  );
+  return response.data.data;
 };
 
 export const saveCashManagement = async (

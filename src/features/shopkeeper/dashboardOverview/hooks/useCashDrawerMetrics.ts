@@ -1,34 +1,30 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
-import { useMemo } from "react";
-import { useMyInvoiceHistory } from "@/features/shopkeeper/inventory/hooks/useInventory";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { getCashDrawerMetrics } from "../api/dashboard.api";
 import { useDashboardOverview } from "./useDashboardOverview";
+import type {
+  CashExpenseItem,
+  PeriodCashMetrics,
+} from "../types/dashboard.types";
 import { toast } from "sonner";
 
-export interface CashExpenseItem {
-  id: string;
-  invoiceNumber?: string;
-  date: Date;
-  amount: number;
-  description: string;
-  sellerName?: string;
-  pdfUrl?: string;
-  paymentMethod: string;
-}
+export type { CashExpenseItem, PeriodCashMetrics };
 
-export interface PeriodCashMetrics {
-  cashSales: number;
-  cashExpenses: number;
-  netCash: number;
-  invoiceCount: number;
-  expenseCount: number;
-}
+const defaultMetrics: PeriodCashMetrics = {
+  cashSales: 0,
+  cashExpenses: 0,
+  netCash: 0,
+  invoiceCount: 0,
+  expenseCount: 0,
+};
 
 export function useCashDrawerMetrics(
   shopkeeperId?: string,
   activeShopId?: string | null,
 ) {
+  const queryClient = useQueryClient();
+
   const {
     cashManagement,
     saveCashManagement,
@@ -36,233 +32,51 @@ export function useCashDrawerMetrics(
     refetch: refetchCashManagement,
   } = useDashboardOverview(shopkeeperId, "monthly", activeShopId || undefined);
 
-  // Fetch all invoices for shopkeeper (high limit to compute complete breakdown)
+  // Fast backend aggregation for all drawer & sales periods
   const {
-    data: invoicesResponse,
-    isLoading: isInvoicesLoading,
-    refetch: refetchInvoices,
-  } = useMyInvoiceHistory(shopkeeperId || "", Boolean(shopkeeperId), 1, 1000);
+    data: drawerData,
+    isLoading: isDrawerLoading,
+    refetch: refetchDrawerMetrics,
+  } = useQuery({
+    queryKey: ["cash-drawer-metrics", shopkeeperId, activeShopId || "all"],
+    queryFn: () => getCashDrawerMetrics(shopkeeperId || "", activeShopId),
+    enabled: Boolean(shopkeeperId),
+    staleTime: 1000 * 30, // 30 seconds
+  });
 
-  const invoices = useMemo(
-    () => invoicesResponse?.data || [],
-    [invoicesResponse],
+  const startingDayCash = Number(
+    drawerData?.startingDayCash ?? cashManagement?.startingDayCash ?? 0,
+  );
+  const banked = Number(drawerData?.banked ?? cashManagement?.banked ?? 0);
+  const cashScore = Number(
+    drawerData?.cashScore ?? cashManagement?.cashManagementScore ?? 100,
+  );
+  const aiInsight = drawerData?.aiInsight || cashManagement?.aiInsight || "";
+
+  const todayMetrics = drawerData?.todayMetrics || defaultMetrics;
+  const yesterdayMetrics = drawerData?.yesterdayMetrics || defaultMetrics;
+  const lastWeekMetrics = drawerData?.lastWeekMetrics || defaultMetrics;
+  const lastMonthMetrics = drawerData?.lastMonthMetrics || defaultMetrics;
+  const allTimeMetrics = drawerData?.allTimeMetrics || defaultMetrics;
+  const cashExpensesList = drawerData?.cashExpensesList || [];
+
+  const previousSalesTotal = Number(
+    drawerData?.previousSalesTotal ??
+      Math.max(0, allTimeMetrics.cashSales + startingDayCash - banked),
   );
 
-  const startingDayCash = Number(cashManagement?.startingDayCash || 0);
-  const banked = Number(cashManagement?.banked || 0);
-  const cashScore = Number(cashManagement?.cashManagementScore ?? 100);
-  const aiInsight = cashManagement?.aiInsight || "";
-
-  // Process all invoices
-  const {
-    todayMetrics,
-    yesterdayMetrics,
-    lastWeekMetrics,
-    lastMonthMetrics,
-    allTimeMetrics,
-    cashExpensesList,
-  } = useMemo(() => {
-    // Date boundaries
-    const now = new Date();
-    const startOfToday = new Date(
-      now.getFullYear(),
-      now.getMonth(),
-      now.getDate(),
-      0,
-      0,
-      0,
-      0,
-    );
-    const endOfToday = new Date(
-      now.getFullYear(),
-      now.getMonth(),
-      now.getDate(),
-      23,
-      59,
-      59,
-      999,
-    );
-
-    const startOfYesterday = new Date(startOfToday);
-    startOfYesterday.setDate(startOfYesterday.getDate() - 1);
-    const endOfYesterday = new Date(startOfToday.getTime() - 1);
-
-    const sevenDaysAgo = new Date(startOfToday);
-    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 6);
-
-    const thirtyDaysAgo = new Date(startOfToday);
-    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 29);
-
-    let todaySales = 0;
-    let todayExpenses = 0;
-    let todaySalesCount = 0;
-    let todayExpCount = 0;
-
-    let yestSales = 0;
-    let yestExpenses = 0;
-    let yestSalesCount = 0;
-    let yestExpCount = 0;
-
-    let weekSales = 0;
-    let weekExpenses = 0;
-    let weekSalesCount = 0;
-    let weekExpCount = 0;
-
-    let monthSales = 0;
-    let monthExpenses = 0;
-    let monthSalesCount = 0;
-    let monthExpCount = 0;
-
-    let allSales = 0;
-    let allExpenses = 0;
-    let allSalesCount = 0;
-    let allExpCount = 0;
-
-    const expenses: CashExpenseItem[] = [];
-
-    invoices.forEach((inv: any) => {
-      const isPurchase =
-        String(inv.type || "")
-          .trim()
-          .toLowerCase() === "purchase invoice" ||
-        String(inv.type || "")
-          .trim()
-          .toLowerCase() === "purchase";
-
-      const method = String(
-        inv.paymentMethod || inv.paymentType || "",
-      ).toLowerCase();
-      const isCash = method === "cash" || method === "cash on delivery";
-
-      if (!isCash) return;
-
-      const amount = Number(inv.amountPaid ?? inv.totalAmount ?? 0);
-      if (amount <= 0 && !isPurchase) return;
-
-      const dateStr = inv.createdAt || inv.updatedAt;
-      const invDate = dateStr ? new Date(dateStr) : new Date(0);
-
-      if (isPurchase) {
-        // Cash Expense / Stock Purchase
-        allExpenses += amount;
-        allExpCount += 1;
-
-        if (invDate >= startOfToday && invDate <= endOfToday) {
-          todayExpenses += amount;
-          todayExpCount += 1;
-        } else if (invDate >= startOfYesterday && invDate <= endOfYesterday) {
-          yestExpenses += amount;
-          yestExpCount += 1;
-        }
-
-        if (invDate >= sevenDaysAgo) {
-          weekExpenses += amount;
-          weekExpCount += 1;
-        }
-
-        if (invDate >= thirtyDaysAgo) {
-          monthExpenses += amount;
-          monthExpCount += 1;
-        }
-
-        const itemsList = Array.isArray(inv.itemsIds)
-          ? inv.itemsIds
-              .map((i: any) => i?.itemName)
-              .filter(Boolean)
-              .join(", ")
-          : "";
-
-        const customer = inv.customerInfo;
-        const sellerName = customer
-          ? `${customer.firstName || ""} ${customer.lastName || ""}`.trim()
-          : undefined;
-
-        expenses.push({
-          id: inv._id,
-          invoiceNumber: inv.invoiceNumber,
-          date: invDate,
-          amount,
-          description: itemsList || "Stock Purchase (Device/Stock)",
-          sellerName: sellerName || "Walk-in Seller",
-          pdfUrl: inv.invoice?.url,
-          paymentMethod: method || "cash",
-        });
-      } else {
-        // Cash Sale / Inflow
-        allSales += amount;
-        allSalesCount += 1;
-
-        if (invDate >= startOfToday && invDate <= endOfToday) {
-          todaySales += amount;
-          todaySalesCount += 1;
-        } else if (invDate >= startOfYesterday && invDate <= endOfYesterday) {
-          yestSales += amount;
-          yestSalesCount += 1;
-        }
-
-        if (invDate >= sevenDaysAgo) {
-          weekSales += amount;
-          weekSalesCount += 1;
-        }
-
-        if (invDate >= thirtyDaysAgo) {
-          monthSales += amount;
-          monthSalesCount += 1;
-        }
-      }
-    });
-
-    expenses.sort((a, b) => b.date.getTime() - a.date.getTime());
-
-    return {
-      todayMetrics: {
-        cashSales: todaySales,
-        cashExpenses: todayExpenses,
-        netCash: todaySales - todayExpenses,
-        invoiceCount: todaySalesCount,
-        expenseCount: todayExpCount,
-      },
-      yesterdayMetrics: {
-        cashSales: yestSales,
-        cashExpenses: yestExpenses,
-        netCash: yestSales - yestExpenses,
-        invoiceCount: yestSalesCount,
-        expenseCount: yestExpCount,
-      },
-      lastWeekMetrics: {
-        cashSales: weekSales,
-        cashExpenses: weekExpenses,
-        netCash: weekSales - weekExpenses,
-        invoiceCount: weekSalesCount,
-        expenseCount: weekExpCount,
-      },
-      lastMonthMetrics: {
-        cashSales: monthSales,
-        cashExpenses: monthExpenses,
-        netCash: monthSales - monthExpenses,
-        invoiceCount: monthSalesCount,
-        expenseCount: monthExpCount,
-      },
-      allTimeMetrics: {
-        cashSales: allSales,
-        cashExpenses: allExpenses,
-        netCash: allSales - allExpenses,
-        invoiceCount: allSalesCount,
-        expenseCount: allExpCount,
-      },
-      cashExpensesList: expenses,
-    };
-  }, [invoices]);
-
-  // Current Available Cash in Drawer Today
-  // = Starting Day Float + Today's Cash Sales - Today's Stock Purchases (Expenses) - Today's Banked to Owner
-  const availableCashToday = Math.max(
-    0,
-    startingDayCash +
-      todayMetrics.cashSales -
-      todayMetrics.cashExpenses -
-      banked,
+  const availableCashToday = Number(
+    drawerData?.availableCashToday ?? previousSalesTotal,
   );
+
+  // Invalidate queries after mutation
+  const invalidateAll = async () => {
+    await Promise.all([
+      refetchCashManagement(),
+      refetchDrawerMetrics(),
+      queryClient.invalidateQueries({ queryKey: ["cash-drawer-metrics"] }),
+    ]);
+  };
 
   // Bank cash to owner
   const handleBankCash = async (amount: number) => {
@@ -276,7 +90,7 @@ export function useCashDrawerMetrics(
     }
     if (amount > availableCashToday) {
       toast.warning(
-        `Amount ($${amount}) is greater than available cash in drawer ($${availableCashToday.toFixed(2)})`,
+        `Amount (${amount}) is greater than available cash in drawer (${availableCashToday.toFixed(2)})`,
       );
     }
 
@@ -294,7 +108,7 @@ export function useCashDrawerMetrics(
       toast.success(
         `Successfully banked cash to owner. Available drawer cash updated.`,
       );
-      refetchCashManagement();
+      await invalidateAll();
       return true;
     } catch (err: unknown) {
       const errorObj = err as {
@@ -322,10 +136,7 @@ export function useCashDrawerMetrics(
     }
 
     try {
-      const newDrawer = Math.max(
-        0,
-        amount + todayMetrics.cashSales - todayMetrics.cashExpenses - banked,
-      );
+      const newDrawer = Math.max(0, allTimeMetrics.cashSales + amount - banked);
 
       await saveCashManagement({
         shopkeeperId,
@@ -335,7 +146,7 @@ export function useCashDrawerMetrics(
       });
 
       toast.success("Starting day float updated successfully");
-      refetchCashManagement();
+      await invalidateAll();
       return true;
     } catch (err: unknown) {
       const errorObj = err as {
@@ -366,10 +177,7 @@ export function useCashDrawerMetrics(
       const newStarting = startingDayCash + amount;
       const newDrawer = Math.max(
         0,
-        newStarting +
-          todayMetrics.cashSales -
-          todayMetrics.cashExpenses -
-          banked,
+        allTimeMetrics.cashSales + newStarting - banked,
       );
 
       await saveCashManagement({
@@ -380,7 +188,7 @@ export function useCashDrawerMetrics(
       });
 
       toast.success("Cash added to drawer successfully");
-      refetchCashManagement();
+      await invalidateAll();
       return true;
     } catch (err: unknown) {
       const errorObj = err as {
@@ -415,7 +223,7 @@ export function useCashDrawerMetrics(
       });
 
       toast.success("Cash allocation updated successfully");
-      refetchCashManagement();
+      await invalidateAll();
       return true;
     } catch (err: unknown) {
       const errorObj = err as {
@@ -437,21 +245,19 @@ export function useCashDrawerMetrics(
     cashScore,
     aiInsight,
     availableCashToday,
+    previousSalesTotal,
     todayMetrics,
     yesterdayMetrics,
     lastWeekMetrics,
     lastMonthMetrics,
     allTimeMetrics,
     cashExpensesList,
-    isLoading: isInvoicesLoading,
+    isLoading: isDrawerLoading,
     isSaving: isSavingCashManagement,
     handleBankCash,
     handleSetStartingCash,
     handleAddCash,
     handleAllocateCash,
-    refetch: () => {
-      refetchCashManagement();
-      refetchInvoices();
-    },
+    refetch: invalidateAll,
   };
 }

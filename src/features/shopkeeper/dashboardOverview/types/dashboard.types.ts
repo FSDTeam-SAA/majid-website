@@ -59,3 +59,37 @@ export interface CashManagementInput {
   banked?: number;
   cashInDrawer?: number;
 }
+
+export interface PeriodCashMetrics {
+  cashSales: number;
+  cashExpenses: number;
+  netCash: number;
+  invoiceCount: number;
+  expenseCount: number;
+}
+
+export interface CashExpenseItem {
+  id: string;
+  invoiceNumber?: string;
+  date: string | Date;
+  amount: number;
+  description: string;
+  sellerName?: string;
+  pdfUrl?: string;
+  paymentMethod: string;
+}
+
+export interface CashDrawerMetricsResponse {
+  startingDayCash: number;
+  banked: number;
+  cashScore: number;
+  aiInsight: string;
+  availableCashToday: number;
+  previousSalesTotal: number;
+  todayMetrics: PeriodCashMetrics;
+  yesterdayMetrics: PeriodCashMetrics;
+  lastWeekMetrics: PeriodCashMetrics;
+  lastMonthMetrics: PeriodCashMetrics;
+  allTimeMetrics: PeriodCashMetrics;
+  cashExpensesList: CashExpenseItem[];
+}
