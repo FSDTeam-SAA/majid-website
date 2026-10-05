@@ -43,6 +43,7 @@ import { useMyProfile } from "@/features/shopkeeper/settings/hooks/useSettings";
 import { formatCurrency as baseFormatCurrency } from "@/lib/currency";
 import { getPdfLogoStyles } from "@/lib/logoHelper";
 import { useCurrency } from "@/hooks/useCurrency";
+import { useShop } from "@/features/shopkeeper/shop/store/shop.store";
 import {
   useCreateInvoiceUser,
   useMyInvoiceGet,
@@ -701,6 +702,7 @@ export const InvoicePDF = ({
 export default function CreateInvoice() {
   const { data: inventoryData } = useMyInventory();
   const { data: profileData } = useMyProfile();
+  const { activeShop } = useShop();
   const { currency, formatCurrency } = useCurrency();
   const { mutate: createInvoice, isPending } = useCreateInvoice();
   const [customerSearchQuery, setCustomerSearchQuery] = useState("");
@@ -904,6 +906,19 @@ export default function CreateInvoice() {
         },
       );
 
+      const invDate = invoiceDate ? new Date(invoiceDate) : new Date();
+      const generatedInvoiceNumber = `MKD-${invDate.getFullYear().toString().slice(-2)}${(invDate.getMonth() + 1).toString().padStart(2, "0")}`;
+
+      let computedTax = 0;
+      if (activeShop?.taxPercentage && activeShop.taxPercentage > 0) {
+        if (activeShop.taxIncludedInPrice) {
+          computedTax =
+            totalPrice - totalPrice / (1 + activeShop.taxPercentage / 100);
+        } else {
+          computedTax = totalPrice * (activeShop.taxPercentage / 100);
+        }
+      }
+
       // Create invoice after customer creation
       createInvoice(
         {
@@ -912,7 +927,21 @@ export default function CreateInvoice() {
           type: "Custom invoice",
           invoice: file,
           itemsIds: invoiceItems.map((i) => i.id).filter(Boolean),
+          totalAmount: totalPrice,
+          amountPaid: finalAlreadyPaid,
           dueAmount: finalDueAmount,
+          tax: Math.round(computedTax * 100) / 100,
+          taxName: activeShop?.taxName,
+          taxIncludedInPrice: activeShop?.taxIncludedInPrice,
+          paymentMethod: paymentType || "cash",
+          paymentStatus:
+            finalDueAmount <= 0
+              ? "paid"
+              : finalAlreadyPaid > 0
+                ? "partial"
+                : "due",
+          currency: currency || "BDT",
+          invoiceNumber: generatedInvoiceNumber,
           invoiceTemplate: profileData?.data?.invoiceTemplate || "default",
           tradeInConsentId: tradeInConsent?.consentId || tradeInConsent?.id,
         },

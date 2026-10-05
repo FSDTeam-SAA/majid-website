@@ -1036,11 +1036,6 @@ export default function CreatePurchaseReceipt() {
     null,
   );
   const [isConsentModalOpen, setIsConsentModalOpen] = useState(false);
-  const [consentSnapshot, setConsentSnapshot] = useState<{
-    customerName: string;
-    agreedValue: number;
-    itemName: string;
-  } | null>(null);
 
   // NID camera capture & file upload state
   const [showNidCamera, setShowNidCamera] = useState<boolean>(false);
@@ -1518,21 +1513,8 @@ export default function CreatePurchaseReceipt() {
     tradeInConsent && tradeInConsent.status === "approved",
   );
 
-  const consentDetailsChanged = Boolean(
-    hasTradeInConsent &&
-    consentSnapshot &&
-    (consentSnapshot.customerName !== tradeInCustomerName ||
-      consentSnapshot.agreedValue !== total ||
-      consentSnapshot.itemName !== tradeInItemName),
-  );
-
   const handleConsentApproved = (approved: ConsentRecord) => {
     setTradeInConsent(approved);
-    setConsentSnapshot({
-      customerName: tradeInCustomerName,
-      agreedValue: total,
-      itemName: tradeInItemName,
-    });
   };
 
   const validItems = useMemo(
@@ -1732,7 +1714,6 @@ export default function CreatePurchaseReceipt() {
       setNidFrontPreview(null);
       setNidBackPreview(null);
       setTradeInConsent(null);
-      setConsentSnapshot(null);
       setSelectedCustomerId("");
       setCustomerSearchQuery("");
       setValidationAttempted(false);
@@ -2019,7 +2000,7 @@ export default function CreatePurchaseReceipt() {
                     <CustomerConsentCard
                       consent={tradeInConsent}
                       hasConsent={hasTradeInConsent}
-                      needsFreshConsent={consentDetailsChanged}
+                      needsFreshConsent={false}
                       onRequestConsent={() => {
                         if (
                           !customer.firstName.trim() &&

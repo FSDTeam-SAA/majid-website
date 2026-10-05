@@ -30,7 +30,7 @@ const tabs = [
     icon: CreditCard,
   },
   {
-    label: "Invoice & Logo",
+    label: "Invoice & Tax",
     href: "/shopkeeper/settings/invoice",
     icon: FileText,
   },

@@ -220,6 +220,8 @@ export function useCreateInvoice() {
       dueAmount?: number;
       amountPaid?: number;
       tax?: number;
+      taxName?: string;
+      taxIncludedInPrice?: boolean;
       paymentMethod?: string;
       paymentStatus?: "paid" | "partial" | "due";
       paymentDetails?: Record<string, string | number | undefined>;

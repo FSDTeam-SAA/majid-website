@@ -293,6 +293,8 @@ export const createInvoice = async (input: {
   dueAmount?: number;
   amountPaid?: number;
   tax?: number;
+  taxName?: string;
+  taxIncludedInPrice?: boolean;
   paymentMethod?: string;
   paymentStatus?: "paid" | "partial" | "due";
   paymentDetails?: Record<string, string | number | undefined>;
@@ -340,6 +342,10 @@ export const createInvoice = async (input: {
     formData.append("amountPaid", String(input.amountPaid));
   }
   if (input.tax !== undefined) formData.append("tax", String(input.tax));
+  if (input.taxName) formData.append("taxName", input.taxName);
+  if (input.taxIncludedInPrice !== undefined) {
+    formData.append("taxIncludedInPrice", String(input.taxIncludedInPrice));
+  }
   if (input.paymentMethod) {
     formData.append("paymentMethod", input.paymentMethod);
   }

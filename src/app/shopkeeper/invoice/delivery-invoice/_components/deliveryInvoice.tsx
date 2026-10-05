@@ -16,6 +16,7 @@ import { useSession } from "next-auth/react";
 import { toast } from "sonner";
 import { useMyProfile } from "@/features/shopkeeper/settings/hooks/useSettings";
 import { useCurrency } from "@/hooks/useCurrency";
+import { useShop } from "@/features/shopkeeper/shop/store/shop.store";
 import {
   useCreateInvoiceUser,
   useMyInvoiceGet,
@@ -274,6 +275,7 @@ export const pdfStyles = StyleSheet.create({
 export default function DeliveryInvoice() {
   const { data: inventoryData, isLoading, isError } = useMyInventory();
   const { data: profileData } = useMyProfile();
+  const { activeShop } = useShop();
   const { currency, formatCurrency } = useCurrency();
   const { mutate: createInvoice, isPending } = useCreateInvoice();
   const seesion = useSession();
@@ -440,6 +442,16 @@ export default function DeliveryInvoice() {
         },
       );
 
+      let computedTax = 0;
+      if (activeShop?.taxPercentage && activeShop.taxPercentage > 0) {
+        if (activeShop.taxIncludedInPrice) {
+          computedTax =
+            totalPrice - totalPrice / (1 + activeShop.taxPercentage / 100);
+        } else {
+          computedTax = totalPrice * (activeShop.taxPercentage / 100);
+        }
+      }
+
       // Create invoice after customer creation
       createInvoice(
         {
@@ -448,7 +460,14 @@ export default function DeliveryInvoice() {
           type: "delivery Note",
           invoice: file,
           itemsIds: invoiceItems.map((i) => i.id).filter(Boolean),
+          totalAmount: totalPrice,
+          amountPaid: finalAlreadyPaid,
           dueAmount: finalDueAmount,
+          tax: Math.round(computedTax * 100) / 100,
+          taxName: activeShop?.taxName,
+          taxIncludedInPrice: activeShop?.taxIncludedInPrice,
+          paymentMethod: finalPaymentType || "cash",
+          currency: currency || "BDT",
         },
         {
           onSuccess: () => {

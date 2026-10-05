@@ -317,12 +317,22 @@ export default function Transactions() {
                               {isPurchase ? (
                                 <Package className="w-5 h-5 text-amber-600" />
                               ) : (
-                                getPaymentIcon(inv.paymentMethod)
+                                getPaymentIcon(
+                                  inv.paymentMethod ||
+                                    inv.paymentType ||
+                                    inv.customerInfo?.paymentType ||
+                                    "cash",
+                                )
                               )}
                             </div>
                             <div className="flex flex-col">
                               <span className="text-sm font-bold text-foreground">
-                                {getPaymentText(inv.paymentMethod)}
+                                {getPaymentText(
+                                  inv.paymentMethod ||
+                                    inv.paymentType ||
+                                    inv.customerInfo?.paymentType ||
+                                    "cash",
+                                )}
                               </span>
                               {isPurchase && (
                                 <span className="text-[10px] font-bold text-amber-600 dark:text-amber-400 uppercase tracking-wider">
@@ -335,7 +345,8 @@ export default function Transactions() {
 
                         {/* Invoice ID */}
                         <TableCell className="px-6 py-5 font-bold text-slate-600 font-mono text-xs whitespace-nowrap">
-                          #INV-{inv._id.slice(-8).toUpperCase()}
+                          {inv.invoiceNumber ||
+                            `#INV-${inv._id.slice(-8).toUpperCase()}`}
                         </TableCell>
 
                         {/* Customer / Supplier */}
@@ -368,7 +379,12 @@ export default function Transactions() {
                           >
                             {isPurchase ? "-" : "+"}
                             {formatCurrency(
-                              inv.totalAmount || 0,
+                              Number(
+                                inv.totalAmount ??
+                                  inv.amountPaid ??
+                                  inv.customerInfo?.alreadyPaid ??
+                                  0,
+                              ),
                               inv.currency || currency,
                             )}
                           </span>
