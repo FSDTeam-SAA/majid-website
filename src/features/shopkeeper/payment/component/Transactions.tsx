@@ -24,7 +24,6 @@ import {
   CreditCard,
   Banknote,
   Package,
-  ArrowDownRight,
 } from "lucide-react";
 import ReturnInvoiceModal from "@/features/shopkeeper/checkout/component/ReturnInvoiceModal";
 import { pdf } from "@react-pdf/renderer";
@@ -32,6 +31,11 @@ import CheckoutInvoicePDF from "@/features/shopkeeper/checkout/component/Checkou
 import { getShopkeeperDisplayName } from "@/components/shared/shopkeeper/profile-utils";
 import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
+import ScorePlusButton from "./ScorePlusButton";
+import ScoreReviewStatusBadge from "./ScoreReviewStatusBadge";
+import ReviewRequestPreviewModal from "./ReviewRequestPreviewModal";
+import ReviewStatusDetailsModal from "./ReviewStatusDetailsModal";
+import AddCustomerDetailsModal from "./AddCustomerDetailsModal";
 
 export default function Transactions() {
   const { data: profileData } = useMyProfile();
@@ -40,16 +44,41 @@ export default function Transactions() {
 
   const [searchQuery, setSearchQuery] = useState("");
   const [timeFilter, setTimeFilter] = useState("all");
-  const { data: response, isLoading } = useMyInvoiceHistory(
-    shopkeeperId || "",
-    !!shopkeeperId,
-  );
+  const {
+    data: response,
+    isLoading,
+    refetch,
+  } = useMyInvoiceHistory(shopkeeperId || "", !!shopkeeperId);
   const { formatCurrency, currency } = useCurrency();
 
   const [isReturnModalOpen, setIsReturnModalOpen] = useState(false);
   const [selectedReturnInvoice, setSelectedReturnInvoice] = useState<
     any | null
   >(null);
+
+  // Score+ Review and Transaction Details States
+  const [selectedInvoiceForReview, setSelectedInvoiceForReview] = useState<
+    any | null
+  >(null);
+  const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false);
+
+  const [selectedInvoiceForDetails, setSelectedInvoiceForDetails] = useState<
+    any | null
+  >(null);
+  const [isStatusModalOpen, setIsStatusModalOpen] = useState(false);
+
+  const [selectedInvoiceForCustomer, setSelectedInvoiceForCustomer] = useState<
+    any | null
+  >(null);
+  const [isAddCustomerModalOpen, setIsAddCustomerModalOpen] = useState(false);
+
+  const shopName =
+    shopkeeper?.shopName ||
+    (shopkeeper?.firstName
+      ? `${shopkeeper.firstName} ${shopkeeper.lastName || ""}`.trim()
+      : "") ||
+    getShopkeeperDisplayName(shopkeeper) ||
+    "Mobile Kit Distribution";
 
   const invoices = useMemo(() => response?.data || [], [response]);
 
@@ -249,6 +278,9 @@ export default function Transactions() {
                     Customer
                   </th>
                   <th className="px-6 py-4 text-xs font-black uppercase tracking-wider text-muted-foreground text-left whitespace-nowrap">
+                    Score+
+                  </th>
+                  <th className="px-6 py-4 text-xs font-black uppercase tracking-wider text-muted-foreground text-left whitespace-nowrap">
                     Generation Date
                   </th>
                   <th className="px-6 py-4 text-xs font-black uppercase tracking-wider text-muted-foreground text-left whitespace-nowrap">
@@ -262,7 +294,7 @@ export default function Transactions() {
               <TableBody>
                 {isLoading ? (
                   <TableRow>
-                    <td colSpan={6} className="h-40 text-center">
+                    <td colSpan={7} className="h-40 text-center">
                       <div className="flex flex-col items-center justify-center gap-2">
                         <Loader2 className="h-8 w-8 animate-spin text-primary" />
                         <span className="text-sm font-medium text-muted-foreground">
@@ -273,7 +305,7 @@ export default function Transactions() {
                   </TableRow>
                 ) : filteredInvoices.length === 0 ? (
                   <TableRow>
-                    <td colSpan={6} className="h-40 text-center">
+                    <td colSpan={7} className="h-40 text-center">
                       <div className="flex flex-col items-center justify-center text-center">
                         <FileText className="mb-3 h-9 w-9 text-slate-300" />
                         <p className="text-sm font-black text-slate-700">
@@ -353,11 +385,63 @@ export default function Transactions() {
                         <TableCell className="px-6 py-5 whitespace-nowrap">
                           <div className="text-sm font-bold text-foreground">
                             {inv.customerInfo?.firstName
-                              ? `${inv.customerInfo.firstName} ${inv.customerInfo.lastName}`
+                              ? `${inv.customerInfo.firstName} ${inv.customerInfo.lastName || ""}`.trim()
                               : isPurchase
                                 ? "Stock Seller"
                                 : "Walk-in"}
                           </div>
+                        </TableCell>
+
+                        {/* Score+ Review Column */}
+                        <TableCell className="px-6 py-5 whitespace-nowrap">
+                          {!isPurchase ? (
+                            <div className="flex flex-col items-start gap-1 min-w-[150px]">
+                              <ScorePlusButton
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  if (!inv.customerInfo?.firstName) {
+                                    setSelectedInvoiceForCustomer(inv);
+                                    setIsAddCustomerModalOpen(true);
+                                  } else {
+                                    setSelectedInvoiceForReview(inv);
+                                    setIsPreviewModalOpen(true);
+                                  }
+                                }}
+                              />
+
+                              {/* Secondary line: Add customer details or ScoreReviewStatusBadge */}
+                              {!inv.customerInfo?.firstName ? (
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setSelectedInvoiceForCustomer(inv);
+                                    setIsAddCustomerModalOpen(true);
+                                  }}
+                                  className="text-xs font-semibold text-blue-600 hover:text-blue-700 dark:text-blue-400 hover:underline cursor-pointer pl-0.5 mt-0.5"
+                                >
+                                  Add customer details
+                                </button>
+                              ) : (
+                                <ScoreReviewStatusBadge
+                                  status={inv.scoreReview?.status || "none"}
+                                  reviewUrl={
+                                    inv.scoreReview?.reviewUrl ||
+                                    shopkeeper?.googleReviewPageUrl
+                                  }
+                                  onClickBadge={(e) => {
+                                    e.stopPropagation();
+                                    setSelectedInvoiceForDetails(inv);
+                                    setIsStatusModalOpen(true);
+                                  }}
+                                />
+                              )}
+                            </div>
+                          ) : (
+                            <span className="text-xs text-muted-foreground font-medium">
+                              —
+                            </span>
+                          )}
                         </TableCell>
 
                         {/* Generation Date */}
@@ -397,7 +481,8 @@ export default function Transactions() {
                               size="sm"
                               variant="destructive"
                               className="h-9 px-3 font-bold text-xs flex items-center gap-1.5 rounded-xl shadow-sm"
-                              onClick={() => {
+                              onClick={(e) => {
+                                e.stopPropagation();
                                 setSelectedReturnInvoice(inv);
                                 setIsReturnModalOpen(true);
                               }}
@@ -409,7 +494,10 @@ export default function Transactions() {
                             <Button
                               size="sm"
                               className="h-9 px-3 bg-primary hover:bg-primary/90 font-bold text-xs flex items-center gap-1.5 rounded-xl shadow-sm text-primary-foreground"
-                              onClick={() => handleGenerateReceipt(inv)}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleGenerateReceipt(inv);
+                              }}
                             >
                               <Download className="w-3.5 h-3.5" />
                               New Receipt
@@ -434,6 +522,36 @@ export default function Transactions() {
         }}
         shopkeeperId={shopkeeperId}
         initialInvoice={selectedReturnInvoice}
+      />
+
+      <ReviewRequestPreviewModal
+        open={isPreviewModalOpen}
+        onOpenChange={setIsPreviewModalOpen}
+        invoice={selectedInvoiceForReview}
+        shopName={shopName}
+        shopkeeperGoogleReviewUrl={shopkeeper?.googleReviewPageUrl}
+        onSuccess={() => {
+          refetch();
+        }}
+      />
+
+      <ReviewStatusDetailsModal
+        open={isStatusModalOpen}
+        onOpenChange={setIsStatusModalOpen}
+        invoice={selectedInvoiceForDetails}
+        shopkeeperDefaultGoogleReviewUrl={shopkeeper?.googleReviewPageUrl}
+        onSuccess={() => {
+          refetch();
+        }}
+      />
+
+      <AddCustomerDetailsModal
+        open={isAddCustomerModalOpen}
+        onOpenChange={setIsAddCustomerModalOpen}
+        invoice={selectedInvoiceForCustomer}
+        onSuccess={() => {
+          refetch();
+        }}
       />
     </div>
   );

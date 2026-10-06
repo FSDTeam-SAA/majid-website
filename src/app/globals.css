@@ -378,4 +378,12 @@
     @apply max-w-full overflow-x-auto;
     -webkit-overflow-scrolling: touch;
   }
+
+  .hide-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .hide-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
 }
