@@ -57,6 +57,17 @@ import {
 } from "@/components/ui/select";
 import { InvoiceDateTimeSection } from "../../_components/InvoiceDateTimeSection";
 import { UniversalProcessingScannerHub } from "../../_components/UniversalProcessingScannerHub";
+import { ItemNameAutocomplete } from "../../_components/ItemNameAutocomplete";
+import {
+  QuickSelectInput,
+  dedupeStrings,
+} from "../../_components/QuickSelectInput";
+import {
+  COMMON_STORAGES,
+  COMMON_COLORS,
+  COMMON_CONDITIONS,
+  DEVICE_CATALOG,
+} from "@/features/shopkeeper/inventory/data/deviceCatalog";
 import { SalesInvoicePdfDocument } from "@/features/shopkeeper/invoice/templates/SalesInvoiceRenderer";
 import {
   CustomerConsentCard,
@@ -767,6 +778,30 @@ export default function CreateInvoice() {
     );
   }, [items]);
 
+  const uniqueInventoryData = useMemo(() => {
+    const invItems = inventoryData?.data || [];
+    const invNames = invItems
+      .map((i: any) => i.itemName)
+      .filter(Boolean) as string[];
+    const catalogNames = DEVICE_CATALOG.map((d) => d.itemName);
+    const invStorages = invItems
+      .map((i: any) => i.storage)
+      .filter(Boolean) as string[];
+    const invColors = invItems
+      .map((i: any) => i.color)
+      .filter(Boolean) as string[];
+    const invConditions = invItems
+      .map((i: any) => i.condition || i.currentState)
+      .filter(Boolean) as string[];
+
+    return {
+      names: dedupeStrings([...invNames, ...catalogNames]),
+      storages: dedupeStrings([...invStorages, ...COMMON_STORAGES]),
+      colors: dedupeStrings([...invColors, ...COMMON_COLORS]),
+      conditions: dedupeStrings([...invConditions, ...COMMON_CONDITIONS]),
+    };
+  }, [inventoryData]);
+
   const filteredCustomers = useMemo(() => {
     const query = customerSearchQuery.trim().toLowerCase();
     if (!query) return customers;
@@ -1246,10 +1281,23 @@ export default function CreateInvoice() {
         </div>
 
         <datalist id="inventory-names-list">
-          {allDevices.map((d) => (
-            <option key={d.id} value={d.name}>
-              {d.name}
-            </option>
+          {uniqueInventoryData.names.map((name, idx) => (
+            <option key={`name-${idx}`} value={name} />
+          ))}
+        </datalist>
+        <datalist id="inventory-storages-list">
+          {uniqueInventoryData.storages.map((storage, idx) => (
+            <option key={`storage-${idx}`} value={storage} />
+          ))}
+        </datalist>
+        <datalist id="inventory-colors-list">
+          {uniqueInventoryData.colors.map((color, idx) => (
+            <option key={`color-${idx}`} value={color} />
+          ))}
+        </datalist>
+        <datalist id="inventory-conditions-list">
+          {uniqueInventoryData.conditions.map((condition, idx) => (
+            <option key={`condition-${idx}`} value={condition} />
           ))}
         </datalist>
         <div className="bg-card border border-border rounded-[28px] p-8 shadow-sm space-y-6">
@@ -1314,36 +1362,101 @@ export default function CreateInvoice() {
                     <label className="font-bold text-sm text-muted-foreground ml-1 mb-1 block">
                       Item Name <span className="text-red-500">*</span>
                     </label>
-                    <Input
-                      list="inventory-names-list"
-                      placeholder="Select or Type Item Name"
-                      className="rounded-2xl h-12 border-primary bg-background font-bold"
+                    <ItemNameAutocomplete
                       value={item.name}
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        const found = allDevices.find((d) => d.name === val);
+                      inventoryItems={inventoryData?.data || []}
+                      onChange={(val) => {
                         const next = [...invoiceItems];
-                        if (found) {
-                          const parsedSerials = found.imeiNumber
-                            ? String(found.imeiNumber)
+                        const invDevice = allDevices.find(
+                          (d: any) =>
+                            d.name?.toLowerCase() === val.toLowerCase(),
+                        );
+                        if (invDevice) {
+                          const parsedSerials = invDevice.imeiNumber
+                            ? String(invDevice.imeiNumber)
                                 .split(",")
                                 .map((s: string) => s.trim())
                                 .filter(Boolean)
                             : [];
                           next[index] = {
                             ...next[index],
-                            id: found.id,
-                            name: found.name,
-                            storage: found.storage || "",
-                            color: found.color || "",
-                            condition: found.condition || "",
-                            price: found.price || 0,
-                            imeiNumber: found.imeiNumber || "",
-                            serials: parsedSerials,
+                            id: invDevice.id,
+                            name: invDevice.name,
+                            storage: invDevice.storage || "",
+                            color: invDevice.color || "",
+                            condition: invDevice.condition || "",
+                            price: invDevice.price ?? next[index].price ?? "",
+                            imeiNumber: invDevice.imeiNumber || "",
+                            serials:
+                              parsedSerials.length > 0
+                                ? parsedSerials
+                                : next[index].serials || [],
                           };
                         } else {
                           next[index] = { ...next[index], name: val };
                         }
+                        setInvoiceItems(next);
+                      }}
+                      onSelectItem={(found) => {
+                        const next = [...invoiceItems];
+                        const invDevice = allDevices.find(
+                          (d: any) =>
+                            d.id === found._id ||
+                            d.name?.toLowerCase() ===
+                              (found.itemName || "").toLowerCase(),
+                        );
+                        const parsedSerials =
+                          invDevice?.imeiNumber || found.imeiNumber
+                            ? String(invDevice?.imeiNumber || found.imeiNumber)
+                                .split(",")
+                                .map((s: string) => s.trim())
+                                .filter(Boolean)
+                            : [];
+
+                        next[index] = {
+                          ...next[index],
+                          id:
+                            invDevice?.id ||
+                            found._id ||
+                            found.id ||
+                            next[index].id ||
+                            "",
+                          name: found.itemName,
+                          storage: found.storage
+                            ? String(found.storage)
+                            : invDevice?.storage || "",
+                          color: found.color
+                            ? String(found.color)
+                            : invDevice?.color || "",
+                          condition:
+                            found.condition ||
+                            found.currentState ||
+                            invDevice?.condition ||
+                            ""
+                              ? String(
+                                  found.condition ||
+                                    found.currentState ||
+                                    invDevice?.condition,
+                                )
+                              : "",
+                          price:
+                            invDevice?.price ??
+                            found.expectedPrice ??
+                            found.price ??
+                            next[index].price ??
+                            "",
+                          imeiNumber:
+                            invDevice?.imeiNumber ||
+                            found.imeiNumber ||
+                            next[index].imeiNumber ||
+                            "",
+                          serials:
+                            parsedSerials.length > 0
+                              ? parsedSerials
+                              : next[index].serials || [],
+                          availableStorages: found.availableStorages,
+                          availableColors: found.availableColors,
+                        };
                         setInvoiceItems(next);
                       }}
                     />
@@ -1352,16 +1465,27 @@ export default function CreateInvoice() {
                     <label className="font-bold text-sm text-muted-foreground ml-1 mb-1 block">
                       Storage / Memory
                     </label>
-                    <Input
+                    <QuickSelectInput
+                      listId="inventory-storages-list"
                       placeholder="Select or Type Storage"
-                      className="rounded-2xl h-12 border-primary bg-background font-bold"
-                      value={item.storage || ""}
-                      onChange={(e) => {
+                      value={item.storage ?? ""}
+                      options={uniqueInventoryData.storages}
+                      preferredOptions={
+                        item.availableStorages?.length
+                          ? item.availableStorages
+                          : item.name
+                            ? DEVICE_CATALOG.find(
+                                (d) =>
+                                  d.itemName.toLowerCase() ===
+                                  String(item.name || "")
+                                    .trim()
+                                    .toLowerCase(),
+                              )?.storages
+                            : undefined
+                      }
+                      onChange={(val) => {
                         const next = [...invoiceItems];
-                        next[index] = {
-                          ...next[index],
-                          storage: e.target.value,
-                        };
+                        next[index] = { ...next[index], storage: val };
                         setInvoiceItems(next);
                       }}
                     />
@@ -1370,13 +1494,27 @@ export default function CreateInvoice() {
                     <label className="font-bold text-sm text-muted-foreground ml-1 mb-1 block">
                       Color
                     </label>
-                    <Input
+                    <QuickSelectInput
+                      listId="inventory-colors-list"
                       placeholder="Select or Type Color"
-                      className="rounded-2xl h-12 border-primary bg-background font-bold"
-                      value={item.color || ""}
-                      onChange={(e) => {
+                      value={item.color ?? ""}
+                      options={uniqueInventoryData.colors}
+                      preferredOptions={
+                        item.availableColors?.length
+                          ? item.availableColors
+                          : item.name
+                            ? DEVICE_CATALOG.find(
+                                (d) =>
+                                  d.itemName.toLowerCase() ===
+                                  String(item.name || "")
+                                    .trim()
+                                    .toLowerCase(),
+                              )?.colors
+                            : undefined
+                      }
+                      onChange={(val) => {
                         const next = [...invoiceItems];
-                        next[index] = { ...next[index], color: e.target.value };
+                        next[index] = { ...next[index], color: val };
                         setInvoiceItems(next);
                       }}
                     />
@@ -1385,16 +1523,14 @@ export default function CreateInvoice() {
                     <label className="font-bold text-sm text-muted-foreground ml-1 mb-1 block">
                       Condition
                     </label>
-                    <Input
+                    <QuickSelectInput
+                      listId="inventory-conditions-list"
                       placeholder="Select or Type Condition"
-                      className="rounded-2xl h-12 border-primary bg-background font-bold"
-                      value={item.condition || ""}
-                      onChange={(e) => {
+                      value={item.condition ?? ""}
+                      options={uniqueInventoryData.conditions}
+                      onChange={(val) => {
                         const next = [...invoiceItems];
-                        next[index] = {
-                          ...next[index],
-                          condition: e.target.value,
-                        };
+                        next[index] = { ...next[index], condition: val };
                         setInvoiceItems(next);
                       }}
                     />
