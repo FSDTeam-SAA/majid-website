@@ -29,6 +29,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { InvoicePDF } from "../../create-invoice/_components/createInvoice";
+import { UniversalProcessingScannerHub } from "../../_components/UniversalProcessingScannerHub";
 import { InventoryItemsCard } from "../../_components/inventoryItemsCard";
 import { InvoiceDateTimeSection } from "../../_components/InvoiceDateTimeSection";
 import { CollectPaymentModal } from "../../_components/CollectPaymentModal";
@@ -293,6 +294,7 @@ export default function DeliveryInvoice() {
       color: "",
       condition: "",
       imeiNumber: "",
+      serials: [],
       quantity: 1,
       price: "",
     },
@@ -805,6 +807,7 @@ export default function DeliveryInvoice() {
                     color: "",
                     condition: "",
                     imeiNumber: "",
+                    serials: [],
                     quantity: 1,
                     price: "",
                   },
@@ -859,6 +862,12 @@ export default function DeliveryInvoice() {
                         );
                         const next = [...invoiceItems];
                         if (found) {
+                          const parsedSerials = found.imeiNumber
+                            ? String(found.imeiNumber)
+                                .split(",")
+                                .map((s: string) => s.trim())
+                                .filter(Boolean)
+                            : [];
                           next[index] = {
                             ...next[index],
                             id: found.id,
@@ -868,6 +877,7 @@ export default function DeliveryInvoice() {
                             condition: found.condition || "",
                             price: found.price || 0,
                             imeiNumber: found.imeiNumber || "",
+                            serials: parsedSerials,
                           };
                         } else {
                           next[index] = { ...next[index], name: val };
@@ -927,24 +937,6 @@ export default function DeliveryInvoice() {
                       }}
                     />
                   </div>
-                  <div className="md:col-span-2">
-                    <label className="font-bold text-sm text-muted-foreground ml-1 mb-1 block">
-                      IMEI Number or Serial Number
-                    </label>
-                    <Input
-                      placeholder="Type IMEI Number or Serial Number"
-                      className="rounded-2xl h-12 border-primary bg-background font-bold"
-                      value={item.imeiNumber || ""}
-                      onChange={(e) => {
-                        const next = [...invoiceItems];
-                        next[index] = {
-                          ...next[index],
-                          imeiNumber: e.target.value,
-                        };
-                        setInvoiceItems(next);
-                      }}
-                    />
-                  </div>
                   <div>
                     <label className="font-bold text-sm text-muted-foreground ml-1 mb-1 block">
                       Quantity
@@ -982,6 +974,38 @@ export default function DeliveryInvoice() {
                     />
                   </div>
                 </div>
+
+                <UniversalProcessingScannerHub
+                  serials={item.serials || []}
+                  onAddSerial={(code) => {
+                    const next = [...invoiceItems];
+                    const currentSerials = next[index].serials || [];
+                    const updatedSerials = [...currentSerials, code];
+                    next[index] = {
+                      ...next[index],
+                      serials: updatedSerials,
+                      imeiNumber: updatedSerials.join(", "),
+                      quantity: Math.max(
+                        Number(next[index].quantity) || 1,
+                        updatedSerials.length,
+                      ),
+                    };
+                    setInvoiceItems(next);
+                  }}
+                  onRemoveSerial={(serialIndex) => {
+                    const next = [...invoiceItems];
+                    const currentSerials = next[index].serials || [];
+                    const updatedSerials = currentSerials.filter(
+                      (_: string, i: number) => i !== serialIndex,
+                    );
+                    next[index] = {
+                      ...next[index],
+                      serials: updatedSerials,
+                      imeiNumber: updatedSerials.join(", "),
+                    };
+                    setInvoiceItems(next);
+                  }}
+                />
               </div>
             ))}
           </div>

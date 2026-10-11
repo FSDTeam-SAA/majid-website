@@ -598,153 +598,142 @@ export function InventoryItemsCard({
                   </span>
                 </div>
 
-                {item.name ? (
-                  <div className="border-t pt-5 border-dashed border-muted-foreground/40 space-y-4">
-                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
-                      <div>
-                        <h4 className="font-black text-foreground flex items-center gap-2">
-                          <ScanLine className="w-5 h-5 text-primary" />
-                          Universal Processing Scanner Hub
-                        </h4>
-                        <p className="text-xs text-muted-foreground">
-                          Type + Enter, engage active web camera tracking, or
-                          drop attachment image.
-                        </p>
-                      </div>
-
-                      <div className="flex items-center gap-2 self-start md:self-auto">
-                        <Button
-                          type="button"
-                          variant={
-                            activeCameraStream[itemIndex]
-                              ? "default"
-                              : "outline"
-                          }
-                          className="rounded-xl h-9 text-xs font-bold gap-1.5"
-                          onClick={() => toggleCameraScanner(itemIndex)}
-                        >
-                          <Camera className="w-3.5 h-3.5" />
-                          {activeCameraStream[itemIndex]
-                            ? "Close Camera"
-                            : "Open Camera Stream"}
-                        </Button>
-
-                        <Button
-                          type="button"
-                          variant="outline"
-                          className="rounded-xl h-9 text-xs font-bold gap-1.5"
-                          disabled={isParsingFile[itemIndex]}
-                          onClick={() =>
-                            fileInputRefs.current[itemIndex]?.click()
-                          }
-                        >
-                          {isParsingFile[itemIndex] ? (
-                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                          ) : (
-                            <Upload className="w-3.5 h-3.5" />
-                          )}
-                          Attach Receipt/Image
-                        </Button>
-                        <input
-                          type="file"
-                          ref={(el) => {
-                            fileInputRefs.current[itemIndex] = el;
-                          }}
-                          accept="image/*"
-                          className="hidden"
-                          onChange={(e) => handleAttachmentUpload(e, itemIndex)}
-                        />
-                      </div>
+                <div className="border-t pt-5 border-dashed border-muted-foreground/40 space-y-4">
+                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
+                    <div>
+                      <h4 className="font-black text-foreground flex items-center gap-2">
+                        <ScanLine className="w-5 h-5 text-primary" />
+                        Universal Processing Scanner Hub
+                      </h4>
+                      <p className="text-xs text-muted-foreground">
+                        Type + Enter, engage active web camera tracking, or drop
+                        attachment image.
+                      </p>
                     </div>
 
-                    {activeCameraStream[itemIndex] && (
-                      <div className="relative w-full h-56 rounded-2xl bg-black border border-primary overflow-hidden flex flex-col items-center justify-center">
-                        <video
-                          ref={(el) => {
-                            videoRefs.current[itemIndex] = el;
-                          }}
-                          className="w-full h-full object-cover"
-                          muted
-                          playsInline
-                        />
-                        <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
-                          <div className="w-64 h-36 border-2 border-dashed border-primary rounded-xl relative flex items-center justify-center bg-black/10">
-                            <div className="w-full h-0.5 bg-red-500 shadow-[0_0_8px_#ef4444] absolute top-1/2 left-0 animate-bounce" />
-                          </div>
+                    <div className="flex items-center gap-2 self-start md:self-auto">
+                      <Button
+                        type="button"
+                        variant={
+                          activeCameraStream[itemIndex] ? "default" : "outline"
+                        }
+                        className="rounded-xl h-9 text-xs font-bold gap-1.5"
+                        onClick={() => toggleCameraScanner(itemIndex)}
+                      >
+                        <Camera className="w-3.5 h-3.5" />
+                        {activeCameraStream[itemIndex]
+                          ? "Close Camera"
+                          : "Open Camera Stream"}
+                      </Button>
+
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="rounded-xl h-9 text-xs font-bold gap-1.5"
+                        disabled={isParsingFile[itemIndex]}
+                        onClick={() =>
+                          fileInputRefs.current[itemIndex]?.click()
+                        }
+                      >
+                        {isParsingFile[itemIndex] ? (
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        ) : (
+                          <Upload className="w-3.5 h-3.5" />
+                        )}
+                        Attach Receipt/Image
+                      </Button>
+                      <input
+                        type="file"
+                        ref={(el) => {
+                          fileInputRefs.current[itemIndex] = el;
+                        }}
+                        accept="image/*"
+                        className="hidden"
+                        onChange={(e) => handleAttachmentUpload(e, itemIndex)}
+                      />
+                    </div>
+                  </div>
+
+                  {activeCameraStream[itemIndex] && (
+                    <div className="relative w-full h-56 rounded-2xl bg-black border border-primary overflow-hidden flex flex-col items-center justify-center">
+                      <video
+                        ref={(el) => {
+                          videoRefs.current[itemIndex] = el;
+                        }}
+                        className="w-full h-full object-cover"
+                        muted
+                        playsInline
+                      />
+                      <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
+                        <div className="w-64 h-36 border-2 border-dashed border-primary rounded-xl relative flex items-center justify-center bg-black/10">
+                          <div className="w-full h-0.5 bg-red-500 shadow-[0_0_8px_#ef4444] absolute top-1/2 left-0 animate-bounce" />
                         </div>
                       </div>
-                    )}
+                    </div>
+                  )}
 
-                    <div className="relative">
-                      <Input
-                        className="rounded-2xl h-12 pl-11 border-primary bg-background font-bold focus-visible:ring-primary"
-                        placeholder="Scan/Type code here and press Enter..."
-                        value={scanInputs[itemIndex] || ""}
-                        onChange={(e) =>
-                          setScanInputs((prev) => ({
-                            ...prev,
-                            [itemIndex]: e.target.value,
-                          }))
-                        }
-                        onKeyDown={(e) => handleScanKeyDown(e, itemIndex)}
-                      />
-                      <div className="absolute left-4 top-3.5 text-muted-foreground">
-                        <ScanLine className="w-5 h-5" />
-                      </div>
+                  <div className="relative">
+                    <Input
+                      className="rounded-2xl h-12 pl-11 border-primary bg-background font-bold focus-visible:ring-primary"
+                      placeholder="Scan/Type code here and press Enter..."
+                      value={scanInputs[itemIndex] || ""}
+                      onChange={(e) =>
+                        setScanInputs((prev) => ({
+                          ...prev,
+                          [itemIndex]: e.target.value,
+                        }))
+                      }
+                      onKeyDown={(e) => handleScanKeyDown(e, itemIndex)}
+                    />
+                    <div className="absolute left-4 top-3.5 text-muted-foreground">
+                      <ScanLine className="w-5 h-5" />
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <div className="flex justify-between items-center text-xs font-bold text-muted-foreground">
+                      <span className="flex items-center gap-1">
+                        <CheckCircle2 className="w-3.5 h-3.5 text-green-600" />
+                        Active Registers Log:
+                      </span>
+                      <span className="text-primary bg-primary/10 px-2 py-0.5 rounded-md font-mono">
+                        {item.serials.length} Stored Ledger Nodes
+                      </span>
                     </div>
 
-                    <div className="space-y-2">
-                      <div className="flex justify-between items-center text-xs font-bold text-muted-foreground">
-                        <span className="flex items-center gap-1">
-                          <CheckCircle2 className="w-3.5 h-3.5 text-green-600" />
-                          Active Registers Log:
-                        </span>
-                        <span className="text-primary bg-primary/10 px-2 py-0.5 rounded-md font-mono">
-                          {item.serials.length} Stored Ledger Nodes
-                        </span>
-                      </div>
-
-                      <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto p-1.5 border rounded-2xl bg-background/50">
-                        {item.serials.length === 0 && (
-                          <p className="text-xs text-muted-foreground/60 italic p-1">
-                            No identifiers cached inside streaming log grid yet.
-                          </p>
-                        )}
-                        {item.serials.map(
-                          (serial: string, serialIndex: number) => (
-                            <div
-                              key={serialIndex}
-                              className="flex items-center gap-2 text-xs font-mono font-bold bg-slate-100 dark:bg-slate-900 border px-3 py-1.5 rounded-xl group transition-all"
+                    <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto p-1.5 border rounded-2xl bg-background/50">
+                      {item.serials.length === 0 && (
+                        <p className="text-xs text-muted-foreground/60 italic p-1">
+                          No identifiers cached inside streaming log grid yet.
+                        </p>
+                      )}
+                      {item.serials.map(
+                        (serial: string, serialIndex: number) => (
+                          <div
+                            key={serialIndex}
+                            className="flex items-center gap-2 text-xs font-mono font-bold bg-slate-100 dark:bg-slate-900 border px-3 py-1.5 rounded-xl group transition-all"
+                          >
+                            <span className="text-muted-foreground">
+                              #{serialIndex + 1}:
+                            </span>
+                            <span className="text-foreground tracking-tight">
+                              {serial}
+                            </span>
+                            <button
+                              type="button"
+                              className="text-muted-foreground hover:text-destructive transition-colors ml-1"
+                              onClick={() =>
+                                removeSerial(itemIndex, serialIndex)
+                              }
                             >
-                              <span className="text-muted-foreground">
-                                #{serialIndex + 1}:
-                              </span>
-                              <span className="text-foreground tracking-tight">
-                                {serial}
-                              </span>
-                              <button
-                                type="button"
-                                className="text-muted-foreground hover:text-destructive transition-colors ml-1"
-                                onClick={() =>
-                                  removeSerial(itemIndex, serialIndex)
-                                }
-                              >
-                                <Trash2 size={13} />
-                              </button>
-                            </div>
-                          ),
-                        )}
-                      </div>
+                              <Trash2 size={13} />
+                            </button>
+                          </div>
+                        ),
+                      )}
                     </div>
                   </div>
-                ) : (
-                  <div className="text-center p-4 border border-dashed rounded-2xl bg-zinc-50/50">
-                    <p className="text-xs text-muted-foreground/80 font-bold">
-                      Please define the baseline Item Name first to unlock
-                      advanced tools.
-                    </p>
-                  </div>
-                )}
+                </div>
               </div>
             );
           })}
