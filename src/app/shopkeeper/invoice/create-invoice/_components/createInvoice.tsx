@@ -1284,19 +1284,28 @@ export default function CreateInvoice() {
             {invoiceItems.map((item, index) => (
               <div
                 key={index}
-                className="border rounded-3xl p-6 bg-muted/20 space-y-4 relative group"
+                className="border rounded-3xl p-6 bg-muted/20 space-y-4"
               >
-                <Button
-                  variant="destructive"
-                  size="icon"
-                  className="absolute top-4 right-4 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity"
-                  onClick={() =>
-                    setInvoiceItems(invoiceItems.filter((_, i) => i !== index))
-                  }
-                  disabled={invoiceItems.length === 1}
-                >
-                  <Trash2 size={16} />
-                </Button>
+                <div className="flex items-center justify-between pb-2 border-b border-border/40">
+                  <h3 className="text-base font-black text-foreground">
+                    Item #{index + 1}
+                  </h3>
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    size="icon"
+                    className="rounded-2xl cursor-pointer"
+                    onClick={() =>
+                      setInvoiceItems(
+                        invoiceItems.filter((_, i) => i !== index),
+                      )
+                    }
+                    disabled={invoiceItems.length === 1}
+                    aria-label={`Remove Item #${index + 1}`}
+                  >
+                    <Trash2 size={16} />
+                  </Button>
+                </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="font-bold text-sm text-muted-foreground ml-1 mb-1 block">

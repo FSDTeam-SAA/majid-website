@@ -404,6 +404,7 @@ export const CustomerConsentModal: React.FC<CustomerConsentModalProps> = ({
         <DialogContent
           className="max-w-lg p-0 overflow-hidden rounded-[28px] border border-border bg-card shadow-2xl transition-all"
           aria-describedby="consent-modal-description"
+          showCloseButton={false}
         >
           <div id="consent-modal-description" className="sr-only">
             Customer Consent Verification and Legal Agreement Workflow
@@ -435,6 +436,7 @@ export const CustomerConsentModal: React.FC<CustomerConsentModalProps> = ({
                 type="button"
                 onClick={onClose}
                 className="p-1 rounded-full text-muted-foreground hover:text-foreground hover:bg-muted transition"
+                aria-label="Close"
               >
                 <X size={18} />
               </button>

@@ -629,7 +629,7 @@ const PurchaseReceiptPDF = ({
   );
 };
 
-function dedupeStrings(arr: (string | undefined | null)[]): string[] {
+function dedupeStrings(arr: (string | number | undefined | null)[]): string[] {
   const seen = new Set<string>();
   const result: string[] = [];
   for (const item of arr) {
@@ -650,7 +650,7 @@ function generateRandomReceiptNumber(): string {
 }
 
 interface ItemNameAutocompleteProps {
-  value: string;
+  value?: string | number | null;
   onChange: (value: string) => void;
   onSelectItem: (item: any) => void;
   inventoryItems: any[];
@@ -681,7 +681,9 @@ function ItemNameAutocomplete({
   }, []);
 
   const filteredItems = useMemo(() => {
-    const q = (value || "").trim().toLowerCase();
+    const q = String(value ?? "")
+      .trim()
+      .toLowerCase();
     const seen = new Set<string>();
     const inventoryMatches: any[] = [];
 
@@ -743,7 +745,7 @@ function ItemNameAutocomplete({
           className={`rounded-2xl h-12 pr-10 border-primary bg-background font-bold ${
             error ? "border-red-500 ring-2 ring-red-500/20" : ""
           }`}
-          value={value}
+          value={value ?? ""}
           onChange={(e) => {
             onChange(e.target.value);
             if (!isOpen) setIsOpen(true);
@@ -770,7 +772,9 @@ function ItemNameAutocomplete({
             <div className="space-y-1">
               <div className="px-3 py-1.5 text-[11px] font-black uppercase tracking-wider text-muted-foreground flex items-center justify-between">
                 <span>
-                  {value.trim() ? "Suggestions" : "Common Devices & Inventory"}
+                  {String(value ?? "").trim()
+                    ? "Suggestions"
+                    : "Common Devices & Inventory"}
                 </span>
                 <span className="text-[10px] font-medium text-primary font-mono">
                   {filteredItems.length} suggestions
@@ -845,10 +849,10 @@ function ItemNameAutocomplete({
 }
 
 interface QuickSelectInputProps {
-  value: string;
+  value?: string | number | null;
   onChange: (value: string) => void;
-  options: string[];
-  preferredOptions?: string[];
+  options: (string | number)[];
+  preferredOptions?: (string | number)[];
   placeholder?: string;
   listId?: string;
   className?: string;
@@ -880,7 +884,9 @@ function QuickSelectInput({
   }, []);
 
   const displayOptions = useMemo(() => {
-    const q = (value || "").trim().toLowerCase();
+    const q = String(value ?? "")
+      .trim()
+      .toLowerCase();
     const allUnique = dedupeStrings([...(preferredOptions || []), ...options]);
 
     if (!q) return allUnique;
@@ -901,7 +907,7 @@ function QuickSelectInput({
           list={listId}
           placeholder={placeholder}
           className={`rounded-2xl h-12 pr-10 border-primary bg-background font-bold ${className || ""}`}
-          value={value}
+          value={value ?? ""}
           onChange={(e) => {
             onChange(e.target.value);
             if (!isOpen) setIsOpen(true);
@@ -935,8 +941,11 @@ function QuickSelectInput({
               )}
               {displayOptions.map((opt, idx) => {
                 const isSelected =
-                  String(opt).toLowerCase() === String(value).toLowerCase();
-                const isPreferred = preferredOptions?.includes(opt);
+                  String(opt).toLowerCase() ===
+                  String(value ?? "").toLowerCase();
+                const isPreferred = preferredOptions?.some(
+                  (p) => String(p).toLowerCase() === String(opt).toLowerCase(),
+                );
 
                 return (
                   <button
@@ -2358,12 +2367,18 @@ export default function CreatePurchaseReceipt() {
                                 updated[itemIndex] = {
                                   ...updated[itemIndex],
                                   name: found.itemName,
-                                  storage: found.storage || "",
-                                  color: found.color || "",
+                                  storage: found.storage
+                                    ? String(found.storage)
+                                    : "",
+                                  color: found.color ? String(found.color) : "",
                                   condition:
                                     (found as any).condition ||
-                                    found.currentState ||
-                                    "",
+                                    found.currentState
+                                      ? String(
+                                          (found as any).condition ||
+                                            found.currentState,
+                                        )
+                                      : "",
                                   availableStorages: found.availableStorages,
                                   availableColors: found.availableColors,
                                   // Keep price manual per client requirement
@@ -2385,7 +2400,7 @@ export default function CreatePurchaseReceipt() {
                             <QuickSelectInput
                               listId="inventory-storages"
                               placeholder="Select or Type Storage"
-                              value={item.storage || ""}
+                              value={item.storage ?? ""}
                               options={uniqueInventoryData.storages}
                               preferredOptions={
                                 item.availableStorages?.length
@@ -2394,7 +2409,9 @@ export default function CreatePurchaseReceipt() {
                                     ? DEVICE_CATALOG.find(
                                         (d) =>
                                           d.itemName.toLowerCase() ===
-                                          item.name.trim().toLowerCase(),
+                                          String(item.name || "")
+                                            .trim()
+                                            .toLowerCase(),
                                       )?.storages
                                     : undefined
                               }
@@ -2411,7 +2428,7 @@ export default function CreatePurchaseReceipt() {
                             <QuickSelectInput
                               listId="inventory-colors"
                               placeholder="Select or Type Color"
-                              value={item.color || ""}
+                              value={item.color ?? ""}
                               options={uniqueInventoryData.colors}
                               preferredOptions={
                                 item.availableColors?.length
@@ -2420,7 +2437,9 @@ export default function CreatePurchaseReceipt() {
                                     ? DEVICE_CATALOG.find(
                                         (d) =>
                                           d.itemName.toLowerCase() ===
-                                          item.name.trim().toLowerCase(),
+                                          String(item.name || "")
+                                            .trim()
+                                            .toLowerCase(),
                                       )?.colors
                                     : undefined
                               }
@@ -2437,7 +2456,7 @@ export default function CreatePurchaseReceipt() {
                             <QuickSelectInput
                               listId="inventory-conditions"
                               placeholder="Select or Type Condition"
-                              value={item.condition || ""}
+                              value={item.condition ?? ""}
                               options={uniqueInventoryData.conditions}
                               onChange={(val) =>
                                 updateItem(itemIndex, "condition", val)
