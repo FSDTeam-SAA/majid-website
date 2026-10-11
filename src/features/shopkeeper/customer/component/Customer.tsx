@@ -13,7 +13,6 @@ import {
   Clock,
   Clock3,
   Coins,
-  CreditCard,
   Edit2,
   FileText,
   Filter,
@@ -1800,7 +1799,7 @@ export default function Customer() {
               </div>
 
               {/* Callout 2: Metrics Summary Row */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 items-center">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 items-center">
                 {/* TOTAL INVOICED */}
                 <div className="rounded-2xl border border-slate-100 p-4 bg-white dark:bg-slate-800 shadow-sm">
                   <div className="flex items-center gap-2 mb-1.5">
@@ -1873,22 +1872,6 @@ export default function Customer() {
                           : "DUE"}
                     </span>
                   </div>
-                </div>
-
-                {/* RECORD PAYMENT BUTTON */}
-                <div className="flex items-center justify-center sm:col-span-2 lg:col-span-1">
-                  <button
-                    type="button"
-                    onClick={() =>
-                      toast.info(
-                        `Record payment active for ${selectedCustomer.firstName}`,
-                      )
-                    }
-                    className="w-full h-14 bg-[#84CC16] hover:bg-[#65A30D] text-white font-black text-xs uppercase tracking-wider rounded-2xl flex items-center justify-center gap-2 shadow-sm transition-all"
-                  >
-                    <CreditCard size={16} />
-                    RECORD PAYMENT
-                  </button>
                 </div>
               </div>
 
