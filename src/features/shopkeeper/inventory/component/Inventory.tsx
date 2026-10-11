@@ -38,6 +38,7 @@ import { InventoryDetailsModal } from "./modals/InventoryDetailsModal";
 import { PrintLabelModal } from "./modals/PrintLabelModal";
 import { ImportCsvTab } from "./ImportCsvTab";
 import { ImageGalleryModal } from "./modals/ImageGalleryModal";
+import { DeleteCategoryWarningModal } from "./modals/DeleteCategoryWarningModal";
 import type { Category, InventoryItem } from "../types";
 import { exportInventoryToCsv } from "../utils/csvUtils";
 import { toast } from "sonner";
@@ -116,7 +117,8 @@ export default function Inventory() {
     useCreateCategory();
   const { mutate: updateCategory, isPending: isUpdatingCategory } =
     useUpdateCategory();
-  const { mutate: deleteCategory } = useDeleteCategory();
+  const { mutate: deleteCategory, isPending: isDeletingCategory } =
+    useDeleteCategory();
   const { data: session } = useSession();
   const router = useRouter();
   const shopkeeperId = (session?.user as { id?: string })?.id;
@@ -125,6 +127,9 @@ export default function Inventory() {
   const [activeTab, setActiveTab] = useState<ActiveTab>("inventory");
   const [isCategoryFormOpen, setIsCategoryFormOpen] = useState(false);
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
+  const [categoryToDelete, setCategoryToDelete] = useState<Category | null>(
+    null,
+  );
   const [categoryName, setCategoryName] = useState("");
   const [categoryImageFile, setCategoryImageFile] = useState<File | null>(null);
   const [categoryImagePreview, setCategoryImagePreview] = useState("");
@@ -278,17 +283,36 @@ export default function Inventory() {
     });
   };
 
-  const handleCategoryDelete = (category: Category) => {
-    if (!window.confirm(`Delete "${category.name}" category?`)) return;
+  const openCategoryDeleteModal = (category: Category) => {
+    setCategoryToDelete(category);
+  };
 
-    deleteCategory(category._id, {
+  const closeCategoryDeleteModal = () => {
+    if (isDeletingCategory) return;
+    setCategoryToDelete(null);
+  };
+
+  const handleConfirmCategoryDelete = () => {
+    if (!categoryToDelete) return;
+
+    deleteCategory(categoryToDelete._id, {
       onSuccess: () => {
-        toast.success("Category deleted");
-        if (selectedCategory?._id === category._id) {
+        toast.success(
+          `Category "${categoryToDelete.name}" deleted successfully`,
+        );
+        if (selectedCategory?._id === categoryToDelete._id) {
           setSelectedCategory(null);
         }
+        setCategoryToDelete(null);
       },
-      onError: () => toast.error("Category delete failed"),
+      onError: (error: unknown) => {
+        const message =
+          error && typeof error === "object" && "response" in error
+            ? (error as { response?: { data?: { message?: string } } }).response
+                ?.data?.message
+            : undefined;
+        toast.error(message || "Category delete failed");
+      },
     });
   };
 
@@ -403,8 +427,8 @@ export default function Inventory() {
                               Edit Category
                             </DropdownMenuItem>
                             <DropdownMenuItem
-                              onClick={() => handleCategoryDelete(category)}
-                              className="flex items-center gap-2 p-3 font-bold text-xs rounded-lg text-red-500 hover:text-red-600 hover:bg-red-50 cursor-pointer"
+                              onClick={() => openCategoryDeleteModal(category)}
+                              className="flex items-center gap-2 p-3 font-bold text-xs rounded-lg text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 cursor-pointer"
                             >
                               <Trash2 size={14} />
                               Delete
@@ -453,6 +477,13 @@ export default function Inventory() {
             onImageChange={handleCategoryImageChange}
             onClose={closeCategoryForm}
             onSubmit={handleCategorySubmit}
+          />
+          <DeleteCategoryWarningModal
+            isOpen={!!categoryToDelete}
+            category={categoryToDelete}
+            isPending={isDeletingCategory}
+            onClose={closeCategoryDeleteModal}
+            onConfirm={handleConfirmCategoryDelete}
           />
           <InventoryFormModal
             isOpen={isFormOpen}
@@ -773,6 +804,13 @@ export default function Inventory() {
           onImageChange={handleCategoryImageChange}
           onClose={closeCategoryForm}
           onSubmit={handleCategorySubmit}
+        />
+        <DeleteCategoryWarningModal
+          isOpen={!!categoryToDelete}
+          category={categoryToDelete}
+          isPending={isDeletingCategory}
+          onClose={closeCategoryDeleteModal}
+          onConfirm={handleConfirmCategoryDelete}
         />
         <PrintLabelModal
           isOpen={!!printLabelItem}

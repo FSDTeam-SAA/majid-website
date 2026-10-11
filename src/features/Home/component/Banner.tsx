@@ -275,7 +275,7 @@ export default function Banner() {
   return (
     <section
       id="banner"
-      className="relative flex min-h-[720px] overflow-hidden lg:h-[1060px] lg:min-h-0"
+      className="relative flex min-h-[640px] md:min-h-[720px] lg:min-h-[800px] xl:min-h-[860px] overflow-hidden"
     >
       {/* Background — purely decorative, hidden from assistive tech */}
       <div className="absolute inset-0 z-0 bg-background">
@@ -303,25 +303,25 @@ export default function Banner() {
       </div>
 
       {/* Content */}
-      <div className="relative z-10 flex w-full flex-col items-center px-4 pb-16 pt-24 text-center sm:px-6 md:pb-24 md:pt-44 lg:px-[200px] lg:pb-[120px] lg:pt-[180px]">
+      <div className="relative z-10 mx-auto flex w-full max-w-[1520px] flex-col items-center px-4 pb-16 pt-24 text-center sm:px-6 md:pb-20 md:pt-36 lg:px-8 lg:pb-24 lg:pt-40 xl:px-12">
         <motion.h1
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8 }}
-          className={`${archivoBlack.className} w-full max-w-[1100px] text-[32px] leading-[1.15] text-white drop-shadow-[0_2px_10px_rgba(0,0,0,0.35)] sm:text-5xl md:text-6xl lg:text-[72px] lg:leading-[1.2]`}
+          className={`${archivoBlack.className} w-full max-w-[1100px] text-[32px] leading-[1.15] text-white drop-shadow-[0_2px_10px_rgba(0,0,0,0.35)] sm:text-5xl md:text-6xl lg:text-[54px] lg:leading-[1.15] xl:text-[66px] xl:leading-[1.18] 2xl:text-[72px] 2xl:leading-[1.2]`}
         >
-          <span className="hidden whitespace-nowrap lg:block">
+          <span className="hidden whitespace-nowrap xl:block">
             Verify Global <span className="text-[#BEFB6D]">IMEI</span>
           </span>
-          <span className="hidden whitespace-nowrap lg:block">
+          <span className="hidden whitespace-nowrap xl:block">
             <span className="text-[#BEFB6D]">Intelligence</span>{" "}
             <span>in Real-Time</span>
           </span>
-          <span className="block lg:hidden">
+          <span className="block xl:hidden">
             Verify Global <span className="text-[#BEFB6D]">IMEI</span>
           </span>
-          <span className="block text-[#BEFB6D] lg:hidden">Intelligence</span>
-          <span className="block lg:hidden">in Real-Time</span>
+          <span className="block text-[#BEFB6D] xl:hidden">Intelligence</span>
+          <span className="block xl:hidden">in Real-Time</span>
         </motion.h1>
 
         <motion.p

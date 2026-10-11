@@ -20,7 +20,7 @@ export default function ImportantWarning() {
         <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-green-50 blur-[120px] rounded-full opacity-50" />
       </div> */}
 
-      <div className="mx-auto container px-6">
+      <div className="mx-auto container px-4 sm:px-6 lg:px-8 xl:px-12">
         <motion.div
           initial={{ opacity: 0, y: 40 }}
           whileInView={{ opacity: 1, scale: 1 }}

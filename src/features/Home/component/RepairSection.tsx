@@ -54,7 +54,7 @@ const statusSteps = [
 export default function RepairSection() {
   return (
     <section className="overflow-hidden bg-[#071B28] py-24 text-white">
-      <div className="container mx-auto px-6">
+      <div className="container mx-auto px-4 sm:px-6 lg:px-8 xl:px-12">
         <div className="grid items-center gap-10 lg:grid-cols-[1.02fr_0.98fr] lg:gap-16">
           <motion.div
             initial={{ opacity: 0, y: 24 }}

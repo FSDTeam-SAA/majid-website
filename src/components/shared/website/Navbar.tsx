@@ -64,7 +64,7 @@ export default function Navbar() {
           : "border-b border-transparent bg-transparent backdrop-blur-none"
       }`}
     >
-      <div className="mx-auto flex h-full w-full max-w-[1520px] items-center justify-between px-3 sm:px-6 lg:px-0">
+      <div className="mx-auto flex h-full w-full max-w-[1520px] items-center justify-between px-4 sm:px-6 lg:px-8 xl:px-12">
         {/* Logo */}
         <Link href="/">
           <div className="relative h-8 w-[124px] shrink-0 min-[360px]:w-[142px] sm:w-[160px] md:h-[50px] md:w-[200px] cursor-pointer">

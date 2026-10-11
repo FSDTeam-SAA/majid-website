@@ -19,7 +19,7 @@ import Link from "next/link";
 export default function ExperienceSmarter() {
   return (
     <section className="py-24 overflow-hidden">
-      <div className="mx-auto container px-6">
+      <div className="mx-auto container px-4 sm:px-6 lg:px-8 xl:px-12">
         <div className="flex flex-col lg:flex-row items-center gap-16 lg:gap-24">
           {/* Left Side: Content */}
           <div className="flex-1">

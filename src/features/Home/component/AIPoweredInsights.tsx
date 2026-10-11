@@ -6,7 +6,7 @@ import { Zap, BadgeCheck, ShieldCheck, AlertCircle } from "lucide-react";
 export default function AIPoweredInsights() {
   return (
     <section className="py-24">
-      <div className="mx-auto container px-6">
+      <div className="mx-auto container px-4 sm:px-6 lg:px-8 xl:px-12">
         {/* Section Title */}
         <motion.h2
           initial={{ opacity: 0, x: -20 }}

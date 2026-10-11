@@ -34,7 +34,7 @@ export default function StartChecking() {
         ))}
       </div>
 
-      <div className="mx-auto container px-6 relative text-center">
+      <div className="mx-auto container px-4 sm:px-6 lg:px-8 xl:px-12 relative text-center">
         <motion.h2
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}

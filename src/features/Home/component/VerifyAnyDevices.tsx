@@ -38,8 +38,8 @@ const steps = [
 
 export default function VerifyAnyDevices() {
   return (
-    <section className="bg-background py-10 lg:h-[672px] lg:py-[100px]">
-      <div className="mx-auto w-full max-w-[1520px] px-4 sm:px-6 lg:px-0">
+    <section className="bg-background py-10 lg:py-[90px]">
+      <div className="mx-auto w-full max-w-[1520px] px-4 sm:px-6 lg:px-8 xl:px-12">
         {/* Heading Area */}
         <div className="mb-12 text-center lg:mb-12">
           <p className="mb-3 text-2xl font-extrabold leading-none text-primary">

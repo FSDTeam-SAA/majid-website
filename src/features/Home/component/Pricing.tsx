@@ -186,7 +186,7 @@ export default function Pricing() {
 
   return (
     <section className="py-24 bg-background border-t border-border">
-      <div className="mx-auto container text-center">
+      <div className="mx-auto container px-4 sm:px-6 lg:px-8 xl:px-12 text-center">
         {/* Heading */}
         <motion.h2
           initial={{ opacity: 0, y: 20 }}
@@ -274,7 +274,7 @@ export default function Pricing() {
                   ))}
                 </div>
 
-                {plan.discount && plan.discount > 0 && (
+                {plan.discount && plan.discount > 0 ? (
                   <div className="w-full bg-background/50 dark:bg-white/5 rounded-2xl p-4 flex items-center justify-between mb-8 border border-purple-100/20 shadow-sm">
                     <div className="flex items-center gap-2">
                       <Gem className="w-5 h-5 text-blue-500" />
@@ -286,7 +286,7 @@ export default function Pricing() {
                       {plan.discount}% Off
                     </span>
                   </div>
-                )}
+                ) : null}
 
                 <button
                   onClick={() => {
