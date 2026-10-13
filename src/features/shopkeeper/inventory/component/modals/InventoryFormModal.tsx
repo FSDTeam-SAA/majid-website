@@ -1830,7 +1830,7 @@ export function InventoryFormModal({
     values: string[],
     options?: { shouldValidate?: boolean; shouldDirty?: boolean },
   ) => {
-    const normalizedValues = values.length ? values : [""];
+    const normalizedValues = values.length ? values.slice(0, 1) : [""];
     const joinedValue = joinMultiValueField(normalizedValues);
 
     if (field === "color") {
@@ -2838,15 +2838,20 @@ export function InventoryFormModal({
                         </div>
                         <FormControl>
                           <div
-                            className="relative group"
+                            className="relative group w-full"
                             ref={productSuggestionRef}
                           >
-                            <div className="absolute left-2 top-1/2 -translate-y-1/2 w-10 h-10 bg-white dark:bg-slate-800 rounded-[14px] flex items-center justify-center shadow-sm border border-slate-100 dark:border-slate-700 group-focus-within:border-[#84CC16]/30 group-focus-within:bg-[#84CC16]/5 transition-all z-10">
+                            <div className="absolute left-2 top-1/2 -translate-y-1/2 w-10 h-10 bg-white dark:bg-slate-800 rounded-[14px] flex items-center justify-center shadow-sm border border-slate-100 dark:border-slate-700 group-focus-within:border-[#84CC16]/30 group-focus-within:bg-[#84CC16]/5 transition-all z-10 pointer-events-none">
                               <Smartphone className="w-4 h-4 text-slate-400 group-focus-within:text-[#84CC16] transition-colors" />
                             </div>
                             <Input
                               placeholder="Search product name, EAN or UPC"
-                              className="pl-14 pr-32 bg-slate-50/80 dark:bg-slate-900/50 border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-900 rounded-[20px] h-[56px] font-bold text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 focus-visible:bg-white dark:focus-visible:bg-slate-950 focus-visible:ring-4 focus-visible:ring-[#84CC16]/15 focus-visible:border-[#84CC16] transition-all shadow-sm"
+                              style={{
+                                height: "56px",
+                                minHeight: "56px",
+                                paddingLeft: "56px",
+                              }}
+                              className="w-full px-0 !pl-14 pr-32 bg-slate-50/80 dark:bg-slate-900/50 border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-900 rounded-[20px] !h-[56px] !min-h-[56px] font-bold text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 focus-visible:bg-white dark:focus-visible:bg-slate-950 focus-visible:ring-4 focus-visible:ring-[#84CC16]/15 focus-visible:border-[#84CC16] transition-all shadow-sm"
                               value={field.value || productNameSearch}
                               onChange={(event) => {
                                 field.onChange(event.target.value);
@@ -3030,16 +3035,23 @@ export function InventoryFormModal({
                         onValueChange={(val) => field.onChange(val)}
                         value={field.value || ""}
                       >
-                        <FormControl>
-                          <SelectTrigger className="group bg-slate-50/80 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-900 rounded-[20px] h-[56px] font-bold text-slate-900 dark:text-white focus:bg-white dark:focus:bg-slate-950 focus:ring-4 focus:ring-[#84CC16]/15 focus:border-[#84CC16] transition-all shadow-sm px-2">
-                            <div className="flex items-center gap-3 w-full">
-                              <div className="w-10 h-10 rounded-[14px] flex items-center justify-center shadow-sm border border-slate-100 group-focus:border-[#84CC16]/30 group-focus:bg-[#84CC16]/5 transition-all shrink-0">
-                                <FolderOpen className="w-4 h-4 text-slate-400 group-focus:text-[#84CC16] transition-colors" />
-                              </div>
+                        <div className="relative group w-full">
+                          <div className="absolute left-2 top-1/2 -translate-y-1/2 w-10 h-10 bg-white dark:bg-slate-800 rounded-[14px] flex items-center justify-center shadow-sm border border-slate-100 dark:border-slate-700 group-focus-within:border-[#84CC16]/30 group-focus-within:bg-[#84CC16]/5 transition-all z-10 pointer-events-none">
+                            <FolderOpen className="w-4 h-4 text-slate-400 group-focus-within:text-[#84CC16] transition-colors" />
+                          </div>
+                          <FormControl>
+                            <SelectTrigger
+                              style={{
+                                height: "56px",
+                                minHeight: "56px",
+                                paddingLeft: "56px",
+                              }}
+                              className="w-full bg-slate-50/80 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-900 rounded-[20px] !h-[56px] !min-h-[56px] font-bold text-slate-900 dark:text-white focus:bg-white dark:focus:bg-slate-950 focus:ring-4 focus:ring-[#84CC16]/15 focus:border-[#84CC16] transition-all shadow-sm px-0 !pl-14 pr-4"
+                            >
                               <SelectValue placeholder="Select Category" />
-                            </div>
-                          </SelectTrigger>
-                        </FormControl>
+                            </SelectTrigger>
+                          </FormControl>
+                        </div>
                         <SelectContent className="rounded-2xl border-slate-100 dark:border-slate-800 p-2 shadow-xl bg-white dark:bg-slate-900 z-50">
                           {categories.map((cat: Category) => (
                             <SelectItem
@@ -3087,16 +3099,23 @@ export function InventoryFormModal({
                                   : ""
                             }
                           >
-                            <FormControl>
-                              <SelectTrigger className="group bg-slate-50/80 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-900 rounded-[20px] h-[56px] font-bold text-slate-900 dark:text-white focus:bg-white dark:focus:bg-slate-950 focus:ring-4 focus:ring-[#84CC16]/15 focus:border-[#84CC16] transition-all shadow-sm px-2">
-                                <div className="flex items-center gap-3 w-full">
-                                  <div className="w-10 h-10 rounded-[14px] flex items-center justify-center shadow-sm border border-slate-100 group-focus:border-[#84CC16]/30 group-focus:bg-[#84CC16]/5 transition-all shrink-0">
-                                    <Package className="w-4 h-4 text-slate-400 group-focus:text-[#84CC16] transition-colors" />
-                                  </div>
+                            <div className="relative group w-full">
+                              <div className="absolute left-2 top-1/2 -translate-y-1/2 w-10 h-10 bg-white dark:bg-slate-800 rounded-[14px] flex items-center justify-center shadow-sm border border-slate-100 dark:border-slate-700 group-focus-within:border-[#84CC16]/30 group-focus-within:bg-[#84CC16]/5 transition-all z-10 pointer-events-none">
+                                <Package className="w-4 h-4 text-slate-400 group-focus-within:text-[#84CC16] transition-colors" />
+                              </div>
+                              <FormControl>
+                                <SelectTrigger
+                                  style={{
+                                    height: "56px",
+                                    minHeight: "56px",
+                                    paddingLeft: "56px",
+                                  }}
+                                  className="w-full bg-slate-50/80 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-900 rounded-[20px] !h-[56px] !min-h-[56px] font-bold text-slate-900 dark:text-white focus:bg-white dark:focus:bg-slate-950 focus:ring-4 focus:ring-[#84CC16]/15 focus:border-[#84CC16] transition-all shadow-sm px-0 !pl-14 pr-4"
+                                >
                                   <SelectValue placeholder="Select Brand" />
-                                </div>
-                              </SelectTrigger>
-                            </FormControl>
+                                </SelectTrigger>
+                              </FormControl>
+                            </div>
                             <SelectContent className="rounded-2xl border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xl p-1">
                               {BRANDS.map((brand) => (
                                 <SelectItem
@@ -3110,13 +3129,18 @@ export function InventoryFormModal({
                             </SelectContent>
                           </Select>
                         ) : (
-                          <div className="relative group animate-in fade-in slide-in-from-left-2 duration-300">
-                            <div className="absolute left-2 top-1/2 -translate-y-1/2 w-10 h-10 bg-white dark:bg-slate-800 rounded-[14px] flex items-center justify-center shadow-sm border border-slate-100 dark:border-slate-700 group-focus-within:border-[#84CC16]/30 group-focus-within:bg-[#84CC16]/5 transition-all z-10">
+                          <div className="relative group w-full animate-in fade-in slide-in-from-left-2 duration-300">
+                            <div className="absolute left-2 top-1/2 -translate-y-1/2 w-10 h-10 bg-white dark:bg-slate-800 rounded-[14px] flex items-center justify-center shadow-sm border border-slate-100 dark:border-slate-700 group-focus-within:border-[#84CC16]/30 group-focus-within:bg-[#84CC16]/5 transition-all z-10 pointer-events-none">
                               <Package className="w-4 h-4 text-slate-400 group-focus-within:text-[#84CC16] transition-colors" />
                             </div>
                             <Input
                               placeholder="Enter custom brand..."
-                              className="pl-14 pr-24 bg-slate-50/80 dark:bg-slate-900/50 border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-900 rounded-[20px] h-[56px] font-bold text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 focus-visible:bg-white dark:focus-visible:bg-slate-950 focus-visible:ring-4 focus-visible:ring-[#84CC16]/15 focus-visible:border-[#84CC16] transition-all shadow-sm"
+                              style={{
+                                height: "56px",
+                                minHeight: "56px",
+                                paddingLeft: "56px",
+                              }}
+                              className="w-full px-0 !pl-14 pr-24 bg-slate-50/80 dark:bg-slate-900/50 border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-900 rounded-[20px] !h-[56px] !min-h-[56px] font-bold text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 focus-visible:bg-white dark:focus-visible:bg-slate-950 focus-visible:ring-4 focus-visible:ring-[#84CC16]/15 focus-visible:border-[#84CC16] transition-all shadow-sm"
                               {...field}
                             />
                             <button
@@ -3175,9 +3199,9 @@ export function InventoryFormModal({
                           return (
                             <div
                               key={`color-${index}`}
-                              className="flex items-center gap-2"
+                              className="flex items-center gap-2 w-full"
                             >
-                              <div className="flex-1">
+                              <div className="flex-1 min-w-0 w-full">
                                 {!isCustomColor && selectValue !== "Other" ? (
                                   <Select
                                     onValueChange={(val) => {
@@ -3206,16 +3230,23 @@ export function InventoryFormModal({
                                     }}
                                     value={selectValue}
                                   >
-                                    <FormControl>
-                                      <SelectTrigger className="group bg-slate-50/80 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-900 rounded-[20px] h-[56px] font-bold text-slate-900 dark:text-white focus:bg-white dark:focus:bg-slate-950 focus:ring-4 focus:ring-[#84CC16]/15 focus:border-[#84CC16] transition-all shadow-sm px-2">
-                                        <div className="flex items-center gap-3 w-full">
-                                          <div className="w-10 h-10 rounded-[14px] flex items-center justify-center shadow-sm border border-slate-100 group-focus:border-[#84CC16]/30 group-focus:bg-[#84CC16]/5 transition-all shrink-0">
-                                            <Palette className="w-4 h-4 text-slate-400 group-focus:text-[#84CC16] transition-colors" />
-                                          </div>
+                                    <div className="relative group w-full">
+                                      <div className="absolute left-2 top-1/2 -translate-y-1/2 w-10 h-10 bg-white dark:bg-slate-800 rounded-[14px] flex items-center justify-center shadow-sm border border-slate-100 dark:border-slate-700 group-focus-within:border-[#84CC16]/30 group-focus-within:bg-[#84CC16]/5 transition-all z-10 pointer-events-none">
+                                        <Palette className="w-4 h-4 text-slate-400 group-focus-within:text-[#84CC16] transition-colors" />
+                                      </div>
+                                      <FormControl>
+                                        <SelectTrigger
+                                          style={{
+                                            height: "56px",
+                                            minHeight: "56px",
+                                            paddingLeft: "56px",
+                                          }}
+                                          className="w-full bg-slate-50/80 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-900 rounded-[20px] !h-[56px] !min-h-[56px] font-bold text-slate-900 dark:text-white focus:bg-white dark:focus:bg-slate-950 focus:ring-4 focus:ring-[#84CC16]/15 focus:border-[#84CC16] transition-all shadow-sm px-0 !pl-14 pr-4"
+                                        >
                                           <SelectValue placeholder="Select Color" />
-                                        </div>
-                                      </SelectTrigger>
-                                    </FormControl>
+                                        </SelectTrigger>
+                                      </FormControl>
+                                    </div>
                                     <SelectContent className="rounded-2xl border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xl p-1">
                                       {COLOR_OPTIONS.map((color) => (
                                         <SelectItem
@@ -3229,13 +3260,18 @@ export function InventoryFormModal({
                                     </SelectContent>
                                   </Select>
                                 ) : (
-                                  <div className="relative group animate-in fade-in slide-in-from-left-2 duration-300">
-                                    <div className="absolute left-2 top-1/2 -translate-y-1/2 w-10 h-10 bg-white dark:bg-slate-800 rounded-[14px] flex items-center justify-center shadow-sm border border-slate-100 dark:border-slate-700 group-focus-within:border-[#84CC16]/30 group-focus-within:bg-[#84CC16]/5 transition-all z-10">
+                                  <div className="relative group w-full animate-in fade-in slide-in-from-left-2 duration-300">
+                                    <div className="absolute left-2 top-1/2 -translate-y-1/2 w-10 h-10 bg-white dark:bg-slate-800 rounded-[14px] flex items-center justify-center shadow-sm border border-slate-100 dark:border-slate-700 group-focus-within:border-[#84CC16]/30 group-focus-within:bg-[#84CC16]/5 transition-all z-10 pointer-events-none">
                                       <Palette className="w-4 h-4 text-slate-400 group-focus-within:text-[#84CC16] transition-colors" />
                                     </div>
                                     <Input
                                       placeholder="Enter custom color..."
-                                      className="pl-14 pr-24 bg-slate-50/80 dark:bg-slate-900/50 border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-900 rounded-[20px] h-[56px] font-bold text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 focus-visible:bg-white dark:focus-visible:bg-slate-950 focus-visible:ring-4 focus-visible:ring-[#84CC16]/15 focus-visible:border-[#84CC16] transition-all shadow-sm"
+                                      style={{
+                                        height: "56px",
+                                        minHeight: "56px",
+                                        paddingLeft: "56px",
+                                      }}
+                                      className="w-full px-0 !pl-14 pr-24 bg-slate-50/80 dark:bg-slate-900/50 border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-900 rounded-[20px] !h-[56px] !min-h-[56px] font-bold text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 focus-visible:bg-white dark:focus-visible:bg-slate-950 focus-visible:ring-4 focus-visible:ring-[#84CC16]/15 focus-visible:border-[#84CC16] transition-all shadow-sm"
                                       value={value}
                                       onChange={(event) =>
                                         updateMultiValueField(
@@ -3286,22 +3322,11 @@ export function InventoryFormModal({
                             </div>
                           );
                         })}
-                        <div className="flex items-center justify-between">
-                          <input
-                            type="hidden"
-                            {...field}
-                            value={joinMultiValueField(colorValues)}
-                          />
-                          <Button
-                            type="button"
-                            variant="outline"
-                            onClick={() => addMultiValueField("color")}
-                            className="rounded-2xl border-slate-200 px-4 h-10 font-black uppercase tracking-widest text-[10px] hover:border-[#84CC16] hover:text-[#84CC16]"
-                          >
-                            <Plus className="w-3.5 h-3.5 mr-2" />
-                            Add Color
-                          </Button>
-                        </div>
+                        <input
+                          type="hidden"
+                          {...field}
+                          value={joinMultiValueField(colorValues)}
+                        />
                       </div>
                     </FormItem>
                   )}
@@ -3330,9 +3355,9 @@ export function InventoryFormModal({
                           return (
                             <div
                               key={`storage-${index}`}
-                              className="flex items-center gap-2"
+                              className="flex items-center gap-2 w-full"
                             >
-                              <div className="flex-1">
+                              <div className="flex-1 min-w-0 w-full">
                                 {!isCustomStorage && selectValue !== "Other" ? (
                                   <Select
                                     onValueChange={(val) => {
@@ -3361,16 +3386,23 @@ export function InventoryFormModal({
                                     }}
                                     value={selectValue}
                                   >
-                                    <FormControl>
-                                      <SelectTrigger className="group bg-slate-50/80 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-900 rounded-[20px] h-[56px] font-bold text-slate-900 dark:text-white focus:bg-white dark:focus:bg-slate-950 focus:ring-4 focus:ring-[#84CC16]/15 focus:border-[#84CC16] transition-all shadow-sm px-2">
-                                        <div className="flex items-center gap-3 w-full">
-                                          <div className="w-10 h-10 rounded-[14px] flex items-center justify-center shadow-sm border border-slate-100 group-focus:border-[#84CC16]/30 group-focus:bg-[#84CC16]/5 transition-all shrink-0">
-                                            <HardDrive className="w-4 h-4 text-slate-400 group-focus:text-[#84CC16] transition-colors" />
-                                          </div>
+                                    <div className="relative group w-full">
+                                      <div className="absolute left-2 top-1/2 -translate-y-1/2 w-10 h-10 bg-white dark:bg-slate-800 rounded-[14px] flex items-center justify-center shadow-sm border border-slate-100 dark:border-slate-700 group-focus-within:border-[#84CC16]/30 group-focus-within:bg-[#84CC16]/5 transition-all z-10 pointer-events-none">
+                                        <HardDrive className="w-4 h-4 text-slate-400 group-focus-within:text-[#84CC16] transition-colors" />
+                                      </div>
+                                      <FormControl>
+                                        <SelectTrigger
+                                          style={{
+                                            height: "56px",
+                                            minHeight: "56px",
+                                            paddingLeft: "56px",
+                                          }}
+                                          className="w-full bg-slate-50/80 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-900 rounded-[20px] !h-[56px] !min-h-[56px] font-bold text-slate-900 dark:text-white focus:bg-white dark:focus:bg-slate-950 focus:ring-4 focus:ring-[#84CC16]/15 focus:border-[#84CC16] transition-all shadow-sm px-0 !pl-14 pr-4"
+                                        >
                                           <SelectValue placeholder="Select Storage" />
-                                        </div>
-                                      </SelectTrigger>
-                                    </FormControl>
+                                        </SelectTrigger>
+                                      </FormControl>
+                                    </div>
                                     <SelectContent className="rounded-2xl border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xl p-1">
                                       {STORAGE_OPTIONS.map((opt) => (
                                         <SelectItem
@@ -3384,13 +3416,18 @@ export function InventoryFormModal({
                                     </SelectContent>
                                   </Select>
                                 ) : (
-                                  <div className="relative group animate-in fade-in slide-in-from-left-2 duration-300">
-                                    <div className="absolute left-2 top-1/2 -translate-y-1/2 w-10 h-10 bg-white dark:bg-slate-800 rounded-[14px] flex items-center justify-center shadow-sm border border-slate-100 dark:border-slate-700 group-focus-within:border-[#84CC16]/30 group-focus-within:bg-[#84CC16]/5 transition-all z-10">
+                                  <div className="relative group w-full animate-in fade-in slide-in-from-left-2 duration-300">
+                                    <div className="absolute left-2 top-1/2 -translate-y-1/2 w-10 h-10 bg-white dark:bg-slate-800 rounded-[14px] flex items-center justify-center shadow-sm border border-slate-100 dark:border-slate-700 group-focus-within:border-[#84CC16]/30 group-focus-within:bg-[#84CC16]/5 transition-all z-10 pointer-events-none">
                                       <HardDrive className="w-4 h-4 text-slate-400 group-focus-within:text-[#84CC16] transition-colors" />
                                     </div>
                                     <Input
                                       placeholder="Enter custom storage..."
-                                      className="pl-14 pr-24 bg-slate-50/80 dark:bg-slate-900/50 border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-900 rounded-[20px] h-[56px] font-bold text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 focus-visible:bg-white dark:focus-visible:bg-slate-950 focus-visible:ring-4 focus-visible:ring-[#84CC16]/15 focus-visible:border-[#84CC16] transition-all shadow-sm"
+                                      style={{
+                                        height: "56px",
+                                        minHeight: "56px",
+                                        paddingLeft: "56px",
+                                      }}
+                                      className="w-full px-0 !pl-14 pr-24 bg-slate-50/80 dark:bg-slate-900/50 border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-900 rounded-[20px] !h-[56px] !min-h-[56px] font-bold text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 focus-visible:bg-white dark:focus-visible:bg-slate-950 focus-visible:ring-4 focus-visible:ring-[#84CC16]/15 focus-visible:border-[#84CC16] transition-all shadow-sm"
                                       value={value}
                                       onChange={(event) =>
                                         updateMultiValueField(
@@ -3441,22 +3478,11 @@ export function InventoryFormModal({
                             </div>
                           );
                         })}
-                        <div className="flex items-center justify-between">
-                          <input
-                            type="hidden"
-                            {...field}
-                            value={joinMultiValueField(storageValues)}
-                          />
-                          <Button
-                            type="button"
-                            variant="outline"
-                            onClick={() => addMultiValueField("storage")}
-                            className="rounded-2xl border-slate-200 px-4 h-10 font-black uppercase tracking-widest text-[10px] hover:border-[#84CC16] hover:text-[#84CC16]"
-                          >
-                            <Plus className="w-3.5 h-3.5 mr-2" />
-                            Add Storage
-                          </Button>
-                        </div>
+                        <input
+                          type="hidden"
+                          {...field}
+                          value={joinMultiValueField(storageValues)}
+                        />
                       </div>
                     </FormItem>
                   )}
@@ -3474,13 +3500,18 @@ export function InventoryFormModal({
                         Model Number
                       </FormLabel>
                       <FormControl>
-                        <div className="relative group">
-                          <div className="absolute left-2 top-1/2 -translate-y-1/2 w-10 h-10 bg-white dark:bg-slate-800 rounded-[14px] flex items-center justify-center shadow-sm border border-slate-100 dark:border-slate-700 group-focus-within:border-[#84CC16]/30 group-focus-within:bg-[#84CC16]/5 transition-all z-10">
+                        <div className="relative group w-full">
+                          <div className="absolute left-2 top-1/2 -translate-y-1/2 w-10 h-10 bg-white dark:bg-slate-800 rounded-[14px] flex items-center justify-center shadow-sm border border-slate-100 dark:border-slate-700 group-focus-within:border-[#84CC16]/30 group-focus-within:bg-[#84CC16]/5 transition-all z-10 pointer-events-none">
                             <Hash className="w-4 h-4 text-slate-400 group-focus-within:text-[#84CC16] transition-colors" />
                           </div>
                           <Input
                             placeholder="A1901"
-                            className="pl-14 pr-4 bg-slate-50/80 dark:bg-slate-900/50 border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-900 rounded-[20px] h-[56px] font-bold text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 focus-visible:bg-white dark:focus-visible:bg-slate-950 focus-visible:ring-4 focus-visible:ring-[#84CC16]/15 focus-visible:border-[#84CC16] transition-all shadow-sm"
+                            style={{
+                              height: "56px",
+                              minHeight: "56px",
+                              paddingLeft: "56px",
+                            }}
+                            className="w-full px-0 !pl-14 pr-4 bg-slate-50/80 dark:bg-slate-900/50 border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-900 rounded-[20px] !h-[56px] !min-h-[56px] font-bold text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 focus-visible:bg-white dark:focus-visible:bg-slate-950 focus-visible:ring-4 focus-visible:ring-[#84CC16]/15 focus-visible:border-[#84CC16] transition-all shadow-sm"
                             {...field}
                           />
                         </div>
@@ -3501,13 +3532,18 @@ export function InventoryFormModal({
                         IMEI / Serial Number
                       </FormLabel>
                       <FormControl>
-                        <div className="relative group">
-                          <div className="absolute left-2 top-1/2 -translate-y-1/2 w-10 h-10 bg-white dark:bg-slate-800 rounded-[14px] flex items-center justify-center shadow-sm border border-slate-100 dark:border-slate-700 group-focus-within:border-[#84CC16]/30 group-focus-within:bg-[#84CC16]/5 transition-all z-10">
+                        <div className="relative group w-full">
+                          <div className="absolute left-2 top-1/2 -translate-y-1/2 w-10 h-10 bg-white dark:bg-slate-800 rounded-[14px] flex items-center justify-center shadow-sm border border-slate-100 dark:border-slate-700 group-focus-within:border-[#84CC16]/30 group-focus-within:bg-[#84CC16]/5 transition-all z-10 pointer-events-none">
                             <Barcode className="w-4 h-4 text-slate-400 group-focus-within:text-[#84CC16] transition-colors" />
                           </div>
                           <Input
                             placeholder="123456789012345"
-                            className="pl-14 pr-4 bg-slate-50/80 dark:bg-slate-900/50 border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-900 rounded-[20px] h-[56px] font-bold text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 focus-visible:bg-white dark:focus-visible:bg-slate-950 focus-visible:ring-4 focus-visible:ring-[#84CC16]/15 focus-visible:border-[#84CC16] transition-all shadow-sm"
+                            style={{
+                              height: "56px",
+                              minHeight: "56px",
+                              paddingLeft: "56px",
+                            }}
+                            className="w-full px-0 !pl-14 pr-4 bg-slate-50/80 dark:bg-slate-900/50 border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-900 rounded-[20px] !h-[56px] !min-h-[56px] font-bold text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 focus-visible:bg-white dark:focus-visible:bg-slate-950 focus-visible:ring-4 focus-visible:ring-[#84CC16]/15 focus-visible:border-[#84CC16] transition-all shadow-sm"
                             {...field}
                           />
                         </div>
@@ -3548,8 +3584,8 @@ export function InventoryFormModal({
                         Cost Price ({currency})
                       </FormLabel>
                       <FormControl>
-                        <div className="relative group">
-                          <div className="absolute left-2 top-1/2 -translate-y-1/2 w-10 h-10 bg-white dark:bg-slate-800 rounded-[14px] flex items-center justify-center shadow-sm border border-slate-100 dark:border-slate-700 group-focus-within:border-[#84CC16]/30 group-focus-within:bg-[#84CC16]/5 transition-all z-10">
+                        <div className="relative group w-full">
+                          <div className="absolute left-2 top-1/2 -translate-y-1/2 w-10 h-10 bg-white dark:bg-slate-800 rounded-[14px] flex items-center justify-center shadow-sm border border-slate-100 dark:border-slate-700 group-focus-within:border-[#84CC16]/30 group-focus-within:bg-[#84CC16]/5 transition-all z-10 pointer-events-none">
                             <span className="font-black text-sm text-slate-400 group-focus-within:text-[#84CC16] transition-colors">
                               {currencySymbol}
                             </span>
@@ -3557,7 +3593,12 @@ export function InventoryFormModal({
                           <Input
                             type="number"
                             placeholder="200"
-                            className="pl-14 pr-4 bg-slate-50/80 dark:bg-slate-900/50 border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-900 rounded-[20px] h-[56px] font-bold text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 focus-visible:bg-white dark:focus-visible:bg-slate-950 focus-visible:ring-4 focus-visible:ring-[#84CC16]/15 focus-visible:border-[#84CC16] transition-all shadow-sm"
+                            style={{
+                              height: "56px",
+                              minHeight: "56px",
+                              paddingLeft: "56px",
+                            }}
+                            className="w-full px-0 !pl-14 pr-4 bg-slate-50/80 dark:bg-slate-900/50 border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-900 rounded-[20px] !h-[56px] !min-h-[56px] font-bold text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 focus-visible:bg-white dark:focus-visible:bg-slate-950 focus-visible:ring-4 focus-visible:ring-[#84CC16]/15 focus-visible:border-[#84CC16] transition-all shadow-sm"
                             {...field}
                           />
                         </div>
@@ -3579,8 +3620,8 @@ export function InventoryFormModal({
                         <span className="text-red-500">*</span>
                       </FormLabel>
                       <FormControl>
-                        <div className="relative group">
-                          <div className="absolute left-2 top-1/2 -translate-y-1/2 w-10 h-10 bg-white dark:bg-slate-800 rounded-[14px] flex items-center justify-center shadow-sm border border-slate-100 dark:border-slate-700 group-focus-within:border-[#84CC16]/30 group-focus-within:bg-[#84CC16]/5 transition-all z-10">
+                        <div className="relative group w-full">
+                          <div className="absolute left-2 top-1/2 -translate-y-1/2 w-10 h-10 bg-white dark:bg-slate-800 rounded-[14px] flex items-center justify-center shadow-sm border border-slate-100 dark:border-slate-700 group-focus-within:border-[#84CC16]/30 group-focus-within:bg-[#84CC16]/5 transition-all z-10 pointer-events-none">
                             <span className="font-black text-sm text-slate-400 group-focus-within:text-[#84CC16] transition-colors">
                               {currencySymbol}
                             </span>
@@ -3588,7 +3629,12 @@ export function InventoryFormModal({
                           <Input
                             type="number"
                             placeholder="300"
-                            className="pl-14 pr-4 bg-slate-50/80 dark:bg-slate-900/50 border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-900 rounded-[20px] h-[56px] font-bold text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 focus-visible:bg-white dark:focus-visible:bg-slate-950 focus-visible:ring-4 focus-visible:ring-[#84CC16]/15 focus-visible:border-[#84CC16] transition-all shadow-sm"
+                            style={{
+                              height: "56px",
+                              minHeight: "56px",
+                              paddingLeft: "56px",
+                            }}
+                            className="w-full px-0 !pl-14 pr-4 bg-slate-50/80 dark:bg-slate-900/50 border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-900 rounded-[20px] !h-[56px] !min-h-[56px] font-bold text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 focus-visible:bg-white dark:focus-visible:bg-slate-950 focus-visible:ring-4 focus-visible:ring-[#84CC16]/15 focus-visible:border-[#84CC16] transition-all shadow-sm"
                             {...field}
                           />
                         </div>
@@ -3609,14 +3655,19 @@ export function InventoryFormModal({
                         Quantity
                       </FormLabel>
                       <FormControl>
-                        <div className="relative group">
-                          <div className="absolute left-2 top-1/2 -translate-y-1/2 w-10 h-10 bg-white dark:bg-slate-800 rounded-[14px] flex items-center justify-center shadow-sm border border-slate-100 dark:border-slate-700 group-focus-within:border-[#84CC16]/30 group-focus-within:bg-[#84CC16]/5 transition-all z-10">
+                        <div className="relative group w-full">
+                          <div className="absolute left-2 top-1/2 -translate-y-1/2 w-10 h-10 bg-white dark:bg-slate-800 rounded-[14px] flex items-center justify-center shadow-sm border border-slate-100 dark:border-slate-700 group-focus-within:border-[#84CC16]/30 group-focus-within:bg-[#84CC16]/5 transition-all z-10 pointer-events-none">
                             <Layers className="w-4 h-4 text-slate-400 group-focus-within:text-[#84CC16] transition-colors" />
                           </div>
                           <Input
                             type="number"
                             placeholder="1"
-                            className="pl-14 pr-4 bg-slate-50/80 dark:bg-slate-900/50 border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-900 rounded-[20px] h-[56px] font-bold text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 focus-visible:bg-white dark:focus-visible:bg-slate-950 focus-visible:ring-4 focus-visible:ring-[#84CC16]/15 focus-visible:border-[#84CC16] transition-all shadow-sm"
+                            style={{
+                              height: "56px",
+                              minHeight: "56px",
+                              paddingLeft: "56px",
+                            }}
+                            className="w-full px-0 !pl-14 pr-4 bg-slate-50/80 dark:bg-slate-900/50 border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-900 rounded-[20px] !h-[56px] !min-h-[56px] font-bold text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 focus-visible:bg-white dark:focus-visible:bg-slate-950 focus-visible:ring-4 focus-visible:ring-[#84CC16]/15 focus-visible:border-[#84CC16] transition-all shadow-sm"
                             {...field}
                           />
                         </div>
@@ -3637,14 +3688,19 @@ export function InventoryFormModal({
                         Min Stock Level
                       </FormLabel>
                       <FormControl>
-                        <div className="relative group">
-                          <div className="absolute left-2 top-1/2 -translate-y-1/2 w-10 h-10 bg-white dark:bg-slate-800 rounded-[14px] flex items-center justify-center shadow-sm border border-slate-100 dark:border-slate-700 group-focus-within:border-[#84CC16]/30 group-focus-within:bg-[#84CC16]/5 transition-all z-10">
+                        <div className="relative group w-full">
+                          <div className="absolute left-2 top-1/2 -translate-y-1/2 w-10 h-10 bg-white dark:bg-slate-800 rounded-[14px] flex items-center justify-center shadow-sm border border-slate-100 dark:border-slate-700 group-focus-within:border-[#84CC16]/30 group-focus-within:bg-[#84CC16]/5 transition-all z-10 pointer-events-none">
                             <AlertTriangle className="w-4 h-4 text-slate-400 group-focus-within:text-[#84CC16] transition-colors" />
                           </div>
                           <Input
                             type="number"
                             placeholder="2"
-                            className="pl-14 pr-4 bg-slate-50/80 dark:bg-slate-900/50 border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-900 rounded-[20px] h-[56px] font-bold text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 focus-visible:bg-white dark:focus-visible:bg-slate-950 focus-visible:ring-4 focus-visible:ring-[#84CC16]/15 focus-visible:border-[#84CC16] transition-all shadow-sm"
+                            style={{
+                              height: "56px",
+                              minHeight: "56px",
+                              paddingLeft: "56px",
+                            }}
+                            className="w-full px-0 !pl-14 pr-4 bg-slate-50/80 dark:bg-slate-900/50 border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-900 rounded-[20px] !h-[56px] !min-h-[56px] font-bold text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 focus-visible:bg-white dark:focus-visible:bg-slate-950 focus-visible:ring-4 focus-visible:ring-[#84CC16]/15 focus-visible:border-[#84CC16] transition-all shadow-sm"
                             {...field}
                           />
                         </div>
@@ -3738,14 +3794,19 @@ export function InventoryFormModal({
                         Supplier
                       </FormLabel>
                       <div className="relative" ref={supplierDropdownRef}>
-                        <div className="absolute left-2 top-1/2 -translate-y-1/2 w-10 h-10 bg-white dark:bg-slate-800 rounded-[14px] flex items-center justify-center shadow-sm border border-slate-100 dark:border-slate-700 group-focus-within:border-[#84CC16]/30 group-focus-within:bg-[#84CC16]/5 transition-all z-10">
+                        <div className="absolute left-2 top-1/2 -translate-y-1/2 w-10 h-10 bg-white dark:bg-slate-800 rounded-[14px] flex items-center justify-center shadow-sm border border-slate-100 dark:border-slate-700 group-focus-within:border-[#84CC16]/30 group-focus-within:bg-[#84CC16]/5 transition-all z-10 pointer-events-none">
                           <Truck className="w-4 h-4 text-slate-400" />
                         </div>
                         <input
                           type="text"
                           placeholder="Search supplier..."
                           autoComplete="off"
-                          className="w-full pl-14 pr-10 bg-slate-50/80 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-900 rounded-[20px] h-[56px] font-bold text-sm text-slate-900 dark:text-white placeholder:text-slate-400 focus-visible:bg-white dark:focus-visible:bg-slate-950 focus-visible:ring-4 focus-visible:ring-[#84CC16]/15 focus-visible:border-[#84CC16] transition-all shadow-sm"
+                          style={{
+                            height: "56px",
+                            minHeight: "56px",
+                            paddingLeft: "56px",
+                          }}
+                          className="w-full px-0 !pl-14 pr-10 bg-slate-50/80 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-900 rounded-[20px] !h-[56px] !min-h-[56px] font-bold text-sm text-slate-900 dark:text-white placeholder:text-slate-400 focus-visible:bg-white dark:focus-visible:bg-slate-950 focus-visible:ring-4 focus-visible:ring-[#84CC16]/15 focus-visible:border-[#84CC16] transition-all shadow-sm"
                           value={
                             field.value
                               ? suppliers.find((s) => s._id === field.value)
@@ -3846,13 +3907,18 @@ export function InventoryFormModal({
                         Batch / Group Key
                       </FormLabel>
                       <FormControl>
-                        <div className="relative group">
-                          <div className="absolute left-2 top-1/2 -translate-y-1/2 w-10 h-10 bg-white dark:bg-slate-800 rounded-[14px] flex items-center justify-center shadow-sm border border-slate-100 dark:border-slate-700 group-focus-within:border-[#84CC16]/30 group-focus-within:bg-[#84CC16]/5 transition-all z-10">
+                        <div className="relative group w-full">
+                          <div className="absolute left-2 top-1/2 -translate-y-1/2 w-10 h-10 bg-white dark:bg-slate-800 rounded-[14px] flex items-center justify-center shadow-sm border border-slate-100 dark:border-slate-700 group-focus-within:border-[#84CC16]/30 group-focus-within:bg-[#84CC16]/5 transition-all z-10 pointer-events-none">
                             <Layers className="w-4 h-4 text-slate-400 group-focus-within:text-[#84CC16] transition-colors" />
                           </div>
                           <Input
                             placeholder="e.g. iphone-x-batch-1"
-                            className="pl-14 pr-4 bg-slate-50/80 dark:bg-slate-900/50 border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-900 rounded-[20px] h-[56px] font-bold text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 focus-visible:bg-white dark:focus-visible:bg-slate-950 focus-visible:ring-4 focus-visible:ring-[#84CC16]/15 focus-visible:border-[#84CC16] transition-all shadow-sm"
+                            style={{
+                              height: "56px",
+                              minHeight: "56px",
+                              paddingLeft: "56px",
+                            }}
+                            className="w-full px-0 !pl-14 pr-4 bg-slate-50/80 dark:bg-slate-900/50 border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-900 rounded-[20px] !h-[56px] !min-h-[56px] font-bold text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 focus-visible:bg-white dark:focus-visible:bg-slate-950 focus-visible:ring-4 focus-visible:ring-[#84CC16]/15 focus-visible:border-[#84CC16] transition-all shadow-sm"
                             {...field}
                           />
                         </div>
@@ -3887,19 +3953,28 @@ export function InventoryFormModal({
                               field.value === "new" ||
                               field.value === "good condition"
                                 ? field.value
-                                : "Other"
+                                : field.value
+                                  ? "Other"
+                                  : undefined
                             }
                           >
-                            <FormControl>
-                              <SelectTrigger className="group bg-slate-50/80 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-900 rounded-[20px] h-[56px] font-bold text-slate-900 dark:text-white focus:bg-white dark:focus:bg-slate-950 focus:ring-4 focus:ring-[#84CC16]/15 focus:border-[#84CC16] transition-all shadow-sm px-2">
-                                <div className="flex items-center gap-3 w-full">
-                                  <div className="w-10 h-10 rounded-[14px] flex items-center justify-center shadow-sm border border-slate-100 group-focus:border-[#84CC16]/30 group-focus:bg-[#84CC16]/5 transition-all shrink-0">
-                                    <Activity className="w-4 h-4 text-slate-400 group-focus:text-[#84CC16] transition-colors" />
-                                  </div>
+                            <div className="relative group w-full">
+                              <div className="absolute left-2 top-1/2 -translate-y-1/2 w-10 h-10 bg-white dark:bg-slate-800 rounded-[14px] flex items-center justify-center shadow-sm border border-slate-100 dark:border-slate-700 group-focus-within:border-[#84CC16]/30 group-focus-within:bg-[#84CC16]/5 transition-all z-10 pointer-events-none">
+                                <Activity className="w-4 h-4 text-slate-400 group-focus-within:text-[#84CC16] transition-colors" />
+                              </div>
+                              <FormControl>
+                                <SelectTrigger
+                                  style={{
+                                    height: "56px",
+                                    minHeight: "56px",
+                                    paddingLeft: "56px",
+                                  }}
+                                  className="w-full bg-slate-50/80 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-900 rounded-[20px] !h-[56px] !min-h-[56px] font-bold text-slate-900 dark:text-white focus:bg-white dark:focus:bg-slate-950 focus:ring-4 focus:ring-[#84CC16]/15 focus:border-[#84CC16] transition-all shadow-sm px-0 !pl-14 pr-4"
+                                >
                                   <SelectValue placeholder="Condition" />
-                                </div>
-                              </SelectTrigger>
-                            </FormControl>
+                                </SelectTrigger>
+                              </FormControl>
+                            </div>
                             <SelectContent className="rounded-2xl border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xl p-1">
                               <SelectItem
                                 value="new"
@@ -3922,13 +3997,18 @@ export function InventoryFormModal({
                             </SelectContent>
                           </Select>
                         ) : (
-                          <div className="relative group animate-in fade-in slide-in-from-left-2 duration-300">
-                            <div className="absolute left-2 top-1/2 -translate-y-1/2 w-10 h-10 bg-white dark:bg-slate-800 rounded-[14px] flex items-center justify-center shadow-sm border border-slate-100 dark:border-slate-700 group-focus-within:border-[#84CC16]/30 group-focus-within:bg-[#84CC16]/5 transition-all z-10">
+                          <div className="relative group w-full animate-in fade-in slide-in-from-left-2 duration-300">
+                            <div className="absolute left-2 top-1/2 -translate-y-1/2 w-10 h-10 bg-white dark:bg-slate-800 rounded-[14px] flex items-center justify-center shadow-sm border border-slate-100 dark:border-slate-700 group-focus-within:border-[#84CC16]/30 group-focus-within:bg-[#84CC16]/5 transition-all z-10 pointer-events-none">
                               <Activity className="w-4 h-4 text-slate-400 group-focus-within:text-[#84CC16] transition-colors" />
                             </div>
                             <Input
                               placeholder="e.g. Excellent, Refurbished..."
-                              className="pl-14 pr-24 bg-slate-50/80 dark:bg-slate-900/50 border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-900 rounded-[20px] h-[56px] font-bold text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 focus-visible:bg-white dark:focus-visible:bg-slate-950 focus-visible:ring-4 focus-visible:ring-[#84CC16]/15 focus-visible:border-[#84CC16] transition-all shadow-sm"
+                              style={{
+                                height: "56px",
+                                minHeight: "56px",
+                                paddingLeft: "56px",
+                              }}
+                              className="w-full px-0 !pl-14 pr-24 bg-slate-50/80 dark:bg-slate-900/50 border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-900 rounded-[20px] !h-[56px] !min-h-[56px] font-bold text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 focus-visible:bg-white dark:focus-visible:bg-slate-950 focus-visible:ring-4 focus-visible:ring-[#84CC16]/15 focus-visible:border-[#84CC16] transition-all shadow-sm"
                               {...field}
                             />
                             <button
@@ -3965,19 +4045,26 @@ export function InventoryFormModal({
                           defaultValue={field.value}
                           value={field.value}
                         >
-                          <FormControl>
-                            <SelectTrigger className="group bg-slate-50/80 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-900 rounded-[20px] h-[56px] font-bold text-slate-900 dark:text-white focus:bg-white dark:focus:bg-slate-950 focus:ring-4 focus:ring-[#84CC16]/15 focus:border-[#84CC16] transition-all shadow-sm px-2">
-                              <div className="flex items-center gap-3 w-full">
-                                <div className="w-10 h-10   rounded-[14px] flex items-center justify-center shadow-sm border border-slate-100 group-focus:border-[#84CC16]/30 group-focus:bg-[#84CC16]/5 transition-all shrink-0 dark:text-white ">
-                                  <Tag className="w-4 h-4 text-slate-400 group-focus:text-[#84CC16] transition-colors" />
-                                </div>
+                          <div className="relative group w-full">
+                            <div className="absolute left-2 top-1/2 -translate-y-1/2 w-10 h-10 bg-white dark:bg-slate-800 rounded-[14px] flex items-center justify-center shadow-sm border border-slate-100 dark:border-slate-700 group-focus-within:border-[#84CC16]/30 group-focus-within:bg-[#84CC16]/5 transition-all z-10 pointer-events-none">
+                              <Tag className="w-4 h-4 text-slate-400 group-focus-within:text-[#84CC16] transition-colors" />
+                            </div>
+                            <FormControl>
+                              <SelectTrigger
+                                style={{
+                                  height: "56px",
+                                  minHeight: "56px",
+                                  paddingLeft: "56px",
+                                }}
+                                className="w-full bg-slate-50/80 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-900 rounded-[20px] !h-[56px] !min-h-[56px] font-bold text-slate-900 dark:text-white focus:bg-white dark:focus:bg-slate-950 focus:ring-4 focus:ring-[#84CC16]/15 focus:border-[#84CC16] transition-all shadow-sm px-0 !pl-14 pr-4"
+                              >
                                 <SelectValue
                                   placeholder="Type"
                                   className="dark:text-white "
                                 />
-                              </div>
-                            </SelectTrigger>
-                          </FormControl>
+                              </SelectTrigger>
+                            </FormControl>
+                          </div>
                           <SelectContent className="rounded-2xl border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xl p-1">
                             <SelectItem
                               value="inventory"
@@ -4197,16 +4284,23 @@ export function InventoryFormModal({
                                     : ""
                               }
                             >
-                              <FormControl>
-                                <SelectTrigger className="group bg-slate-50/80 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-900 rounded-[20px] h-[56px] font-bold text-slate-900 dark:text-white focus:bg-white dark:focus:bg-slate-950 focus:ring-4 focus:ring-[#84CC16]/15 focus:border-[#84CC16] transition-all shadow-sm px-2">
-                                  <div className="flex items-center gap-3 w-full">
-                                    <div className="w-10 h-10 rounded-[14px] flex items-center justify-center shadow-sm border border-slate-100 group-focus:border-[#84CC16]/30 group-focus:bg-[#84CC16]/5 transition-all shrink-0">
-                                      <CreditCard className="w-4 h-4 text-slate-400 group-focus:text-[#84CC16] transition-colors" />
-                                    </div>
+                              <div className="relative group w-full">
+                                <div className="absolute left-2 top-1/2 -translate-y-1/2 w-10 h-10 bg-white dark:bg-slate-800 rounded-[14px] flex items-center justify-center shadow-sm border border-slate-100 dark:border-slate-700 group-focus-within:border-[#84CC16]/30 group-focus-within:bg-[#84CC16]/5 transition-all z-10 pointer-events-none">
+                                  <CreditCard className="w-4 h-4 text-slate-400 group-focus-within:text-[#84CC16] transition-colors" />
+                                </div>
+                                <FormControl>
+                                  <SelectTrigger
+                                    style={{
+                                      height: "56px",
+                                      minHeight: "56px",
+                                      paddingLeft: "56px",
+                                    }}
+                                    className="w-full bg-slate-50/80 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-900 rounded-[20px] !h-[56px] !min-h-[56px] font-bold text-slate-900 dark:text-white focus:bg-white dark:focus:bg-slate-950 focus:ring-4 focus:ring-[#84CC16]/15 focus:border-[#84CC16] transition-all shadow-sm px-0 !pl-14 pr-4"
+                                  >
                                     <SelectValue placeholder="Method" />
-                                  </div>
-                                </SelectTrigger>
-                              </FormControl>
+                                  </SelectTrigger>
+                                </FormControl>
+                              </div>
                               <SelectContent className="rounded-2xl border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xl p-1">
                                 {SALE_METHODS.map((method) => (
                                   <SelectItem
@@ -4220,13 +4314,18 @@ export function InventoryFormModal({
                               </SelectContent>
                             </Select>
                           ) : (
-                            <div className="relative group animate-in fade-in slide-in-from-left-2 duration-300">
-                              <div className="absolute left-2 top-1/2 -translate-y-1/2 w-10 h-10 bg-white dark:bg-slate-800 rounded-[14px] flex items-center justify-center shadow-sm border border-slate-100 dark:border-slate-700 group-focus-within:border-[#84CC16]/30 group-focus-within:bg-[#84CC16]/5 transition-all z-10">
+                            <div className="relative group w-full animate-in fade-in slide-in-from-left-2 duration-300">
+                              <div className="absolute left-2 top-1/2 -translate-y-1/2 w-10 h-10 bg-white dark:bg-slate-800 rounded-[14px] flex items-center justify-center shadow-sm border border-slate-100 dark:border-slate-700 group-focus-within:border-[#84CC16]/30 group-focus-within:bg-[#84CC16]/5 transition-all z-10 pointer-events-none">
                                 <CreditCard className="w-4 h-4 text-slate-400 group-focus-within:text-[#84CC16] transition-colors" />
                               </div>
                               <Input
                                 placeholder="Enter custom method..."
-                                className="pl-14 pr-24 bg-slate-50/80 dark:bg-slate-900/50 border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-900 rounded-[20px] h-[56px] font-bold text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 focus-visible:bg-white dark:focus-visible:bg-slate-950 focus-visible:ring-4 focus-visible:ring-[#84CC16]/15 focus-visible:border-[#84CC16] transition-all shadow-sm"
+                                style={{
+                                  height: "56px",
+                                  minHeight: "56px",
+                                  paddingLeft: "56px",
+                                }}
+                                className="w-full px-0 !pl-14 pr-24 bg-slate-50/80 dark:bg-slate-900/50 border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-900 rounded-[20px] !h-[56px] !min-h-[56px] font-bold text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 focus-visible:bg-white dark:focus-visible:bg-slate-950 focus-visible:ring-4 focus-visible:ring-[#84CC16]/15 focus-visible:border-[#84CC16] transition-all shadow-sm"
                                 {...field}
                               />
                               <button
