@@ -892,6 +892,14 @@ export default function CreateInvoice() {
       } else if (paymentType === "due") {
         finalAlreadyPaid = 0;
         finalDueAmount = totalPrice;
+      } else if (paymentType === "cash") {
+        // If cash was chosen and cash received was left as 0, default to fully paid
+        if (!finalAlreadyPaid || finalAlreadyPaid <= 0) {
+          finalAlreadyPaid = totalPrice;
+          finalDueAmount = 0;
+        } else {
+          finalDueAmount = Math.max(0, totalPrice - finalAlreadyPaid);
+        }
       }
 
       let finalCustomerId = selectedCustomerId;
@@ -1626,7 +1634,15 @@ export default function CreateInvoice() {
           </div>
 
           <Button
-            onClick={() => setIsPaymentModalOpen(true)}
+            onClick={() => {
+              if (
+                paymentType === "cash" &&
+                (!alreadyPaid || alreadyPaid === 0)
+              ) {
+                setAlreadyPaid(totalPrice);
+              }
+              setIsPaymentModalOpen(true);
+            }}
             disabled={invoiceItems.filter((i) => i.name).length === 0}
             className="bg-primary hover:bg-primary/90 h-16 px-10 text-sm font-black rounded-full shadow-lg flex items-center gap-3 uppercase tracking-wider"
           >

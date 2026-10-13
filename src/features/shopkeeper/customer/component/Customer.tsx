@@ -380,16 +380,24 @@ export default function Customer() {
         hasDueWithoutPayment = customer.paymentStatus === "due";
       } else {
         customerInvs.forEach((inv) => {
+          const invType = String(inv.type || "")
+            .trim()
+            .toLowerCase();
+          const isPurchase =
+            invType === "purchase invoice" || invType === "purchase";
+
           const invAmount = Number(inv.totalAmount) || 0;
           const paid =
             Number(
               inv.amountPaid ??
                 inv.paymentDetails?.amountPaid ??
-                (inv.paymentStatus === "paid" ? invAmount : 0),
+                (inv.paymentStatus === "paid" || isPurchase ? invAmount : 0),
             ) || 0;
 
           let due = 0;
-          if (inv.dueAmount !== null && inv.dueAmount !== undefined) {
+          if (isPurchase) {
+            due = 0;
+          } else if (inv.dueAmount !== null && inv.dueAmount !== undefined) {
             due = Number(inv.dueAmount);
           } else {
             due = Math.max(0, invAmount - paid);
@@ -1931,6 +1939,13 @@ export default function Customer() {
                       <TableBody>
                         {customerInvoicesList.map(
                           (invoice: CustomerInvoiceItem) => {
+                            const invType = String(invoice.type || "")
+                              .trim()
+                              .toLowerCase();
+                            const isPurchase =
+                              invType === "purchase invoice" ||
+                              invType === "purchase";
+
                             const invAmount =
                               Number(
                                 invoice.totalAmount ?? invoice.invoiceAmount,
@@ -1939,13 +1954,15 @@ export default function Customer() {
                               Number(
                                 invoice.paidAmount ??
                                   invoice.amountPaid ??
-                                  (invoice.paymentStatus === "paid"
+                                  (invoice.paymentStatus === "paid" ||
+                                  isPurchase
                                     ? invAmount
                                     : 0),
                               ) || 0;
-                            const dueAmt =
-                              invoice.dueAmount !== null &&
-                              invoice.dueAmount !== undefined
+                            const dueAmt = isPurchase
+                              ? 0
+                              : invoice.dueAmount !== null &&
+                                  invoice.dueAmount !== undefined
                                 ? Number(invoice.dueAmount)
                                 : Math.max(0, invAmount - paidAmt);
                             const derivedStatus =
@@ -1955,9 +1972,7 @@ export default function Customer() {
                                   ? "partial"
                                   : "due";
 
-                            const isDelivery = String(invoice.type || "")
-                              .toLowerCase()
-                              .includes("delivery");
+                            const isDelivery = invType.includes("delivery");
 
                             return (
                               <TableRow
