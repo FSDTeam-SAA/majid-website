@@ -15,6 +15,7 @@ import {
   Store,
   FileText,
   CreditCard,
+  Smartphone,
 } from "lucide-react";
 
 const tabs = [
@@ -36,6 +37,11 @@ const tabs = [
   },
   { label: "My Shop", href: "/shopkeeper/settings/my-shop", icon: Store },
   { label: "Staff", href: "/shopkeeper/settings/staff", icon: UsersRound },
+  {
+    label: "NFC Attendance",
+    href: "/shopkeeper/settings/nfc",
+    icon: Smartphone,
+  },
   { label: "Password", href: "/shopkeeper/settings/password", icon: KeyRound },
   { label: "Support", href: "/shopkeeper/settings/support", icon: Headphones },
 ];

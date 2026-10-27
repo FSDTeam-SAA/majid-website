@@ -16,6 +16,8 @@ import {
   SearchCheckIcon,
   User,
   ShoppingCart,
+  CalendarDays,
+  Wallet,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -104,6 +106,16 @@ const navItems = [
     icon: <Wrench size={20} />,
     label: "Repair Requests",
     href: "/shopkeeper/repair-requests",
+  },
+  {
+    icon: <CalendarDays size={20} />,
+    label: "Staff Rota",
+    href: "/shopkeeper/rota",
+  },
+  {
+    icon: <Wallet size={20} />,
+    label: "Staff Wages",
+    href: "/shopkeeper/wages",
   },
   {
     icon: <Settings size={20} />,
