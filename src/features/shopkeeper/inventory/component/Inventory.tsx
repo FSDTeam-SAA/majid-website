@@ -6,6 +6,7 @@ import {
   MoreVertical,
   Search,
   Eye,
+  EyeOff,
   Trash2,
   Edit2,
   Package,
@@ -15,6 +16,8 @@ import {
   Loader2,
   Printer,
   Download,
+  Settings,
+  RotateCcw,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import Image from "next/image";
@@ -22,10 +25,12 @@ import {
   useMyInventory,
   useDeleteInventory,
   useAddToShopkeeperCart,
-  useCategories,
+  useCategoriesWithCount,
   useCreateCategory,
   useUpdateCategory,
   useDeleteCategory,
+  useToggleCategoryVisibility,
+  useResetCategoryImage,
 } from "../hooks/useInventory";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
@@ -39,6 +44,7 @@ import { PrintLabelModal } from "./modals/PrintLabelModal";
 import { ImportCsvTab } from "./ImportCsvTab";
 import { ImageGalleryModal } from "./modals/ImageGalleryModal";
 import { DeleteCategoryWarningModal } from "./modals/DeleteCategoryWarningModal";
+import { ManageCategoriesModal } from "./modals/ManageCategoriesModal";
 import type { Category, InventoryItem } from "../types";
 import { exportInventoryToCsv } from "../utils/csvUtils";
 import { toast } from "sonner";
@@ -62,21 +68,24 @@ type ActiveTab = "inventory" | "import-csv";
 const SELL_QUANTITY = 1;
 
 const getCategoryImageSrc = (src: string) => {
+  if (!src) return "";
+  if (src.startsWith("/")) return src;
   if (src.startsWith("http://") || src.startsWith("https://")) {
     return `/api/image-proxy?url=${encodeURIComponent(src)}`;
   }
-
   return src;
 };
 
 const getCategoryImageUrl = (category: Category) => {
-  if (!category.image) return "";
-
-  if (typeof category.image === "string") {
-    return category.image;
+  if (category.image) {
+    if (typeof category.image === "string") return category.image;
+    if (category.image.url) return category.image.url;
   }
-
-  return category.image.url ?? "";
+  if (category.defaultImage) {
+    if (typeof category.defaultImage === "string") return category.defaultImage;
+    if (category.defaultImage.url) return category.defaultImage.url;
+  }
+  return "";
 };
 
 const getInventoryImageUrl = (item: InventoryItem) => {
@@ -101,7 +110,7 @@ export default function Inventory() {
     data: categoriesData,
     isLoading: isCategoriesLoading,
     isError: isCategoriesError,
-  } = useCategories();
+  } = useCategoriesWithCount();
   const { activeShopId } = useShop();
 
   const {
@@ -119,6 +128,8 @@ export default function Inventory() {
     useUpdateCategory();
   const { mutate: deleteCategory, isPending: isDeletingCategory } =
     useDeleteCategory();
+  const { mutate: toggleVisibility } = useToggleCategoryVisibility();
+  const { mutate: resetImage } = useResetCategoryImage();
   const { data: session } = useSession();
   const router = useRouter();
   const shopkeeperId = (session?.user as { id?: string })?.id;
@@ -126,6 +137,8 @@ export default function Inventory() {
 
   const [activeTab, setActiveTab] = useState<ActiveTab>("inventory");
   const [isCategoryFormOpen, setIsCategoryFormOpen] = useState(false);
+  const [isManageModalOpen, setIsManageModalOpen] = useState(false);
+  const [selectedSubtype, setSelectedSubtype] = useState<string>("all");
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
   const [categoryToDelete, setCategoryToDelete] = useState<Category | null>(
     null,
@@ -135,6 +148,30 @@ export default function Inventory() {
   const [categoryImagePreview, setCategoryImagePreview] = useState("");
 
   const categories = categoriesData?.data || [];
+
+  const handleHideCategory = (category: Category) => {
+    toggleVisibility(
+      { id: category._id, isHidden: true },
+      {
+        onSuccess: () => {
+          toast.success(`"${category.name}" hidden from categories`);
+          if (selectedCategory?._id === category._id) {
+            setSelectedCategory(null);
+          }
+        },
+        onError: () => toast.error("Failed to hide category"),
+      },
+    );
+  };
+
+  const handleResetImage = (category: Category) => {
+    resetImage(category._id, {
+      onSuccess: () => {
+        toast.success(`Reset image for "${category.name}" to default`);
+      },
+      onError: () => toast.error("Failed to reset category image"),
+    });
+  };
 
   const handleSell = (item: InventoryItem) => {
     if (!shopkeeperId) {
@@ -173,12 +210,29 @@ export default function Inventory() {
   );
 
   const filteredItems = useMemo(() => {
-    return items.filter(
-      (item: InventoryItem) =>
+    return items.filter((item: InventoryItem) => {
+      const matchesSearch =
         item.itemName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        item.imeiNumber?.toLowerCase().includes(searchQuery.toLowerCase()),
-    );
-  }, [items, searchQuery]);
+        item.imeiNumber?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        item.serialNumber?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        item.sku?.toLowerCase().includes(searchQuery.toLowerCase());
+
+      if (!matchesSearch) return false;
+
+      if (selectedSubtype === "all") return true;
+
+      const attrs = (item.categoryAttributes as Record<string, string>) || {};
+      const sub =
+        attrs.accessorySubtype ||
+        attrs.careSubtype ||
+        attrs.watchItemType ||
+        attrs.vapeType ||
+        attrs.gamingItemType ||
+        "";
+
+      return sub.toLowerCase().includes(selectedSubtype.toLowerCase());
+    });
+  }, [items, searchQuery, selectedSubtype]);
 
   const stockItems = filteredItems;
 
@@ -340,12 +394,19 @@ export default function Inventory() {
                 Inventory Categories
               </h1>
               <p className="text-sm font-bold text-muted-foreground">
-                {categories.length} categor
-                {categories.length === 1 ? "y" : "ies"} available
+                15 default categories • Available to every business •{" "}
+                {categories.length} active
               </p>
             </div>
 
             <div className="flex flex-wrap items-center gap-3">
+              <button
+                onClick={() => setIsManageModalOpen(true)}
+                className="flex h-12 items-center justify-center gap-2 rounded-xl bg-card border border-border px-4 text-sm font-black text-foreground shadow-sm transition hover:border-[#84CC16]/50 hover:bg-[#84CC16]/5 active:scale-95 cursor-pointer"
+              >
+                <Settings size={17} className="text-[#84CC16]" />
+                Manage Categories
+              </button>
               <button
                 onClick={() => {
                   setEditingItem(null);
@@ -408,7 +469,7 @@ export default function Inventory() {
                           <DropdownMenuTrigger asChild>
                             <button
                               onClick={(event) => event.stopPropagation()}
-                              className="flex h-9 w-9 items-center justify-center rounded-lg bg-white/90 text-slate-500 shadow-sm backdrop-blur transition hover:text-slate-900"
+                              className="flex h-9 w-9 items-center justify-center rounded-lg bg-white/90 dark:bg-slate-800/90 text-slate-500 shadow-sm backdrop-blur transition hover:text-slate-900 dark:hover:text-white"
                               aria-label={`Manage ${category.name}`}
                             >
                               <MoreVertical size={16} />
@@ -416,23 +477,41 @@ export default function Inventory() {
                           </DropdownMenuTrigger>
                           <DropdownMenuContent
                             align="end"
-                            className="rounded-xl border-slate-100 p-2 shadow-xl"
+                            className="rounded-xl border-slate-100 dark:border-slate-800 p-2 shadow-xl bg-card"
                             onClick={(event) => event.stopPropagation()}
                           >
                             <DropdownMenuItem
-                              onClick={() => openCategoryForm(category)}
-                              className="flex items-center gap-2 p-3 font-bold text-xs rounded-lg cursor-pointer"
+                              onClick={() => handleHideCategory(category)}
+                              className="flex items-center gap-2 p-2.5 font-bold text-xs rounded-lg cursor-pointer"
                             >
-                              <Edit2 size={14} />
-                              Edit Category
+                              <EyeOff size={14} className="text-amber-500" />
+                              Hide Category
                             </DropdownMenuItem>
                             <DropdownMenuItem
-                              onClick={() => openCategoryDeleteModal(category)}
-                              className="flex items-center gap-2 p-3 font-bold text-xs rounded-lg text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 cursor-pointer"
+                              onClick={() => openCategoryForm(category)}
+                              className="flex items-center gap-2 p-2.5 font-bold text-xs rounded-lg cursor-pointer"
                             >
-                              <Trash2 size={14} />
-                              Delete
+                              <Edit2 size={14} className="text-[#84CC16]" />
+                              Change Image
                             </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() => handleResetImage(category)}
+                              className="flex items-center gap-2 p-2.5 font-bold text-xs rounded-lg cursor-pointer"
+                            >
+                              <RotateCcw size={14} className="text-slate-500" />
+                              Reset Default Image
+                            </DropdownMenuItem>
+                            {!category.isDefault && (
+                              <DropdownMenuItem
+                                onClick={() =>
+                                  openCategoryDeleteModal(category)
+                                }
+                                className="flex items-center gap-2 p-2.5 font-bold text-xs rounded-lg text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 cursor-pointer"
+                              >
+                                <Trash2 size={14} />
+                                Delete
+                              </DropdownMenuItem>
+                            )}
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </div>
@@ -444,7 +523,9 @@ export default function Inventory() {
                           {category.name}
                         </h2>
                         <p className="mt-1 text-xs font-bold text-slate-400">
-                          Open inventory
+                          {category.itemCount !== undefined
+                            ? `${category.itemCount} ${category.itemCount === 1 ? "item" : "items"} in stock`
+                            : "Open inventory"}
                         </p>
                       </div>
                       <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#84CC16]/10 text-[#84CC16]">
@@ -495,6 +576,10 @@ export default function Inventory() {
             item={editingItem}
             forceType={formForceType}
             categoryId={undefined}
+          />
+          <ManageCategoriesModal
+            isOpen={isManageModalOpen}
+            onClose={() => setIsManageModalOpen(false)}
           />
         </div>
       </div>
@@ -593,6 +678,92 @@ export default function Inventory() {
               Inventory
             </button>
           </div>
+
+          {/* Subtype Filters for Accessories & Care */}
+          {(() => {
+            const normName = selectedCategory.name.toLowerCase();
+            const isAccessories = normName.includes("accessor");
+            const isCare = normName.includes("care");
+            const speakersCat = categories.find(
+              (c: Category) =>
+                c.name.toLowerCase().includes("speaker") ||
+                (c as unknown as { key?: string })?.key === "speakers",
+            );
+
+            if (isAccessories) {
+              const subtypes = [
+                "all",
+                "Smart watches",
+                "Earphones",
+                "Headphones",
+                "Cables",
+                "Chargers",
+              ];
+              return (
+                <div className="flex flex-wrap items-center gap-2 pt-1 pb-2">
+                  <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 mr-1">
+                    Subtypes:
+                  </span>
+                  {subtypes.map((sub) => (
+                    <button
+                      key={sub}
+                      onClick={() => setSelectedSubtype(sub)}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${
+                        selectedSubtype === sub
+                          ? "bg-[#84CC16] text-white shadow-sm"
+                          : "bg-card border border-border text-foreground hover:bg-slate-100 dark:hover:bg-slate-800"
+                      }`}
+                    >
+                      {sub === "all" ? "All Accessories" : sub}
+                    </button>
+                  ))}
+                  {speakersCat && (
+                    <button
+                      onClick={() => {
+                        setSelectedCategory(speakersCat);
+                        setSelectedSubtype("all");
+                      }}
+                      className="ml-auto px-3 py-1.5 rounded-xl text-xs font-black bg-blue-50 hover:bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 border border-blue-200 dark:border-blue-800 transition flex items-center gap-1.5 cursor-pointer shadow-sm"
+                    >
+                      <span>🔊</span>
+                      <span>Speakers Category ↗</span>
+                    </button>
+                  )}
+                </div>
+              );
+            }
+
+            if (isCare) {
+              const subtypes = [
+                "all",
+                "Screen protectors",
+                "Camera protectors",
+                "Protective cases",
+              ];
+              return (
+                <div className="flex flex-wrap items-center gap-2 pt-1 pb-2">
+                  <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 mr-1">
+                    Care Types:
+                  </span>
+                  {subtypes.map((sub) => (
+                    <button
+                      key={sub}
+                      onClick={() => setSelectedSubtype(sub)}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${
+                        selectedSubtype === sub
+                          ? "bg-[#84CC16] text-white shadow-sm"
+                          : "bg-card border border-border text-foreground hover:bg-slate-100 dark:hover:bg-slate-800"
+                      }`}
+                    >
+                      {sub === "all" ? "All Care" : sub}
+                    </button>
+                  ))}
+                </div>
+              );
+            }
+
+            return null;
+          })()}
         </div>
 
         {/* ── Tab content ── */}
@@ -816,6 +987,10 @@ export default function Inventory() {
           isOpen={!!printLabelItem}
           onClose={() => setPrintLabelItem(null)}
           item={printLabelItem}
+        />
+        <ManageCategoriesModal
+          isOpen={isManageModalOpen}
+          onClose={() => setIsManageModalOpen(false)}
         />
       </div>
     </div>

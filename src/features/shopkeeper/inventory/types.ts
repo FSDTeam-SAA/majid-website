@@ -31,7 +31,27 @@ export const InventoryItemSchema = z.object({
   storage: z.string().optional(),
   size: z.string().optional(),
   imeiNumber: z.string().optional(),
+  serialNumber: z.string().optional(),
   modelNumber: z.string().optional(),
+  stockUnit: z.enum(["single", "pack"]).optional(),
+  itemsPerPack: z.number().optional(),
+  batchNumber: z.string().optional(),
+  expiryDate: z.string().optional(),
+  periodAfterOpening: z.string().optional(),
+  packagingCondition: z.enum(["sealed", "open", "damaged"]).optional(),
+  categoryAttributes: z.record(z.any()).optional(),
+  units: z
+    .array(
+      z.object({
+        serialNumber: z.string().optional(),
+        imeiNumber: z.string().optional(),
+        condition: z.string().optional(),
+        batteryHealth: z.any().optional(),
+        costPrice: z.number().optional(),
+        status: z.string().optional(),
+      }),
+    )
+    .optional(),
   quantity: z.number().optional(),
   purchasePrice: z.number().optional(),
   expectedPrice: z.number(),
@@ -107,7 +127,27 @@ export const CreateInventorySchema = z.object({
   storage: z.string().optional(),
   size: z.string().optional(),
   imeiNumber: z.string().optional(),
+  serialNumber: z.string().optional(),
   modelNumber: z.string().optional(),
+  stockUnit: z.enum(["single", "pack"]).optional(),
+  itemsPerPack: z.coerce.number().optional(),
+  batchNumber: z.string().optional(),
+  expiryDate: z.string().optional(),
+  periodAfterOpening: z.string().optional(),
+  packagingCondition: z.enum(["sealed", "open", "damaged"]).optional(),
+  categoryAttributes: z.record(z.any()).optional(),
+  units: z
+    .array(
+      z.object({
+        serialNumber: z.string().optional(),
+        imeiNumber: z.string().optional(),
+        condition: z.string().optional(),
+        batteryHealth: z.any().optional(),
+        costPrice: z.number().optional(),
+        status: z.string().optional(),
+      }),
+    )
+    .optional(),
   quantity: z.coerce.number().min(1, "Quantity must be at least 1"),
   purchasePrice: z.coerce.number().optional(),
   expectedPrice: z.coerce
@@ -145,6 +185,28 @@ export const UpdateInventorySchema = z.object({
   color: z.string().optional(),
   storage: z.string().optional(),
   size: z.string().optional(),
+  imeiNumber: z.string().optional(),
+  serialNumber: z.string().optional(),
+  modelNumber: z.string().optional(),
+  stockUnit: z.enum(["single", "pack"]).optional(),
+  itemsPerPack: z.coerce.number().optional(),
+  batchNumber: z.string().optional(),
+  expiryDate: z.string().optional(),
+  periodAfterOpening: z.string().optional(),
+  packagingCondition: z.enum(["sealed", "open", "damaged"]).optional(),
+  categoryAttributes: z.record(z.any()).optional(),
+  units: z
+    .array(
+      z.object({
+        serialNumber: z.string().optional(),
+        imeiNumber: z.string().optional(),
+        condition: z.string().optional(),
+        batteryHealth: z.any().optional(),
+        costPrice: z.number().optional(),
+        status: z.string().optional(),
+      }),
+    )
+    .optional(),
   quantity: z.coerce.number().min(1).optional(),
   purchasePrice: z.coerce.number().optional(),
   expectedPrice: z.coerce.number().min(0).optional(),
@@ -227,6 +289,7 @@ export const CreateSoldProductSchema = z.object({
 export const CategorySchema = z.object({
   _id: z.string(),
   name: z.string(),
+  key: z.string().optional(),
   image: z
     .union([
       z.string(),
@@ -237,6 +300,21 @@ export const CategorySchema = z.object({
     ])
     .optional()
     .nullable(),
+  defaultImage: z
+    .union([
+      z.string(),
+      z.object({
+        public_id: z.string().optional(),
+        url: z.string().optional(),
+      }),
+    ])
+    .optional()
+    .nullable(),
+  isDefault: z.boolean().optional(),
+  isHidden: z.boolean().optional(),
+  order: z.number().optional(),
+  itemCount: z.number().optional(),
+  totalItems: z.number().optional(),
   createdAt: z.string().optional(),
   updatedAt: z.string().optional(),
 });

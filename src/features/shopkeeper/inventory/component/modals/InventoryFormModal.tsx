@@ -34,7 +34,6 @@ import {
   Smartphone,
   Hash,
   Activity,
-  Barcode,
   Camera,
   CheckCircle2,
   Search,
@@ -108,6 +107,10 @@ import { useCurrency } from "@/hooks/useCurrency";
 import { useMyProfile } from "@/features/shopkeeper/settings/hooks/useSettings";
 import { generateGoogleReviewQrCodeDataUrl } from "@/features/shopkeeper/settings/utils/googleReviewQr";
 import { useShop } from "../../../shop/store/shop.store";
+import {
+  CategorySpecificFormFields,
+  type CategoryFormAttributes,
+} from "../forms/CategorySpecificFormFields";
 
 type BarcodeSearchItem = {
   name?: string;
@@ -417,29 +420,6 @@ const BRANDS = [
   "LG",
   "Nokia",
   "OnePlus",
-  "Other",
-];
-
-const STORAGE_OPTIONS = [
-  "16GB",
-  "32GB",
-  "64GB",
-  "128GB",
-  "256GB",
-  "512GB",
-  "1TB",
-  "Other",
-];
-
-const COLOR_OPTIONS = [
-  "Black",
-  "White",
-  "Silver",
-  "Gold",
-  "Space Gray",
-  "Blue",
-  "Red",
-  "Green",
   "Other",
 ];
 
@@ -1454,11 +1434,7 @@ export function InventoryFormModal({
   const [scannedItemId, setScannedItemId] = useState<string | null>(null);
   const [isCustomBrand, setIsCustomBrand] = useState(false);
   const [isCustomCondition, setIsCustomCondition] = useState(false);
-  const [isCustomStorage, setIsCustomStorage] = useState(false);
-  const [isCustomColor, setIsCustomColor] = useState(false);
   const [isCustomSaleMethod, setIsCustomSaleMethod] = useState(false);
-  const [colorValues, setColorValues] = useState<string[]>([""]);
-  const [storageValues, setStorageValues] = useState<string[]>([""]);
   const [isVariantModalOpen, setIsVariantModalOpen] = useState(false);
   const [editingVariantIndex, setEditingVariantIndex] = useState<number | null>(
     null,
@@ -1833,52 +1809,11 @@ export function InventoryFormModal({
     const normalizedValues = values.length ? values.slice(0, 1) : [""];
     const joinedValue = joinMultiValueField(normalizedValues);
 
-    if (field === "color") {
-      setColorValues(normalizedValues);
-      setIsCustomColor(
-        normalizedValues.some(
-          (value) => value && !COLOR_OPTIONS.includes(value),
-        ),
-      );
-    } else {
-      setStorageValues(normalizedValues);
-      setIsCustomStorage(
-        normalizedValues.some(
-          (value) => value && !STORAGE_OPTIONS.includes(value),
-        ),
-      );
-    }
-
     form.setValue(
       field,
       joinedValue as CreateInventoryInput[typeof field],
       options,
     );
-  };
-
-  const addMultiValueField = (field: "color" | "storage") => {
-    const currentValues = field === "color" ? colorValues : storageValues;
-    syncMultiValueField(field, [...currentValues, ""], { shouldDirty: true });
-  };
-
-  const updateMultiValueField = (
-    field: "color" | "storage",
-    index: number,
-    value: string,
-    options?: { shouldValidate?: boolean; shouldDirty?: boolean },
-  ) => {
-    const sourceValues = field === "color" ? colorValues : storageValues;
-    const nextValues = [...sourceValues];
-    nextValues[index] = value;
-    syncMultiValueField(field, nextValues, options);
-  };
-
-  const removeMultiValueField = (field: "color" | "storage", index: number) => {
-    const sourceValues = field === "color" ? colorValues : storageValues;
-    const nextValues = sourceValues.filter(
-      (_, currentIndex) => currentIndex !== index,
-    );
-    syncMultiValueField(field, nextValues, { shouldDirty: true });
   };
 
   const handleAddCustomer = async () => {
@@ -1940,8 +1875,56 @@ export function InventoryFormModal({
       saleQuantity: 1,
       saleMethod: "In-store",
       image: undefined,
+      stockUnit: "single",
+      itemsPerPack: 1,
+      serialNumber: "",
+      batchNumber: "",
+      expiryDate: "",
+      periodAfterOpening: "",
+      packagingCondition: "sealed",
+      categoryAttributes: {},
     },
   });
+
+  const [categoryAttrs, setCategoryAttrs] = useState<CategoryFormAttributes>(
+    {},
+  );
+
+  const watchedCategoryId = form.watch("categoryId") || categoryId;
+  const currentCategory = categories.find(
+    (c: Category) =>
+      c._id === watchedCategoryId ||
+      (c as unknown as { id?: string })?.id === watchedCategoryId,
+  );
+  const currentCategoryKey =
+    (currentCategory as unknown as { key?: string })?.key || "";
+  const currentCategoryName = currentCategory?.name || "";
+
+  const handleCategoryAttrChange = (
+    field: keyof CategoryFormAttributes,
+    val: unknown,
+  ) => {
+    setCategoryAttrs((prev) => ({ ...prev, [field]: val }));
+    if (field === "color") form.setValue("color", String(val || ""));
+    if (field === "storage") form.setValue("storage", String(val || ""));
+    if (field === "imeiNumber") form.setValue("imeiNumber", String(val || ""));
+    if (field === "serialNumber")
+      form.setValue("serialNumber", String(val || ""));
+    if (field === "batchNumber")
+      form.setValue("batchNumber", String(val || ""));
+    if (field === "expiryDate") form.setValue("expiryDate", String(val || ""));
+    if (field === "stockUnit")
+      form.setValue("stockUnit", val as "single" | "pack");
+    if (field === "itemsPerPack")
+      form.setValue("itemsPerPack", Number(val) || 1);
+    if (field === "periodAfterOpening")
+      form.setValue("periodAfterOpening", String(val || ""));
+    if (field === "packagingCondition")
+      form.setValue(
+        "packagingCondition",
+        String(val).toLowerCase() as "sealed" | "open" | "damaged",
+      );
+  };
 
   useEffect(() => {
     if (item) {
@@ -2017,9 +2000,31 @@ export function InventoryFormModal({
               ? String(item.categoryId)
               : (categoryId ?? ""),
         variants: item.variants ?? [],
+        serialNumber: item.serialNumber ?? "",
+        stockUnit: item.stockUnit ?? "single",
+        itemsPerPack: item.itemsPerPack ?? 1,
+        batchNumber: item.batchNumber ?? "",
+        expiryDate: item.expiryDate ?? "",
+        periodAfterOpening: item.periodAfterOpening ?? "",
+        packagingCondition: item.packagingCondition ?? "sealed",
+        categoryAttributes: item.categoryAttributes ?? {},
       });
 
+      const initialCategoryAttrs = item.categoryAttributes || {
+        color: item.color,
+        storage: item.storage,
+        serialNumber: item.serialNumber,
+        imeiNumber: item.imeiNumber,
+        batchNumber: item.batchNumber,
+        expiryDate: item.expiryDate,
+        periodAfterOpening: item.periodAfterOpening,
+        packagingCondition: item.packagingCondition,
+        stockUnit: item.stockUnit,
+        itemsPerPack: item.itemsPerPack,
+      };
+
       setTimeout(() => {
+        setCategoryAttrs(initialCategoryAttrs);
         syncMultiValueField("color", splitMultiValueField(item.color), {
           shouldValidate: false,
           shouldDirty: false,
@@ -2047,20 +2052,6 @@ export function InventoryFormModal({
           setIsCustomCondition(false);
         }
 
-        // Check if storage is custom
-        setIsCustomStorage(
-          splitMultiValueField(item.storage).some(
-            (value) => value && !STORAGE_OPTIONS.includes(value),
-          ),
-        );
-
-        // Check if color is custom
-        setIsCustomColor(
-          splitMultiValueField(item.color).some(
-            (value) => value && !COLOR_OPTIONS.includes(value),
-          ),
-        );
-
         // Check if sale method is custom
         if (item.saleMethod && !SALE_METHODS.includes(item.saleMethod)) {
           setIsCustomSaleMethod(true);
@@ -2079,7 +2070,15 @@ export function InventoryFormModal({
         storage: "",
         size: "",
         imeiNumber: "",
+        serialNumber: "",
         modelNumber: "",
+        stockUnit: "single",
+        itemsPerPack: 1,
+        batchNumber: "",
+        expiryDate: "",
+        periodAfterOpening: "",
+        packagingCondition: "sealed",
+        categoryAttributes: {},
         quantity: 1,
         purchasePrice: undefined,
         expectedPrice: 0,
@@ -2105,6 +2104,7 @@ export function InventoryFormModal({
         variants: [],
       });
       setTimeout(() => {
+        setCategoryAttrs({});
         syncMultiValueField("color", [""], {
           shouldValidate: false,
           shouldDirty: false,
@@ -2336,6 +2336,30 @@ export function InventoryFormModal({
 
     const inventoryPayload: CreateInventoryInput = {
       ...values,
+      color: categoryAttrs.color || values.color || undefined,
+      storage: categoryAttrs.storage || values.storage || undefined,
+      imeiNumber: categoryAttrs.imeiNumber || values.imeiNumber || undefined,
+      serialNumber:
+        categoryAttrs.serialNumber || values.serialNumber || undefined,
+      stockUnit: values.stockUnit || categoryAttrs.stockUnit || "single",
+      itemsPerPack:
+        (values.stockUnit || categoryAttrs.stockUnit) === "pack"
+          ? values.itemsPerPack || categoryAttrs.itemsPerPack || 1
+          : 1,
+      batchNumber: categoryAttrs.batchNumber || values.batchNumber || undefined,
+      expiryDate: categoryAttrs.expiryDate || values.expiryDate || undefined,
+      periodAfterOpening:
+        categoryAttrs.periodAfterOpening ||
+        values.periodAfterOpening ||
+        undefined,
+      packagingCondition:
+        (categoryAttrs.packagingCondition?.toLowerCase() as
+          "sealed" | "open" | "damaged") ||
+        values.packagingCondition ||
+        undefined,
+      categoryAttributes: {
+        ...categoryAttrs,
+      },
       purchasePrice: numericPurchasePrice,
       expectedPrice: numericExpectedPrice,
       salePrice: numericSalePrice,
@@ -3163,395 +3187,66 @@ export function InventoryFormModal({
               </div>
             </div>
 
-            {/* Section: Technical Specifications */}
+            {/* Section: Category Specifications */}
             <div className="space-y-6">
-              <div className="border-b border-slate-100 pb-3">
-                <h4 className="text-xs font-black uppercase tracking-[0.2em] text-slate-900 mb-1 flex items-center gap-2 dark:text-white ">
-                  <Maximize2 className="w-3.5 h-3.5 text-[#84CC16]" />
-                  Technical Specs
-                </h4>
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider dark:text-white ">
-                  Hardware and configuration
-                </p>
+              <div className="border-b border-slate-100 dark:border-slate-800 pb-3 flex items-center justify-between">
+                <div>
+                  <h4 className="text-xs font-black uppercase tracking-[0.2em] text-slate-900 mb-1 flex items-center gap-2 dark:text-white">
+                    <Maximize2 className="w-3.5 h-3.5 text-[#84CC16]" />
+                    {currentCategoryName
+                      ? `${currentCategoryName} Specs`
+                      : "Product Specifications"}
+                  </h4>
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider dark:text-white">
+                    Dynamic category-specific fields & configuration
+                  </p>
+                </div>
+                {currentCategoryName && (
+                  <span className="px-2.5 py-1 rounded-full bg-[#84CC16]/10 text-[#84CC16] text-[10px] font-black uppercase tracking-wider">
+                    {currentCategoryName}
+                  </span>
+                )}
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                {/* Color */}
-                <FormField
-                  control={
-                    form.control as unknown as Control<CreateInventoryInput>
-                  }
-                  name="color"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className="text-[10px] font-black uppercase tracking-widest text-slate-700 dark:text-white mb-2 block ml-1">
-                        Color
-                      </FormLabel>
-                      <div className="space-y-3">
-                        {colorValues.map((value, index) => {
-                          const selectValue =
-                            value && COLOR_OPTIONS.includes(value)
-                              ? value
-                              : value
-                                ? "Other"
-                                : "";
+              {/* Dynamic Category Specific Form Fields */}
+              <CategorySpecificFormFields
+                categoryKey={currentCategoryKey}
+                categoryName={currentCategoryName}
+                values={categoryAttrs}
+                onChange={handleCategoryAttrChange}
+              />
 
-                          return (
-                            <div
-                              key={`color-${index}`}
-                              className="flex items-center gap-2 w-full"
-                            >
-                              <div className="flex-1 min-w-0 w-full">
-                                {!isCustomColor && selectValue !== "Other" ? (
-                                  <Select
-                                    onValueChange={(val) => {
-                                      if (val === "Other") {
-                                        setIsCustomColor(true);
-                                        updateMultiValueField(
-                                          "color",
-                                          index,
-                                          "",
-                                          {
-                                            shouldValidate: true,
-                                            shouldDirty: true,
-                                          },
-                                        );
-                                      } else {
-                                        updateMultiValueField(
-                                          "color",
-                                          index,
-                                          val,
-                                          {
-                                            shouldValidate: true,
-                                            shouldDirty: true,
-                                          },
-                                        );
-                                      }
-                                    }}
-                                    value={selectValue}
-                                  >
-                                    <div className="relative group w-full">
-                                      <div className="absolute left-2 top-1/2 -translate-y-1/2 w-10 h-10 bg-white dark:bg-slate-800 rounded-[14px] flex items-center justify-center shadow-sm border border-slate-100 dark:border-slate-700 group-focus-within:border-[#84CC16]/30 group-focus-within:bg-[#84CC16]/5 transition-all z-10 pointer-events-none">
-                                        <Palette className="w-4 h-4 text-slate-400 group-focus-within:text-[#84CC16] transition-colors" />
-                                      </div>
-                                      <FormControl>
-                                        <SelectTrigger
-                                          style={{
-                                            height: "56px",
-                                            minHeight: "56px",
-                                            paddingLeft: "56px",
-                                          }}
-                                          className="w-full bg-slate-50/80 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-900 rounded-[20px] !h-[56px] !min-h-[56px] font-bold text-slate-900 dark:text-white focus:bg-white dark:focus:bg-slate-950 focus:ring-4 focus:ring-[#84CC16]/15 focus:border-[#84CC16] transition-all shadow-sm px-0 !pl-14 pr-4"
-                                        >
-                                          <SelectValue placeholder="Select Color" />
-                                        </SelectTrigger>
-                                      </FormControl>
-                                    </div>
-                                    <SelectContent className="rounded-2xl border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xl p-1">
-                                      {COLOR_OPTIONS.map((color) => (
-                                        <SelectItem
-                                          key={`${color}-${index}`}
-                                          value={color}
-                                          className="font-bold rounded-xl focus:bg-[#84CC16]/10 focus:text-[#84CC16] cursor-pointer py-3 dark:text-white"
-                                        >
-                                          {color}
-                                        </SelectItem>
-                                      ))}
-                                    </SelectContent>
-                                  </Select>
-                                ) : (
-                                  <div className="relative group w-full animate-in fade-in slide-in-from-left-2 duration-300">
-                                    <div className="absolute left-2 top-1/2 -translate-y-1/2 w-10 h-10 bg-white dark:bg-slate-800 rounded-[14px] flex items-center justify-center shadow-sm border border-slate-100 dark:border-slate-700 group-focus-within:border-[#84CC16]/30 group-focus-within:bg-[#84CC16]/5 transition-all z-10 pointer-events-none">
-                                      <Palette className="w-4 h-4 text-slate-400 group-focus-within:text-[#84CC16] transition-colors" />
-                                    </div>
-                                    <Input
-                                      placeholder="Enter custom color..."
-                                      style={{
-                                        height: "56px",
-                                        minHeight: "56px",
-                                        paddingLeft: "56px",
-                                      }}
-                                      className="w-full px-0 !pl-14 pr-24 bg-slate-50/80 dark:bg-slate-900/50 border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-900 rounded-[20px] !h-[56px] !min-h-[56px] font-bold text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 focus-visible:bg-white dark:focus-visible:bg-slate-950 focus-visible:ring-4 focus-visible:ring-[#84CC16]/15 focus-visible:border-[#84CC16] transition-all shadow-sm"
-                                      value={value}
-                                      onChange={(event) =>
-                                        updateMultiValueField(
-                                          "color",
-                                          index,
-                                          event.target.value,
-                                          {
-                                            shouldValidate: true,
-                                            shouldDirty: true,
-                                          },
-                                        )
-                                      }
-                                    />
-                                    <button
-                                      type="button"
-                                      onClick={() => {
-                                        setIsCustomColor(false);
-                                        updateMultiValueField(
-                                          "color",
-                                          index,
-                                          "Black",
-                                          {
-                                            shouldValidate: true,
-                                            shouldDirty: true,
-                                          },
-                                        );
-                                      }}
-                                      className="absolute right-2 top-1/2 -translate-y-1/2 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-[#84CC16] hover:bg-[#84CC16]/10 rounded-xl transition-all"
-                                    >
-                                      Reset
-                                    </button>
-                                  </div>
-                                )}
-                              </div>
-                              {colorValues.length > 1 && (
-                                <Button
-                                  type="button"
-                                  variant="ghost"
-                                  size="icon"
-                                  onClick={() =>
-                                    removeMultiValueField("color", index)
-                                  }
-                                  className="h-11 w-11 rounded-2xl text-slate-400 hover:text-red-500 hover:bg-red-50"
-                                >
-                                  <X className="w-4 h-4" />
-                                </Button>
-                              )}
-                            </div>
-                          );
-                        })}
-                        <input
-                          type="hidden"
+              {/* Model Number (Optional) */}
+              <FormField
+                control={
+                  form.control as unknown as Control<CreateInventoryInput>
+                }
+                name="modelNumber"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="text-[10px] font-black uppercase tracking-widest text-slate-700 dark:text-white mb-2 block ml-1">
+                      Model / Part Number (Optional)
+                    </FormLabel>
+                    <FormControl>
+                      <div className="relative group w-full">
+                        <div className="absolute left-2 top-1/2 -translate-y-1/2 w-10 h-10 bg-white dark:bg-slate-800 rounded-[14px] flex items-center justify-center shadow-sm border border-slate-100 dark:border-slate-700 group-focus-within:border-[#84CC16]/30 group-focus-within:bg-[#84CC16]/5 transition-all z-10 pointer-events-none">
+                          <Hash className="w-4 h-4 text-slate-400 group-focus-within:text-[#84CC16] transition-colors" />
+                        </div>
+                        <Input
+                          placeholder="e.g. A2849, SM-S928B, or Model code"
+                          style={{
+                            height: "56px",
+                            minHeight: "56px",
+                            paddingLeft: "56px",
+                          }}
+                          className="w-full px-0 !pl-14 pr-4 bg-slate-50/80 dark:bg-slate-900/50 border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-900 rounded-[20px] !h-[56px] !min-h-[56px] font-bold text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 focus-visible:bg-white dark:focus-visible:bg-slate-950 focus-visible:ring-4 focus-visible:ring-[#84CC16]/15 focus-visible:border-[#84CC16] transition-all shadow-sm"
                           {...field}
-                          value={joinMultiValueField(colorValues)}
                         />
                       </div>
-                    </FormItem>
-                  )}
-                />
-
-                {/* Storage */}
-                <FormField
-                  control={
-                    form.control as unknown as Control<CreateInventoryInput>
-                  }
-                  name="storage"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className="text-[10px] font-black uppercase tracking-widest text-slate-700 dark:text-white mb-2 block ml-1">
-                        Storage
-                      </FormLabel>
-                      <div className="space-y-3">
-                        {storageValues.map((value, index) => {
-                          const selectValue =
-                            value && STORAGE_OPTIONS.includes(value)
-                              ? value
-                              : value
-                                ? "Other"
-                                : "";
-
-                          return (
-                            <div
-                              key={`storage-${index}`}
-                              className="flex items-center gap-2 w-full"
-                            >
-                              <div className="flex-1 min-w-0 w-full">
-                                {!isCustomStorage && selectValue !== "Other" ? (
-                                  <Select
-                                    onValueChange={(val) => {
-                                      if (val === "Other") {
-                                        setIsCustomStorage(true);
-                                        updateMultiValueField(
-                                          "storage",
-                                          index,
-                                          "",
-                                          {
-                                            shouldValidate: true,
-                                            shouldDirty: true,
-                                          },
-                                        );
-                                      } else {
-                                        updateMultiValueField(
-                                          "storage",
-                                          index,
-                                          val,
-                                          {
-                                            shouldValidate: true,
-                                            shouldDirty: true,
-                                          },
-                                        );
-                                      }
-                                    }}
-                                    value={selectValue}
-                                  >
-                                    <div className="relative group w-full">
-                                      <div className="absolute left-2 top-1/2 -translate-y-1/2 w-10 h-10 bg-white dark:bg-slate-800 rounded-[14px] flex items-center justify-center shadow-sm border border-slate-100 dark:border-slate-700 group-focus-within:border-[#84CC16]/30 group-focus-within:bg-[#84CC16]/5 transition-all z-10 pointer-events-none">
-                                        <HardDrive className="w-4 h-4 text-slate-400 group-focus-within:text-[#84CC16] transition-colors" />
-                                      </div>
-                                      <FormControl>
-                                        <SelectTrigger
-                                          style={{
-                                            height: "56px",
-                                            minHeight: "56px",
-                                            paddingLeft: "56px",
-                                          }}
-                                          className="w-full bg-slate-50/80 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-900 rounded-[20px] !h-[56px] !min-h-[56px] font-bold text-slate-900 dark:text-white focus:bg-white dark:focus:bg-slate-950 focus:ring-4 focus:ring-[#84CC16]/15 focus:border-[#84CC16] transition-all shadow-sm px-0 !pl-14 pr-4"
-                                        >
-                                          <SelectValue placeholder="Select Storage" />
-                                        </SelectTrigger>
-                                      </FormControl>
-                                    </div>
-                                    <SelectContent className="rounded-2xl border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xl p-1">
-                                      {STORAGE_OPTIONS.map((opt) => (
-                                        <SelectItem
-                                          key={`${opt}-${index}`}
-                                          value={opt}
-                                          className="font-bold rounded-xl focus:bg-[#84CC16]/10 focus:text-[#84CC16] cursor-pointer py-3 dark:text-white"
-                                        >
-                                          {opt}
-                                        </SelectItem>
-                                      ))}
-                                    </SelectContent>
-                                  </Select>
-                                ) : (
-                                  <div className="relative group w-full animate-in fade-in slide-in-from-left-2 duration-300">
-                                    <div className="absolute left-2 top-1/2 -translate-y-1/2 w-10 h-10 bg-white dark:bg-slate-800 rounded-[14px] flex items-center justify-center shadow-sm border border-slate-100 dark:border-slate-700 group-focus-within:border-[#84CC16]/30 group-focus-within:bg-[#84CC16]/5 transition-all z-10 pointer-events-none">
-                                      <HardDrive className="w-4 h-4 text-slate-400 group-focus-within:text-[#84CC16] transition-colors" />
-                                    </div>
-                                    <Input
-                                      placeholder="Enter custom storage..."
-                                      style={{
-                                        height: "56px",
-                                        minHeight: "56px",
-                                        paddingLeft: "56px",
-                                      }}
-                                      className="w-full px-0 !pl-14 pr-24 bg-slate-50/80 dark:bg-slate-900/50 border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-900 rounded-[20px] !h-[56px] !min-h-[56px] font-bold text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 focus-visible:bg-white dark:focus-visible:bg-slate-950 focus-visible:ring-4 focus-visible:ring-[#84CC16]/15 focus-visible:border-[#84CC16] transition-all shadow-sm"
-                                      value={value}
-                                      onChange={(event) =>
-                                        updateMultiValueField(
-                                          "storage",
-                                          index,
-                                          event.target.value,
-                                          {
-                                            shouldValidate: true,
-                                            shouldDirty: true,
-                                          },
-                                        )
-                                      }
-                                    />
-                                    <button
-                                      type="button"
-                                      onClick={() => {
-                                        setIsCustomStorage(false);
-                                        updateMultiValueField(
-                                          "storage",
-                                          index,
-                                          "128GB",
-                                          {
-                                            shouldValidate: true,
-                                            shouldDirty: true,
-                                          },
-                                        );
-                                      }}
-                                      className="absolute right-2 top-1/2 -translate-y-1/2 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-[#84CC16] hover:bg-[#84CC16]/10 rounded-xl transition-all"
-                                    >
-                                      Reset
-                                    </button>
-                                  </div>
-                                )}
-                              </div>
-                              {storageValues.length > 1 && (
-                                <Button
-                                  type="button"
-                                  variant="ghost"
-                                  size="icon"
-                                  onClick={() =>
-                                    removeMultiValueField("storage", index)
-                                  }
-                                  className="h-11 w-11 rounded-2xl text-slate-400 hover:text-red-500 hover:bg-red-50"
-                                >
-                                  <X className="w-4 h-4" />
-                                </Button>
-                              )}
-                            </div>
-                          );
-                        })}
-                        <input
-                          type="hidden"
-                          {...field}
-                          value={joinMultiValueField(storageValues)}
-                        />
-                      </div>
-                    </FormItem>
-                  )}
-                />
-
-                {/* Model Number */}
-                <FormField
-                  control={
-                    form.control as unknown as Control<CreateInventoryInput>
-                  }
-                  name="modelNumber"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className="text-[10px] font-black uppercase tracking-widest text-slate-700 dark:text-white mb-2 block ml-1">
-                        Model Number
-                      </FormLabel>
-                      <FormControl>
-                        <div className="relative group w-full">
-                          <div className="absolute left-2 top-1/2 -translate-y-1/2 w-10 h-10 bg-white dark:bg-slate-800 rounded-[14px] flex items-center justify-center shadow-sm border border-slate-100 dark:border-slate-700 group-focus-within:border-[#84CC16]/30 group-focus-within:bg-[#84CC16]/5 transition-all z-10 pointer-events-none">
-                            <Hash className="w-4 h-4 text-slate-400 group-focus-within:text-[#84CC16] transition-colors" />
-                          </div>
-                          <Input
-                            placeholder="A1901"
-                            style={{
-                              height: "56px",
-                              minHeight: "56px",
-                              paddingLeft: "56px",
-                            }}
-                            className="w-full px-0 !pl-14 pr-4 bg-slate-50/80 dark:bg-slate-900/50 border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-900 rounded-[20px] !h-[56px] !min-h-[56px] font-bold text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 focus-visible:bg-white dark:focus-visible:bg-slate-950 focus-visible:ring-4 focus-visible:ring-[#84CC16]/15 focus-visible:border-[#84CC16] transition-all shadow-sm"
-                            {...field}
-                          />
-                        </div>
-                      </FormControl>
-                    </FormItem>
-                  )}
-                />
-
-                {/* IMEI Number */}
-                <FormField
-                  control={
-                    form.control as unknown as Control<CreateInventoryInput>
-                  }
-                  name="imeiNumber"
-                  render={({ field }) => (
-                    <FormItem className="col-span-2">
-                      <FormLabel className="text-[10px] font-black uppercase tracking-widest text-slate-700 dark:text-white mb-2 block ml-1">
-                        IMEI / Serial Number
-                      </FormLabel>
-                      <FormControl>
-                        <div className="relative group w-full">
-                          <div className="absolute left-2 top-1/2 -translate-y-1/2 w-10 h-10 bg-white dark:bg-slate-800 rounded-[14px] flex items-center justify-center shadow-sm border border-slate-100 dark:border-slate-700 group-focus-within:border-[#84CC16]/30 group-focus-within:bg-[#84CC16]/5 transition-all z-10 pointer-events-none">
-                            <Barcode className="w-4 h-4 text-slate-400 group-focus-within:text-[#84CC16] transition-colors" />
-                          </div>
-                          <Input
-                            placeholder="123456789012345"
-                            style={{
-                              height: "56px",
-                              minHeight: "56px",
-                              paddingLeft: "56px",
-                            }}
-                            className="w-full px-0 !pl-14 pr-4 bg-slate-50/80 dark:bg-slate-900/50 border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-900 rounded-[20px] !h-[56px] !min-h-[56px] font-bold text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 focus-visible:bg-white dark:focus-visible:bg-slate-950 focus-visible:ring-4 focus-visible:ring-[#84CC16]/15 focus-visible:border-[#84CC16] transition-all shadow-sm"
-                            {...field}
-                          />
-                        </div>
-                      </FormControl>
-                    </FormItem>
-                  )}
-                />
-              </div>
+                    </FormControl>
+                  </FormItem>
+                )}
+              />
             </div>
           </div>
 
@@ -3708,6 +3403,57 @@ export function InventoryFormModal({
                     </FormItem>
                   )}
                 />
+
+                {/* Stock Unit & Items per Pack */}
+                <div className="col-span-2 grid grid-cols-2 gap-4 p-4 rounded-2xl bg-slate-50/80 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800">
+                  <div>
+                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-700 dark:text-white mb-2 block ml-1">
+                      Stock Unit
+                    </label>
+                    <Select
+                      value={form.watch("stockUnit") || "single"}
+                      onValueChange={(val: "single" | "pack") => {
+                        form.setValue("stockUnit", val);
+                        if (val === "single") form.setValue("itemsPerPack", 1);
+                      }}
+                    >
+                      <SelectTrigger className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl h-11 font-bold text-xs">
+                        <SelectValue placeholder="Stock Unit" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem
+                          value="single"
+                          className="font-bold text-xs"
+                        >
+                          Single Unit
+                        </SelectItem>
+                        <SelectItem value="pack" className="font-bold text-xs">
+                          Pack / Box
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  {form.watch("stockUnit") === "pack" && (
+                    <div>
+                      <label className="text-[10px] font-black uppercase tracking-widest text-slate-700 dark:text-white mb-2 block ml-1">
+                        Items Per Pack
+                      </label>
+                      <Input
+                        type="number"
+                        min={1}
+                        placeholder="e.g. 5, 10, 20"
+                        value={form.watch("itemsPerPack") ?? 1}
+                        onChange={(e) =>
+                          form.setValue(
+                            "itemsPerPack",
+                            Number(e.target.value) || 1,
+                          )
+                        }
+                        className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl h-11 font-bold text-xs"
+                      />
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
 

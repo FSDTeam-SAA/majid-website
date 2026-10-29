@@ -4,7 +4,10 @@ import {
   getMyInventory,
   getInventoryByCategory,
   getInventoryBySupplier,
-  getCategories,
+  getCategoriesWithCount,
+  getManageCategories,
+  toggleCategoryVisibility,
+  resetCategoryImage,
   createCategory,
   updateCategory,
   deleteCategory,
@@ -103,8 +106,51 @@ export function useCategories() {
   const activeShopId = getActiveShopId();
   return useQuery<CategoryListResponse>({
     queryKey: CATEGORY_KEYS.list(activeShopId),
-    queryFn: getCategories,
+    queryFn: () => getCategoriesWithCount({ includeHidden: false }),
     staleTime: 1000 * 60,
+  });
+}
+
+export function useCategoriesWithCount(includeHidden = false) {
+  const activeShopId = getActiveShopId();
+  return useQuery<CategoryListResponse>({
+    queryKey: [
+      ...CATEGORY_KEYS.list(activeShopId),
+      "with-count",
+      includeHidden,
+    ],
+    queryFn: () => getCategoriesWithCount({ includeHidden }),
+    staleTime: 1000 * 60,
+  });
+}
+
+export function useManageCategories() {
+  const activeShopId = getActiveShopId();
+  return useQuery<CategoryListResponse>({
+    queryKey: [...CATEGORY_KEYS.list(activeShopId), "manage"],
+    queryFn: getManageCategories,
+    staleTime: 1000 * 30,
+  });
+}
+
+export function useToggleCategoryVisibility() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, isHidden }: { id: string; isHidden: boolean }) =>
+      toggleCategoryVisibility({ id, isHidden }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: CATEGORY_KEYS.all });
+    },
+  });
+}
+
+export function useResetCategoryImage() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => resetCategoryImage(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: CATEGORY_KEYS.all });
+    },
   });
 }
 

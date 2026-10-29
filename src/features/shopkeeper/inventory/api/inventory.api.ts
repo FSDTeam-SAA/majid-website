@@ -37,8 +37,42 @@ export const getInventoryBySupplier = async (
   return response.data;
 };
 
-export const getCategories = async (): Promise<CategoryListResponse> => {
-  const response = await api.get(CATEGORY_BASE);
+export const getCategories = async (params?: {
+  includeHidden?: boolean;
+}): Promise<CategoryListResponse> => {
+  const response = await api.get(CATEGORY_BASE, { params });
+  return response.data;
+};
+
+export const getCategoriesWithCount = async (params?: {
+  includeHidden?: boolean;
+}): Promise<CategoryListResponse> => {
+  const response = await api.get(`${CATEGORY_BASE}/with-count`, { params });
+  return response.data;
+};
+
+export const getManageCategories = async (): Promise<CategoryListResponse> => {
+  const response = await api.get(`${CATEGORY_BASE}/manage`);
+  return response.data;
+};
+
+export const toggleCategoryVisibility = async ({
+  id,
+  isHidden,
+}: {
+  id: string;
+  isHidden: boolean;
+}): Promise<CategorySingleResponse> => {
+  const response = await api.patch(`${CATEGORY_BASE}/${id}/visibility`, {
+    isHidden,
+  });
+  return response.data;
+};
+
+export const resetCategoryImage = async (
+  id: string,
+): Promise<CategorySingleResponse> => {
+  const response = await api.post(`${CATEGORY_BASE}/${id}/reset-image`);
   return response.data;
 };
 
@@ -123,6 +157,14 @@ export const createInventory = async (input: CreateInventoryInput) => {
       continue;
     }
 
+    if (
+      key === "categoryAttributes" ||
+      (typeof value === "object" && value !== null)
+    ) {
+      formData.append(key, JSON.stringify(value));
+      continue;
+    }
+
     if (key !== "image") {
       formData.append(key, String(value));
     }
@@ -180,6 +222,14 @@ export const updateInventory = async ({
 
     if (Array.isArray(value)) {
       if (value.length === 0) continue;
+      formData.append(key, JSON.stringify(value));
+      continue;
+    }
+
+    if (
+      key === "categoryAttributes" ||
+      (typeof value === "object" && value !== null)
+    ) {
       formData.append(key, JSON.stringify(value));
       continue;
     }
