@@ -25,7 +25,7 @@ export const DEMO_NFC_SETTINGS: INfcSettingsResponse = {
   nfcToken: "mkd_nfc_9f8a2c1743e8b09d",
   nfcTokenRotatedAt: "2026-10-15T09:00:00.000Z",
   attendanceUrl:
-    "https://attendance.imoscan.co.uk/tap?token=mkd_nfc_9f8a2c1743e8b09d",
+    "https://attendance.imoscan.com/tap?token=mkd_nfc_9f8a2c1743e8b09d",
   areaManager: {
     name: "Sarah Ahmed",
     email: "sarah.ahmed@imoscan.co.uk",

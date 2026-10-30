@@ -152,7 +152,7 @@ export const NfcAttendanceSettings: React.FC = () => {
   const attendanceUrl = isLocalhost
     ? `http://localhost:3001/tap?token=${attendanceToken}`
     : nfcSettings?.attendanceUrl ||
-      `https://attendance.imoscan.co.uk/tap?token=${attendanceToken}`;
+      `https://attendance.imoscan.com/tap?token=${attendanceToken}`;
 
   const handleCopyLink = () => {
     navigator.clipboard.writeText(attendanceUrl);
