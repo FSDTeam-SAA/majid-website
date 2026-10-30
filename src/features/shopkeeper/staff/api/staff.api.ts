@@ -5,6 +5,7 @@ import { ApiResponse } from "@/features/auth/types/auth.types";
 export interface StaffUser {
   _id?: string;
   id?: string;
+  staffId?: string;
   firstName?: string;
   lastName?: string;
   name?: string;

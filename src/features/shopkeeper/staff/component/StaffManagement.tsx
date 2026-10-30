@@ -387,9 +387,14 @@ export default function StaffManagement() {
                               <p className="font-black text-foreground">
                                 {name}
                               </p>
-                              <p className="text-xs font-bold text-muted-foreground">
-                                Staff Member
-                              </p>
+                              <div className="flex items-center gap-1.5 text-xs font-bold text-muted-foreground">
+                                {member.staffId && (
+                                  <span className="font-mono text-[#65A30D] font-extrabold bg-[#84CC16]/15 px-1.5 py-0.5 rounded">
+                                    {member.staffId}
+                                  </span>
+                                )}
+                                <span>Staff Member</span>
+                              </div>
                             </div>
                           </div>
                         </TableCell>
@@ -493,9 +498,9 @@ export default function StaffManagement() {
       </div>
 
       <Dialog open={isOpen} onOpenChange={setIsOpen}>
-        <DialogContent className="max-h-[92vh] overflow-y-auto sm:max-w-4xl p-0 border border-border/80 shadow-2xl rounded-2xl bg-card overflow-hidden">
+        <DialogContent className="max-h-[90vh] sm:max-w-4xl p-0 border border-border/80 shadow-2xl rounded-2xl bg-card overflow-hidden flex flex-col">
           {/* Header banner */}
-          <div className="bg-gradient-to-r from-surface via-surface to-[#84CC16]/10 p-6 border-b border-border">
+          <div className="shrink-0 bg-gradient-to-r from-surface via-surface to-[#84CC16]/10 p-6 border-b border-border">
             <div className="flex items-center gap-3.5">
               <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#84CC16]/15 text-[#65A30D] border border-[#84CC16]/30 shadow-xs">
                 <UsersRound size={24} />
@@ -512,7 +517,10 @@ export default function StaffManagement() {
             </div>
           </div>
 
-          <form onSubmit={handleSubmit} className="p-6 sm:p-8 space-y-8">
+          <form
+            onSubmit={handleSubmit}
+            className="flex-1 overflow-y-auto p-6 sm:p-8 space-y-8 custom-scrollbar"
+          >
             {/* SECTION 1: Personal & Account Info */}
             <div className="space-y-4">
               <div className="flex items-center gap-2 border-b border-border/60 pb-2">
@@ -960,11 +968,11 @@ export default function StaffManagement() {
             </div>
 
             {/* Modal Footer Controls */}
-            <div className="flex items-center justify-end gap-3 pt-4 border-t border-border">
+            <div className="sticky bottom-0 bg-card/95 backdrop-blur-md -mx-6 -mb-6 sm:-mx-8 sm:-mb-8 p-4 sm:p-6 flex items-center justify-end gap-3 border-t border-border z-10">
               <Button
                 type="button"
                 variant="outline"
-                className="h-11 px-5 rounded-xl border-border text-xs font-bold text-foreground hover:bg-muted"
+                className="h-11 px-5 rounded-xl border-border text-xs font-bold text-foreground hover:bg-muted cursor-pointer"
                 onClick={() => setIsOpen(false)}
               >
                 Cancel
@@ -972,7 +980,7 @@ export default function StaffManagement() {
               <Button
                 type="submit"
                 disabled={createStaff.isPending}
-                className="h-11 px-6 rounded-xl bg-[#84CC16] hover:bg-[#74b513] text-white text-xs font-black shadow-md shadow-lime-500/20"
+                className="h-11 px-6 rounded-xl bg-[#84CC16] hover:bg-[#74b513] text-white text-xs font-black shadow-md shadow-lime-500/20 cursor-pointer"
               >
                 {createStaff.isPending && (
                   <Loader2 className="h-4 w-4 animate-spin mr-2" />

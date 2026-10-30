@@ -1,5 +1,39 @@
 import { api } from "@/lib/api";
 
+export interface IAttendanceClockInfo {
+  serverTime: string;
+  formattedTime?: string;
+  verifiedBy: "passkey" | "selfie";
+  selfieUrl?: string;
+}
+
+export interface IAttendanceRecord {
+  _id: string;
+  shopId: string;
+  staffId:
+    | string
+    | {
+        _id: string;
+        firstName: string;
+        lastName?: string;
+        email?: string;
+        staffId?: string;
+        hourlyWage?: number;
+      };
+  shiftId?: string | null;
+  date: string;
+  clockIn: IAttendanceClockInfo;
+  clockOut?: IAttendanceClockInfo | null;
+  scheduledStart?: string;
+  scheduledEnd?: string;
+  scheduledHours?: number;
+  actualHours?: number;
+  approvedPaidHours?: number | null;
+  status:
+    "present" | "late" | "early_departure" | "absent" | "leave" | "half_day";
+  notes?: string;
+}
+
 export interface IShiftItem {
   _id?: string;
   staffId:
@@ -19,6 +53,14 @@ export interface IShiftItem {
   hours: number;
   isOff: boolean;
   note?: string;
+  attendance?: {
+    _id?: string;
+    clockIn?: IAttendanceClockInfo | null;
+    clockOut?: IAttendanceClockInfo | null;
+    status?: string;
+    actualHours?: number;
+    notes?: string;
+  };
 }
 
 export interface IRotaStaffMember {
@@ -30,6 +72,7 @@ export interface IRotaStaffMember {
   hourlyWage?: number;
   image?: { url?: string };
   workingDays?: string[];
+  weekendDays?: string[];
 }
 
 export interface IRotaData {
@@ -45,10 +88,14 @@ export interface IRotaResponse {
   rota: IRotaData;
   staffMembers: IRotaStaffMember[];
   weekDates: string[];
+  monthDates?: string[];
+  month?: number;
+  year?: number;
   dailyCoverage: Record<string, number>;
   totalScheduledHours: number;
   estimatedRotaCost: number;
   unfilledShifts: number;
+  attendances?: IAttendanceRecord[];
 }
 
 export const FALLBACK_DEMO_STAFF: IRotaStaffMember[] = [
@@ -157,6 +204,8 @@ export const generateDefaultRotaData = (
 export const getRotaApi = async (params: {
   shopId: string;
   weekStartDate?: string;
+  month?: number;
+  year?: number;
 }): Promise<IRotaResponse> => {
   try {
     const res = await api.get("/rota", { params });

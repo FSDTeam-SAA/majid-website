@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { Clock, Calendar, X, FileText } from "lucide-react";
+import { Clock, Calendar, X, FileText, ShieldCheck } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -12,7 +12,12 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { IShiftItem, IRotaStaffMember } from "../api/rota.api";
+import { Badge } from "@/components/ui/badge";
+import {
+  IShiftItem,
+  IRotaStaffMember,
+  IAttendanceRecord,
+} from "../api/rota.api";
 
 interface ShiftEditModalProps {
   isOpen: boolean;
@@ -20,6 +25,7 @@ interface ShiftEditModalProps {
   shift: IShiftItem | null;
   staff: IRotaStaffMember | null;
   dateStr: string;
+  attendance?: IAttendanceRecord | null;
   onSave: (updatedShift: IShiftItem) => void;
 }
 
@@ -29,8 +35,10 @@ export const ShiftEditModal: React.FC<ShiftEditModalProps> = ({
   shift,
   staff,
   dateStr,
+  attendance: propAttendance,
   onSave,
 }) => {
+  const activeAttendance = propAttendance || shift?.attendance;
   const [isOff, setIsOff] = useState<boolean>(Boolean(shift?.isOff));
   const [startTime, setStartTime] = useState<string>(
     shift?.startTime && shift.startTime !== "00:00" ? shift.startTime : "09:00",
@@ -215,6 +223,79 @@ export const ShiftEditModal: React.FC<ShiftEditModalProps> = ({
             <p className="text-xs text-muted-foreground">
               The staff member will not be scheduled for hours on this day.
             </p>
+          </div>
+        )}
+
+        {/* Live NFC Attendance Record Card */}
+        {activeAttendance && (
+          <div className="p-3.5 bg-surface rounded-xl border border-[#84CC16]/40 shadow-xs space-y-2.5 my-1">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                <ShieldCheck className="w-4 h-4 text-[#84CC16]" />
+                Actual NFC Attendance Record
+              </span>
+              <Badge
+                variant="outline"
+                className={`text-[10px] font-bold capitalize ${
+                  activeAttendance.status === "present"
+                    ? "bg-emerald-500/10 text-emerald-600 border-emerald-500/30"
+                    : activeAttendance.status === "late"
+                      ? "bg-amber-500/10 text-amber-600 border-amber-500/30"
+                      : activeAttendance.status === "early_departure"
+                        ? "bg-orange-500/10 text-orange-600 border-orange-500/30"
+                        : "bg-surface-muted text-foreground"
+                }`}
+              >
+                {activeAttendance.status?.replace("_", " ") || "Present"}
+              </Badge>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2 text-xs">
+              <div className="p-2.5 bg-card rounded-lg border border-border/60">
+                <span className="text-[10px] font-medium text-muted-foreground block">
+                  Check-In Time
+                </span>
+                <span className="font-bold text-emerald-600 dark:text-emerald-400 text-sm block">
+                  {activeAttendance.clockIn?.formattedTime || "Not logged"}
+                </span>
+                {activeAttendance.clockIn?.verifiedBy && (
+                  <span className="text-[10px] text-muted-foreground block capitalize mt-0.5">
+                    Verified via {activeAttendance.clockIn.verifiedBy}
+                  </span>
+                )}
+              </div>
+
+              <div className="p-2.5 bg-card rounded-lg border border-border/60">
+                <span className="text-[10px] font-medium text-muted-foreground block">
+                  Check-Out Time
+                </span>
+                <span className="font-bold text-foreground text-sm block">
+                  {activeAttendance.clockOut?.formattedTime ||
+                    (activeAttendance.clockIn ? (
+                      <span className="text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+                        <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                        Active in store
+                      </span>
+                    ) : (
+                      "—"
+                    ))}
+                </span>
+                {activeAttendance.clockOut?.verifiedBy && (
+                  <span className="text-[10px] text-muted-foreground block capitalize mt-0.5">
+                    Verified via {activeAttendance.clockOut.verifiedBy}
+                  </span>
+                )}
+              </div>
+            </div>
+
+            {activeAttendance.actualHours !== undefined && (
+              <div className="flex items-center justify-between text-[11px] font-medium text-muted-foreground px-1">
+                <span>Actual Hours Worked:</span>
+                <span className="font-bold text-foreground">
+                  {activeAttendance.actualHours} hrs
+                </span>
+              </div>
+            )}
           </div>
         )}
 

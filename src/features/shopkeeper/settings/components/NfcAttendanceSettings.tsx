@@ -142,9 +142,17 @@ export const NfcAttendanceSettings: React.FC = () => {
     },
   });
 
-  const attendanceUrl =
-    nfcSettings?.attendanceUrl ||
-    `https://attendance.imoscan.co.uk/tap?token=${nfcSettings?.nfcToken || "mkd_nfc_9f8a2c1743e8b09d"}`;
+  const isLocalhost =
+    typeof window !== "undefined" &&
+    (window.location.hostname === "localhost" ||
+      window.location.hostname === "127.0.0.1");
+
+  const attendanceToken = nfcSettings?.nfcToken || "mkd_nfc_9f8a2c1743e8b09d";
+
+  const attendanceUrl = isLocalhost
+    ? `http://localhost:3001/tap?token=${attendanceToken}`
+    : nfcSettings?.attendanceUrl ||
+      `https://attendance.imoscan.co.uk/tap?token=${attendanceToken}`;
 
   const handleCopyLink = () => {
     navigator.clipboard.writeText(attendanceUrl);

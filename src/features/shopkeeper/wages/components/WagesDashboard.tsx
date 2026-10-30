@@ -439,7 +439,7 @@ export const WagesDashboard: React.FC = () => {
                     </div>
                   </div>
                   <Link
-                    href={`/shopkeeper/wages/exceptions/${exc.id}`}
+                    href={`/shopkeeper/settings/staff/wages/exceptions/${exc.id}`}
                     className="shrink-0 text-xs font-bold text-[#65A30D] hover:underline flex items-center gap-1"
                   >
                     Decide

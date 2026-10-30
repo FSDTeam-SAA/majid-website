@@ -60,7 +60,7 @@ export const ReviewEarlyDeparture: React.FC<ReviewEarlyDepartureProps> = ({
       {
         onSuccess: () => {
           setTimeout(() => {
-            router.push("/shopkeeper/wages");
+            router.push("/shopkeeper/settings/staff/wages");
           }, 800);
         },
       },
@@ -76,7 +76,7 @@ export const ReviewEarlyDeparture: React.FC<ReviewEarlyDepartureProps> = ({
       {/* Back Link */}
       <div>
         <Link
-          href="/shopkeeper/wages"
+          href="/shopkeeper/settings/staff/wages"
           className="inline-flex items-center gap-2 text-xs font-bold text-muted-foreground hover:text-foreground transition-colors"
         >
           <ArrowLeft className="w-3.5 h-3.5" />
@@ -422,7 +422,7 @@ export const ReviewEarlyDeparture: React.FC<ReviewEarlyDepartureProps> = ({
             <Button
               type="button"
               variant="outline"
-              onClick={() => router.push("/shopkeeper/wages")}
+              onClick={() => router.push("/shopkeeper/settings/staff/wages")}
               className="w-full rounded-xl text-xs font-semibold border-border"
             >
               Cancel

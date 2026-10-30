@@ -59,7 +59,7 @@ export const StaffAttendanceRecord: React.FC<StaffAttendanceRecordProps> = ({
       {/* Back Link */}
       <div>
         <Link
-          href="/shopkeeper/wages"
+          href="/shopkeeper/settings/staff/wages"
           className="inline-flex items-center gap-2 text-xs font-bold text-muted-foreground hover:text-foreground transition-colors"
         >
           <ArrowLeft className="w-3.5 h-3.5" />

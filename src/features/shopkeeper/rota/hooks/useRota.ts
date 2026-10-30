@@ -13,16 +13,33 @@ import {
 
 export const ROTA_QUERY_KEYS = {
   all: ["rota"] as const,
-  detail: (shopId: string, weekStartDate: string) =>
-    [...ROTA_QUERY_KEYS.all, shopId, weekStartDate] as const,
+  detail: (
+    shopId: string,
+    weekStartDate?: string,
+    month?: number,
+    year?: number,
+  ) =>
+    [
+      ...ROTA_QUERY_KEYS.all,
+      shopId,
+      weekStartDate || "default",
+      month || 0,
+      year || 0,
+    ] as const,
 };
 
-export const useRota = (shopId: string, weekStartDate: string) => {
+export const useRota = (
+  shopId: string,
+  weekStartDate?: string,
+  month?: number,
+  year?: number,
+) => {
   return useQuery<IRotaResponse>({
-    queryKey: ROTA_QUERY_KEYS.detail(shopId, weekStartDate),
-    queryFn: () => getRotaApi({ shopId, weekStartDate }),
-    enabled: Boolean(shopId && weekStartDate),
-    staleTime: 30000,
+    queryKey: ROTA_QUERY_KEYS.detail(shopId, weekStartDate, month, year),
+    queryFn: () => getRotaApi({ shopId, weekStartDate, month, year }),
+    enabled: Boolean(shopId),
+    staleTime: 10000,
+    refetchInterval: 15000,
   });
 };
 
