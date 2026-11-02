@@ -1,6 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { createStaffApi, getAllUsersApi, StaffUser } from "../api/staff.api";
+import {
+  createStaffApi,
+  getAllUsersApi,
+  StaffUser,
+  updateStaffReferenceFaceApi,
+} from "../api/staff.api";
 
 export function useStaffList() {
   return useQuery({
@@ -24,6 +29,29 @@ export function useCreateStaff() {
     },
     onError: (error: { response?: { data?: { message?: string } } }) => {
       toast.error(error.response?.data?.message || "Failed to create staff");
+    },
+  });
+}
+
+export function useUpdateStaffReferenceFace() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      staffId,
+      payload,
+    }: {
+      staffId: string;
+      payload: { file?: File; photoUrl?: string };
+    }) => updateStaffReferenceFaceApi(staffId, payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["staff-users"] });
+      toast.success("Staff biometric reference face enrolled successfully");
+    },
+    onError: (error: { response?: { data?: { message?: string } } }) => {
+      toast.error(
+        error.response?.data?.message || "Failed to register reference face",
+      );
     },
   });
 }

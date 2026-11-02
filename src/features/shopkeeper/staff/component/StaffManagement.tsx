@@ -12,6 +12,7 @@ import {
   Mail,
   Phone,
   Plus,
+  ScanFace,
   Store,
   UsersRound,
 } from "lucide-react";
@@ -20,6 +21,8 @@ import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { EnrollReferenceFaceModal } from "./EnrollReferenceFaceModal";
+import { StaffUser } from "../api/staff.api";
 import {
   Dialog,
   DialogContent,
@@ -116,6 +119,7 @@ function formatDays(days?: string[]) {
 
 export default function StaffManagement() {
   const [isOpen, setIsOpen] = useState(false);
+  const [enrollingStaff, setEnrollingStaff] = useState<StaffUser | null>(null);
   const [form, setForm] = useState<StaffFormState>(initialForm);
   const [idFrontFile, setIdFrontFile] = useState<File | null>(null);
   const [idBackFile, setIdBackFile] = useState<File | null>(null);
@@ -395,6 +399,19 @@ export default function StaffManagement() {
                                 )}
                                 <span>Staff Member</span>
                               </div>
+                              <div className="flex items-center gap-1 mt-1">
+                                {member.referenceFaceUrl ||
+                                member.image?.url ? (
+                                  <span className="inline-flex items-center gap-1 text-[10px] font-black text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-0.5 rounded-md">
+                                    <CheckCircle2 className="h-2.5 w-2.5 text-emerald-500" />{" "}
+                                    Face Enrolled
+                                  </span>
+                                ) : (
+                                  <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-600 dark:text-amber-400 bg-amber-500/10 border border-amber-500/20 px-1.5 py-0.5 rounded-md">
+                                    No Face
+                                  </span>
+                                )}
+                              </div>
                             </div>
                           </div>
                         </TableCell>
@@ -481,12 +498,23 @@ export default function StaffManagement() {
                           </span>
                         </TableCell>
                         <TableCell className="px-6 py-4 text-right">
-                          <Link
-                            href={`/shopkeeper/staff/${member._id || member.id || "STF-4130"}`}
-                            className="inline-flex items-center gap-1.5 rounded-xl border border-border bg-surface px-3 py-1.5 text-xs font-bold text-foreground hover:bg-[#84CC16]/10 hover:text-[#65A30D] transition-colors"
-                          >
-                            View Record →
-                          </Link>
+                          <div className="flex items-center justify-end gap-2">
+                            <button
+                              type="button"
+                              onClick={() => setEnrollingStaff(member)}
+                              className="inline-flex items-center gap-1.5 rounded-xl border border-[#84CC16]/40 bg-[#84CC16]/10 px-2.5 py-1.5 text-xs font-black text-[#65A30D] hover:bg-[#84CC16]/20 transition-colors shadow-xs"
+                              title="Register or update biometric reference face"
+                            >
+                              <ScanFace className="h-3.5 w-3.5" />
+                              Face ID
+                            </button>
+                            <Link
+                              href={`/shopkeeper/staff/${member._id || member.id || "STF-4130"}`}
+                              className="inline-flex items-center gap-1.5 rounded-xl border border-border bg-surface px-3 py-1.5 text-xs font-bold text-foreground hover:bg-[#84CC16]/10 hover:text-[#65A30D] transition-colors"
+                            >
+                              View Record →
+                            </Link>
+                          </div>
                         </TableCell>
                       </TableRow>
                     );
@@ -496,6 +524,12 @@ export default function StaffManagement() {
           </div>
         </div>
       </div>
+
+      <EnrollReferenceFaceModal
+        staff={enrollingStaff}
+        isOpen={Boolean(enrollingStaff)}
+        onClose={() => setEnrollingStaff(null)}
+      />
 
       <Dialog open={isOpen} onOpenChange={setIsOpen}>
         <DialogContent className="max-h-[90vh] sm:max-w-4xl p-0 border border-border/80 shadow-2xl rounded-2xl bg-card overflow-hidden flex flex-col">

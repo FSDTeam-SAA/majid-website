@@ -37,7 +37,6 @@ export function CashManagementCard({
     startingDayCash,
     banked,
     cashScore,
-    aiInsight,
     availableCashToday,
     previousSalesTotal,
     todayMetrics,
@@ -45,7 +44,6 @@ export function CashManagementCard({
     lastWeekMetrics,
     lastMonthMetrics,
     allTimeMetrics,
-    cashExpensesList,
     handleBankCash,
     handleSetStartingCash,
     handleAddCash,
@@ -137,10 +135,14 @@ export function CashManagementCard({
               <Banknote className="h-5 w-5" />
             </span>
             <div>
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <h2 className="text-xl font-black tracking-tight text-slate-900 dark:text-white">
                   Cash Management
                 </h2>
+                <span className="inline-flex items-center gap-1 rounded-full border border-amber-500/30 bg-amber-500/10 px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wider text-amber-600 dark:border-amber-500/30 dark:bg-amber-500/20 dark:text-amber-400">
+                  <span className="h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse" />
+                  BETA
+                </span>
                 <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-black text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400">
                   <ShieldCheck className="h-3.5 w-3.5" />
                   Score {cashScore}/100

@@ -15,6 +15,8 @@ export interface StaffUser {
   image?: {
     url?: string;
   } | null;
+  referenceFaceUrl?: string;
+  referenceFaceEnrolledAt?: string;
   isVerified?: boolean;
   wageType?: "per-day" | "per-hour";
   wageAmount?: number;
@@ -72,5 +74,27 @@ export const verifyStaffIdCardApi = async (payload: {
   }
 
   const response = await axiosInstance.post("/ocr/extract-nid", formData);
+  return response.data;
+};
+
+export const updateStaffReferenceFaceApi = async (
+  staffId: string,
+  payload: { file?: File; photoUrl?: string },
+) => {
+  if (payload.file) {
+    const formData = new FormData();
+    formData.append("image", payload.file);
+    const response = await axiosInstance.put(
+      `/user/staff/${staffId}/reference-face`,
+      formData,
+    );
+    return response.data;
+  }
+  const response = await axiosInstance.put(
+    `/user/staff/${staffId}/reference-face`,
+    {
+      photoUrl: payload.photoUrl,
+    },
+  );
   return response.data;
 };
