@@ -59,6 +59,7 @@ import {
   Trash2,
   Download,
   Info,
+  Sparkles,
 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
@@ -111,6 +112,7 @@ import {
   CategorySpecificFormFields,
   type CategoryFormAttributes,
 } from "../forms/CategorySpecificFormFields";
+import { KNOWN_BRANDS, extractSpecsFromText } from "../../utils/specExtractor";
 
 type BarcodeSearchItem = {
   name?: string;
@@ -408,20 +410,7 @@ function ImportCsvModalContent({
 }
 // ──────────────────────────────────────────────────────────────────────────────
 
-const BRANDS = [
-  "Apple",
-  "Samsung",
-  "Google",
-  "Huawei",
-  "Xiaomi",
-  "Oppo",
-  "Vivo",
-  "Sony",
-  "LG",
-  "Nokia",
-  "OnePlus",
-  "Other",
-];
+const BRANDS = [...KNOWN_BRANDS];
 
 const SALE_METHODS = [
   "In-store",
@@ -2035,7 +2024,10 @@ export function InventoryFormModal({
         });
 
         // Check if brand is custom
-        if (item.brand && !BRANDS.includes(item.brand)) {
+        if (
+          item.brand &&
+          !BRANDS.some((b) => b.toLowerCase() === item.brand?.toLowerCase())
+        ) {
           setIsCustomBrand(true);
         } else {
           setIsCustomBrand(false);
@@ -2215,6 +2207,74 @@ export function InventoryFormModal({
         shouldDirty: true,
         shouldValidate: false,
       });
+    }
+
+    handleAutofillFromDescription(
+      nextName + ". " + (product.description || ""),
+      false,
+    );
+  };
+
+  const handleAutofillFromDescription = (
+    textOverride?: string,
+    showToast = true,
+  ) => {
+    const descText = textOverride ?? form.getValues("productDetails") ?? "";
+    const nameText = form.getValues("itemName") ?? productNameSearch ?? "";
+    const combined = `${nameText}. ${descText}`.trim();
+
+    if (!combined) {
+      if (showToast) {
+        toast.error("Please enter a product name or description first");
+      }
+      return;
+    }
+
+    const extracted = extractSpecsFromText(combined, undefined, categories);
+    const options = { shouldValidate: true, shouldDirty: true };
+
+    if (extracted.brand) {
+      form.setValue("brand", extracted.brand, options);
+      setIsCustomBrand(Boolean(extracted.isCustomBrand));
+    }
+
+    if (extracted.modelNumber && !form.getValues("modelNumber")) {
+      form.setValue("modelNumber", extracted.modelNumber, options);
+    }
+
+    if (extracted.color) {
+      form.setValue("color", extracted.color, options);
+      syncMultiValueField("color", [extracted.color], options);
+    }
+
+    if (extracted.storage) {
+      form.setValue("storage", extracted.storage, options);
+      syncMultiValueField("storage", [extracted.storage], options);
+    }
+
+    if (extracted.currentState) {
+      form.setValue(
+        "currentState",
+        extracted.currentState as CreateInventoryInput["currentState"],
+        options,
+      );
+      setIsCustomCondition(
+        extracted.currentState !== "new" &&
+          extracted.currentState !== "good condition",
+      );
+    }
+
+    if (extracted.matchedCategoryId && !form.getValues("categoryId")) {
+      form.setValue("categoryId", extracted.matchedCategoryId, options);
+    }
+
+    setCategoryAttrs((prev) => ({
+      ...prev,
+      ...extracted.categoryAttributes,
+    }));
+
+    if (showToast) {
+      toast.success("Specifications auto-filled from description!");
     }
   };
 
@@ -2578,7 +2638,12 @@ export function InventoryFormModal({
 
                 // Handle custom brand state
                 if (key === "brand") {
-                  if (typeof value === "string" && !BRANDS.includes(value)) {
+                  if (
+                    typeof value === "string" &&
+                    !BRANDS.some(
+                      (b) => b.toLowerCase() === value.trim().toLowerCase(),
+                    )
+                  ) {
                     setIsCustomBrand(true);
                   } else {
                     setIsCustomBrand(false);
@@ -2746,6 +2811,74 @@ export function InventoryFormModal({
             if (!Number.isFinite(scannedQuantity) || scannedQuantity < 1) {
               form.setValue("quantity", 1, options);
             }
+
+            // Extract & Auto-fill all specifications from descriptions & product details
+            const finalProductDetails =
+              responseData.productDetails ||
+              (typeof deviceData.productDetails === "string"
+                ? deviceData.productDetails
+                : "") ||
+              (typeof barcodeResult?.description === "string"
+                ? barcodeResult.description
+                : "");
+
+            if (finalProductDetails && !form.getValues("productDetails")) {
+              form.setValue("productDetails", finalProductDetails, options);
+            }
+
+            const textToExtract = [
+              form.getValues("itemName") || fallbackItemName,
+              finalProductDetails,
+              typeof barcodeResult?.description === "string"
+                ? barcodeResult.description
+                : "",
+            ]
+              .filter(Boolean)
+              .join(". ");
+
+            const extracted = extractSpecsFromText(
+              textToExtract,
+              barcodeResult?.rawData as Record<string, unknown> | undefined,
+              categories,
+            );
+
+            if (extracted.brand) {
+              form.setValue("brand", extracted.brand, options);
+              setIsCustomBrand(Boolean(extracted.isCustomBrand));
+            }
+
+            if (extracted.modelNumber) {
+              form.setValue("modelNumber", extracted.modelNumber, options);
+            }
+
+            if (extracted.matchedCategoryId && !form.getValues("categoryId")) {
+              form.setValue("categoryId", extracted.matchedCategoryId, options);
+            }
+
+            if (extracted.currentState) {
+              form.setValue(
+                "currentState",
+                extracted.currentState as CreateInventoryInput["currentState"],
+                options,
+              );
+              setIsCustomCondition(
+                extracted.currentState !== "new" &&
+                  extracted.currentState !== "good condition",
+              );
+            }
+
+            if (extracted.color) {
+              syncMultiValueField("color", [extracted.color], options);
+            }
+
+            if (extracted.storage) {
+              syncMultiValueField("storage", [extracted.storage], options);
+            }
+
+            setCategoryAttrs((prev) => ({
+              ...prev,
+              ...extracted.categoryAttributes,
+            }));
 
             toast.success("Device details auto-populated! Please review.");
             setManualBarcode("");
@@ -3116,8 +3249,17 @@ export function InventoryFormModal({
                               }
                             }}
                             value={
-                              field.value && BRANDS.includes(field.value)
-                                ? field.value
+                              field.value &&
+                              BRANDS.some(
+                                (b) =>
+                                  b.toLowerCase() ===
+                                  field.value?.toLowerCase(),
+                              )
+                                ? BRANDS.find(
+                                    (b) =>
+                                      b.toLowerCase() ===
+                                      field.value?.toLowerCase(),
+                                  )
                                 : field.value
                                   ? "Other"
                                   : ""
@@ -4159,16 +4301,35 @@ export function InventoryFormModal({
               name="productDetails"
               render={({ field }) => (
                 <FormItem>
-                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-2">
                     <FormLabel className="text-[10px] font-black uppercase tracking-widest text-slate-700 dark:text-white block ml-1">
                       Product Description
                     </FormLabel>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        handleAutofillFromDescription(field.value, true)
+                      }
+                      className="h-8 px-3 rounded-xl border border-[#84CC16]/40 bg-[#84CC16]/10 text-[#84CC16] hover:bg-[#84CC16]/20 transition-all text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5 shadow-xs cursor-pointer"
+                      title="Extract brand, specs, RAM, SSD, and details from this text"
+                    >
+                      <Sparkles className="w-3.5 h-3.5" />
+                      Auto-Fill Fields From Description
+                    </button>
                   </div>
                   <FormControl>
                     <textarea
                       placeholder="Product description will appear here..."
-                      className="w-full min-h-[120px] p-4 bg-[#84CC16]/5 border border-[#84CC16]/20 hover:border-[#84CC16]/40 hover:bg-[#84CC16]/10 rounded-[20px] font-bold text-slate-900 placeholder:text-slate-400 focus:bg-white focus:ring-4 focus:ring-[#84CC16]/15 focus:border-[#84CC16] transition-all shadow-sm outline-none resize-none"
+                      className="w-full min-h-[120px] p-4 bg-[#84CC16]/5 border border-[#84CC16]/20 hover:border-[#84CC16]/40 hover:bg-[#84CC16]/10 rounded-[20px] font-bold text-slate-900 placeholder:text-slate-400 focus:bg-white focus:ring-4 focus:ring-[#84CC16]/15 focus:border-[#84CC16] transition-all shadow-sm outline-none resize-none dark:text-white dark:bg-slate-900/50"
                       {...field}
+                      onPaste={(e) => {
+                        const pasted = e.clipboardData.getData("text");
+                        if (pasted && pasted.length > 25) {
+                          setTimeout(() => {
+                            handleAutofillFromDescription(pasted, true);
+                          }, 100);
+                        }
+                      }}
                     />
                   </FormControl>
                 </FormItem>
