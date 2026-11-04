@@ -17,6 +17,12 @@ export interface INfcSettingsResponse {
     email: string;
     address: string;
   };
+  geofence?: {
+    latitude: number;
+    longitude: number;
+    radiusMeters: number;
+    enforceGeofence: boolean;
+  };
 }
 
 export const DEMO_NFC_SETTINGS: INfcSettingsResponse = {
@@ -36,6 +42,12 @@ export const DEMO_NFC_SETTINGS: INfcSettingsResponse = {
     phone: "+44 20 7946 0991",
     email: "support@imoscan.co.uk",
     address: "Unit 4, High Street Retail Park, Romford RM1 1HR",
+  },
+  geofence: {
+    latitude: 51.5794,
+    longitude: 0.1837,
+    radiusMeters: 150,
+    enforceGeofence: true,
   },
 };
 
@@ -70,6 +82,12 @@ export const updateNfcSettingsApi = async (
       phone: string;
       email: string;
       address: string;
+    };
+    geofence?: {
+      latitude: number;
+      longitude: number;
+      radiusMeters: number;
+      enforceGeofence: boolean;
     };
   },
 ): Promise<{ success: boolean; message: string }> => {

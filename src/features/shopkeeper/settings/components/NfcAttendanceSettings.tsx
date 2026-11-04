@@ -14,6 +14,10 @@ import {
   ShieldAlert,
   Loader2,
   Sparkles,
+  MapPin,
+  LocateFixed,
+  Navigation,
+  ShieldCheck,
 } from "lucide-react";
 import QRCode from "react-qr-code";
 import { toast } from "sonner";
@@ -21,6 +25,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Select,
   SelectContent,
@@ -77,6 +82,17 @@ export const NfcAttendanceSettings: React.FC = () => {
     }>
   >({});
 
+  // Store Geofence Form Overrides State
+  const [geofenceFormOverride, setGeofenceFormOverride] = useState<
+    Partial<{
+      latitude: number;
+      longitude: number;
+      radiusMeters: number;
+      enforceGeofence: boolean;
+    }>
+  >({});
+  const [isDetectingLocation, setIsDetectingLocation] = useState(false);
+
   const managerForm = {
     name:
       managerFormOverride.name ??
@@ -105,6 +121,51 @@ export const NfcAttendanceSettings: React.FC = () => {
         "Unit 4, High Street Retail Park, Romford RM1 1HR"),
   };
 
+  const geofenceForm = {
+    latitude:
+      geofenceFormOverride.latitude ??
+      nfcSettings?.geofence?.latitude ??
+      51.5794,
+    longitude:
+      geofenceFormOverride.longitude ??
+      nfcSettings?.geofence?.longitude ??
+      0.1837,
+    radiusMeters:
+      geofenceFormOverride.radiusMeters ??
+      nfcSettings?.geofence?.radiusMeters ??
+      150,
+    enforceGeofence:
+      geofenceFormOverride.enforceGeofence ??
+      nfcSettings?.geofence?.enforceGeofence ??
+      true,
+  };
+
+  const handleDetectCurrentLocation = () => {
+    if (typeof navigator === "undefined" || !navigator.geolocation) {
+      toast.error("Geolocation is not supported by your browser");
+      return;
+    }
+    setIsDetectingLocation(true);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setIsDetectingLocation(false);
+        const lat = parseFloat(pos.coords.latitude.toFixed(6));
+        const lng = parseFloat(pos.coords.longitude.toFixed(6));
+        setGeofenceFormOverride((prev) => ({
+          ...prev,
+          latitude: lat,
+          longitude: lng,
+        }));
+        toast.success(`Current store coordinates captured: ${lat}, ${lng}`);
+      },
+      (err) => {
+        setIsDetectingLocation(false);
+        toast.error(`Could not detect location: ${err.message}`);
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 },
+    );
+  };
+
   // Update Settings Mutation
   const updateMutation = useMutation({
     mutationFn: (payload: {
@@ -115,6 +176,12 @@ export const NfcAttendanceSettings: React.FC = () => {
         title?: string;
       };
       storeSupport?: { phone: string; email: string; address: string };
+      geofence?: {
+        latitude: number;
+        longitude: number;
+        radiusMeters: number;
+        enforceGeofence: boolean;
+      };
     }) => updateNfcSettingsApi(shopIdToUse, payload),
     onSuccess: () => {
       queryClient.invalidateQueries({
@@ -549,6 +616,165 @@ export const NfcAttendanceSettings: React.FC = () => {
             Save Store Support Contacts
           </Button>
         </div>
+      </div>
+
+      {/* Physical Store Location & Geofence Protection Card */}
+      <div className="bg-card border border-border rounded-2xl p-6 shadow-sm space-y-5">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex items-center gap-2.5">
+            <span className="p-2 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+              <MapPin className="w-5 h-5" />
+            </span>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="text-base font-bold text-foreground">
+                  Store Physical Coordinates &amp; Geofence
+                </h3>
+                <Badge className="bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 text-[10px] font-bold">
+                  Anti-Spoofing
+                </Badge>
+              </div>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Staff must be physically located within this store perimeter to
+                clock in.
+              </p>
+            </div>
+          </div>
+
+          <Button
+            type="button"
+            variant="outline"
+            onClick={handleDetectCurrentLocation}
+            disabled={isDetectingLocation}
+            className="rounded-xl text-xs font-bold gap-1.5 border-emerald-500/40 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10 shrink-0"
+          >
+            {isDetectingLocation ? (
+              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+            ) : (
+              <LocateFixed className="w-3.5 h-3.5" />
+            )}
+            Detect My Current GPS
+          </Button>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="space-y-1">
+            <Label className="text-xs font-semibold text-foreground">
+              Latitude (Decimal)
+            </Label>
+            <Input
+              type="number"
+              step="any"
+              value={geofenceForm.latitude}
+              onChange={(e) =>
+                setGeofenceFormOverride((prev) => ({
+                  ...prev,
+                  latitude: parseFloat(e.target.value) || 0,
+                }))
+              }
+              placeholder="e.g. 51.579400"
+              className="bg-surface text-xs font-mono rounded-xl"
+            />
+          </div>
+
+          <div className="space-y-1">
+            <Label className="text-xs font-semibold text-foreground">
+              Longitude (Decimal)
+            </Label>
+            <Input
+              type="number"
+              step="any"
+              value={geofenceForm.longitude}
+              onChange={(e) =>
+                setGeofenceFormOverride((prev) => ({
+                  ...prev,
+                  longitude: parseFloat(e.target.value) || 0,
+                }))
+              }
+              placeholder="e.g. 0.183700"
+              className="bg-surface text-xs font-mono rounded-xl"
+            />
+          </div>
+
+          <div className="space-y-1">
+            <Label className="text-xs font-semibold text-foreground">
+              Allowable Check-in Radius
+            </Label>
+            <Select
+              value={String(geofenceForm.radiusMeters)}
+              onValueChange={(val) =>
+                setGeofenceFormOverride((prev) => ({
+                  ...prev,
+                  radiusMeters: parseInt(val, 10),
+                }))
+              }
+            >
+              <SelectTrigger className="bg-surface text-xs font-semibold rounded-xl">
+                <SelectValue placeholder="Select radius" />
+              </SelectTrigger>
+              <SelectContent className="rounded-xl">
+                <SelectItem value="50" className="text-xs">
+                  50 meters (Tight storefront)
+                </SelectItem>
+                <SelectItem value="100" className="text-xs">
+                  100 meters (Standard store)
+                </SelectItem>
+                <SelectItem value="150" className="text-xs">
+                  150 meters (Recommended)
+                </SelectItem>
+                <SelectItem value="200" className="text-xs">
+                  200 meters (Large center / Mall)
+                </SelectItem>
+                <SelectItem value="300" className="text-xs">
+                  300 meters (Commercial park)
+                </SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+
+        {/* Verification Map Link & Toggle */}
+        <div className="p-4 rounded-xl bg-surface border border-border flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+          <label className="flex items-center space-x-2.5 cursor-pointer">
+            <Checkbox
+              checked={geofenceForm.enforceGeofence}
+              onCheckedChange={(checked) =>
+                setGeofenceFormOverride((prev) => ({
+                  ...prev,
+                  enforceGeofence: Boolean(checked),
+                }))
+              }
+            />
+            <span className="font-semibold text-foreground">
+              Strict Geofence Enforcement (Hard-block staff who are outside the
+              radius)
+            </span>
+          </label>
+
+          <a
+            href={`https://www.google.com/maps/search/?api=1&query=${geofenceForm.latitude},${geofenceForm.longitude}`}
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground font-semibold underline shrink-0"
+          >
+            <ExternalLink className="w-3.5 h-3.5" />
+            <span>Verify on Google Maps</span>
+          </a>
+        </div>
+
+        <Button
+          type="button"
+          onClick={() => updateMutation.mutate({ geofence: geofenceForm })}
+          disabled={updateMutation.isPending}
+          className="w-full bg-[#84CC16] hover:bg-[#74b513] text-white rounded-xl text-xs font-bold gap-2"
+        >
+          {updateMutation.isPending ? (
+            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+          ) : (
+            <ShieldCheck className="w-3.5 h-3.5" />
+          )}
+          Save Store Geofence &amp; Coordinates
+        </Button>
       </div>
 
       {/* Confirmation Dialog for Rotating Token */}
