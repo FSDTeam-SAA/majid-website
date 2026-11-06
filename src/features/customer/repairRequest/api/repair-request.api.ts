@@ -41,6 +41,20 @@ export const createRepairRequest = async (
     formData.append("IMEINumber", payload.IMEINumber);
   }
 
+  if (payload.category) formData.append("category", payload.category);
+  if (payload.brand) formData.append("brand", payload.brand);
+  if (payload.modelName) formData.append("modelName", payload.modelName);
+  if (payload.modelCode) formData.append("modelCode", payload.modelCode);
+  if (payload.releaseYear) formData.append("releaseYear", payload.releaseYear);
+  if (payload.colour) formData.append("colour", payload.colour);
+  if (payload.condition) formData.append("condition", payload.condition);
+  if (payload.serialType) formData.append("serialType", payload.serialType);
+  if (payload.serialNumber) formData.append("serialNumber", payload.serialNumber);
+  if (payload.issues) formData.append("issues", JSON.stringify(payload.issues));
+  if (payload.evidencePhotos) {
+    formData.append("evidencePhotos", JSON.stringify(payload.evidencePhotos));
+  }
+
   payload.images?.forEach((file) => {
     formData.append("images", file);
   });

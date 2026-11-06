@@ -18,9 +18,11 @@ import {
   Download,
   Settings,
   RotateCcw,
+  Cpu,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import Image from "next/image";
+import Link from "next/link";
 import {
   useMyInventory,
   useDeleteInventory,
@@ -400,6 +402,13 @@ export default function Inventory() {
             </div>
 
             <div className="flex flex-wrap items-center gap-3">
+              <Link
+                href="/shopkeeper/inventory/repair-parts"
+                className="flex h-12 items-center justify-center gap-2 rounded-xl bg-slate-900 border border-slate-800 px-4 text-sm font-black text-lime-400 shadow-sm transition hover:bg-slate-800 active:scale-95 cursor-pointer"
+              >
+                <Cpu size={17} className="text-[#84CC16]" />
+                Repair Parts
+              </Link>
               <button
                 onClick={() => setIsManageModalOpen(true)}
                 className="flex h-12 items-center justify-center gap-2 rounded-xl bg-card border border-border px-4 text-sm font-black text-foreground shadow-sm transition hover:border-[#84CC16]/50 hover:bg-[#84CC16]/5 active:scale-95 cursor-pointer"

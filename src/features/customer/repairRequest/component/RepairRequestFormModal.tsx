@@ -4,62 +4,208 @@ import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import {
-  useMyProfile,
-  useRepairProblem,
-} from "@/features/shopkeeper/settings/hooks/useSettings";
+import { useMyProfile } from "@/features/shopkeeper/settings/hooks/useSettings";
 import {
   useCustomersByShopkeeper,
   useCreateCustomer,
 } from "@/features/shopkeeper/inventory/hooks/useInventory";
 import { Customer } from "@/features/shopkeeper/inventory/types";
 import {
-  AlertTriangle,
   Check,
-  ChevronDown,
+  ChevronRight,
   Clock,
   Loader2,
   Plus,
   Search,
   Smartphone,
+  Tablet,
+  Laptop,
+  Gamepad2,
+  Unlock,
+  Wrench,
+  X,
+  Trash2,
+  Calendar,
+  Info,
+  Camera,
+  CheckCircle2,
+  ArrowLeft,
+  ChevronDown,
   Sparkles,
-  User as UserIcon,
+  ThumbsUp,
+  Smile,
+  AlertTriangle,
 } from "lucide-react";
+import { useCompatibleParts } from "@/features/shopkeeper/repairParts/hooks/useRepairParts";
+import deviceCatalogData from "@/features/shopkeeper/repairParts/data/deviceCatalog.json";
 import { useSession } from "next-auth/react";
-import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { format } from "date-fns";
 import {
   useCreateRepairRequest,
   useRepairTechnicians,
-  useCustomerRepairHistory,
 } from "../hooks/useRepairRequest";
 import { RepairRequest, Shopkeeper } from "../types/repair-request.types";
 
-const ADD_NEW_TECHNICIAN = "__add_new_technician__";
-
-const STANDARD_PROBLEMS = [
-  "Charging port",
-  "Screen damage",
-  "Battery issue",
-  "Camera issue",
-  "Software issue",
-  "Motherboard",
-  "Other",
-];
+interface SelectedIssue {
+  category: string;
+  problems: string[];
+  additionalInfo?: string;
+  estimatedTime: string;
+  estimatedPrice: number;
+  selectedPart?: {
+    variantId?: string;
+    variantName: string;
+    sku: string;
+    price: number;
+    quantity: number;
+  };
+}
 
 interface RepairRequestFormModalProps {
-  shopkeeper: Shopkeeper | null;
+  shopkeeper?: Shopkeeper | null;
   isOpen: boolean;
   onClose: () => void;
   mode?: "create" | "reassign";
   repairRequest?: RepairRequest;
   createCustomerOnSubmit?: boolean;
 }
+
+const CATEGORIES = [
+  {
+    id: "Mobile Phone",
+    title: "Mobile Phone",
+    subtitle: "Apple / Android",
+    icon: Smartphone,
+  },
+  {
+    id: "Tablet",
+    title: "Tablet",
+    subtitle: "Apple / Android",
+    icon: Tablet,
+  },
+  {
+    id: "Laptop",
+    title: "Laptop",
+    subtitle: "Apple / Windows",
+    icon: Laptop,
+  },
+  {
+    id: "Games Console",
+    title: "Games Console",
+    subtitle: "PlayStation / Xbox / Nintendo",
+    icon: Gamepad2,
+  },
+  {
+    id: "Unlocking",
+    title: "Unlocking",
+    subtitle: "Screen password, Network unlock, FRP",
+    icon: Unlock,
+  },
+  {
+    id: "Service",
+    title: "Service",
+    subtitle: "Speaker service, Charging port cleaning",
+    icon: Wrench,
+  },
+];
+
+const BRANDS = [
+  "All",
+  "Apple",
+  "Samsung",
+  "Google",
+  "Xiaomi",
+  "Oppo",
+  "Vivo",
+  "OnePlus",
+  "Other",
+];
+
+const COLOURS = [
+  { name: "Natural Titanium", hex: "#8A8782" },
+  { name: "Blue Titanium", hex: "#3A4454" },
+  { name: "White Titanium", hex: "#E8E7E3" },
+  { name: "Black Titanium", hex: "#2C2B29" },
+  { name: "Graphite", hex: "#4B4846" },
+  { name: "Silver", hex: "#E2E4E1" },
+  { name: "Gold", hex: "#F9E5C9" },
+  { name: "Midnight", hex: "#1A2332" },
+  { name: "Starlight", hex: "#F0EAD6" },
+  { name: "Deep Purple", hex: "#4E4154" },
+];
+
+const CONDITIONS = [
+  { id: "New", label: "New", icon: Sparkles, color: "text-blue-500 bg-blue-500/10" },
+  { id: "Like New", label: "Like New", icon: ThumbsUp, color: "text-emerald-500 bg-emerald-500/10" },
+  { id: "Good", label: "Good", icon: CheckCircle2, color: "text-[#10B981] bg-[#10B981]/10" },
+  { id: "Fair", label: "Fair", icon: Smile, color: "text-amber-500 bg-amber-500/10" },
+  { id: "Poor", label: "Poor", icon: AlertTriangle, color: "text-rose-500 bg-rose-500/10" },
+];
+
+const ISSUE_CATEGORIES = [
+  { id: "Screen / Display", label: "Screen / Display", icon: Smartphone },
+  { id: "Battery", label: "Battery", icon: Wrench },
+  { id: "Charging Port", label: "Charging Port", icon: Wrench },
+  { id: "Back Cover / Housing", label: "Back Cover / Housing", icon: Smartphone },
+  { id: "Camera - Front / Rear", label: "Camera - Front / Rear", icon: Camera },
+  { id: "Speaker / Microphone", label: "Speaker / Microphone", icon: Wrench },
+  { id: "Buttons", label: "Buttons", icon: Wrench },
+  { id: "Water Damage", label: "Water Damage", icon: Wrench },
+  { id: "Software / Network", label: "Software / Network", icon: Wrench },
+  { id: "Other / Custom Issue", label: "Other / Custom Issue", icon: Wrench },
+];
+
+const COMMON_PROBLEMS: Record<string, string[]> = {
+  "Screen / Display": [
+    "Cracked / Broken",
+    "Touch Not Responding",
+    "Lines on Screen",
+    "Flickering",
+    "No Display",
+    "Other",
+  ],
+  Battery: [
+    "Not Lasting",
+    "Draining Fast",
+    "Not Charging",
+    "Overheating",
+    "Restarting Randomly",
+    "Other",
+  ],
+  "Charging Port": [
+    "Loose Cable",
+    "Slow Charging",
+    "No Power",
+    "Damaged Pins",
+    "Debris in Port",
+  ],
+  "Back Cover / Housing": ["Cracked Glass", "Bent Frame", "Scratched", "Dented"],
+  "Camera - Front / Rear": [
+    "Blurry Images",
+    "Black Screen",
+    "Cracked Lens",
+    "Focus Issue",
+  ],
+  "Speaker / Microphone": [
+    "No Sound",
+    "Distorted Audio",
+    "Mic Not Working on Calls",
+    "Low Volume",
+  ],
+  Buttons: ["Power Button Stuck", "Volume Buttons Broken", "Mute Switch Faulty"],
+  "Water Damage": ["Liquid Spill", "Submerged in Water", "Corrosion Visible"],
+  "Software / Network": [
+    "Bootloop / Apple Logo",
+    "No Signal / SIM Failure",
+    "WiFi Issue",
+    "FRP / Google Lock",
+  ],
+  "Other / Custom Issue": ["General Diagnostics", "Multiple Issues", "Unspecified"],
+};
 
 export function RepairRequestFormModal({
   isOpen,
@@ -71,1277 +217,1145 @@ export function RepairRequestFormModal({
   const { data: session } = useSession();
   const { data: profileData } = useMyProfile();
   const user = profileData?.data;
-  const isReassignMode = mode === "reassign";
 
   const sessionUser = session?.user as
-    { id?: string; shopkeeperId?: string; role?: string } | undefined;
+    | { id?: string; shopkeeperId?: string; role?: string }
+    | undefined;
   const shopkeeperId =
     sessionUser?.shopkeeperId || sessionUser?.id || user?._id || "";
 
-  // Shopkeeper's customer list
   const { data: customersData } = useCustomersByShopkeeper(shopkeeperId);
   const customers: Customer[] = useMemo(
     () => customersData?.data || [],
     [customersData?.data],
   );
 
-  // Form State
-  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(
-    null,
-  );
-  const [isCustomerDropdownOpen, setIsCustomerDropdownOpen] = useState(false);
-  const [customerSearch, setCustomerSearch] = useState("");
-  const [isCreateNewCustomer, setIsCreateNewCustomer] = useState(false);
+  const createRepairRequest = useCreateRepairRequest();
+  const createCustomer = useCreateCustomer();
+  const { data: techniciansData } = useRepairTechnicians(isOpen);
+  const technicians = techniciansData?.data || [];
 
+  // Step state: 1 to 5
+  const [currentStep, setCurrentStep] = useState(1);
+
+  // Step 1: Category
+  const [category, setCategory] = useState("Mobile Phone");
+
+  // Step 2: Device
+  const [selectedBrand, setSelectedBrand] = useState("Apple");
+  const [deviceSearch, setDeviceSearch] = useState("");
+  const [selectedDevice, setSelectedDevice] = useState<{
+    brand: string;
+    modelName: string;
+    modelCode: string;
+    releaseYear: string;
+  }>({
+    brand: "Apple",
+    modelName: "iPhone 15 Pro Max",
+    modelCode: "A3106",
+    releaseYear: "2023",
+  });
+
+  // Step 3: Details
+  const [selectedColour, setSelectedColour] = useState("Natural Titanium");
+  const [selectedCondition, setSelectedCondition] = useState("Good");
+  const [serialType, setSerialType] = useState<"IMEI" | "Serial" | "Both">("IMEI");
+  const [serialNumber, setSerialNumber] = useState("");
+  const [photos, setPhotos] = useState<File[]>([]);
+  const [photoPreviews, setPhotoPreviews] = useState<string[]>([]);
+
+  // Step 4: Issues
+  const [selectedIssues, setSelectedIssues] = useState<SelectedIssue[]>([]);
+  const [activeIssueCategory, setActiveIssueCategory] = useState<string | null>(null);
+  const [activeProblems, setActiveProblems] = useState<string[]>([]);
+  const [activeDetails, setActiveDetails] = useState("");
+  const [activeTime, setActiveTime] = useState("1–2 Hours");
+  const [activePrice, setActivePrice] = useState("120.00");
+  const [activePartQuantity, setActivePartQuantity] = useState(1);
+
+  // Step 5: Customer Details
+  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
+  const [technician, setTechnician] = useState("");
 
-  // Section 3: Device Selection
-  const [deviceTab, setDeviceTab] = useState<"previous" | "different">(
-    "previous",
-  );
-  const [deviceModel, setDeviceModel] = useState("");
-  const [isDeviceRecognised, setIsDeviceRecognised] = useState(false);
-  const [isDeviceDropdownOpen, setIsDeviceDropdownOpen] = useState(false);
-
-  // Section 4: Issue Selection
-  const [issueTab, setIssueTab] = useState<"previous" | "new">("previous");
-  const [selectedProblem, setSelectedProblem] = useState("");
-  const [problemSearch, setProblemSearch] = useState("");
-  const [isProblemDropdownOpen, setIsProblemDropdownOpen] = useState(false);
-
-  // Bottom row fields
-  const [price, setPrice] = useState("");
-  const [imeiNumber, setImeiNumber] = useState("");
-  const [technicianSelection, setTechnicianSelection] = useState("");
-  const [newTechnician, setNewTechnician] = useState("");
-  const [problemDescription, setProblemDescription] = useState("");
-
-  // Section 5: Auto-fill banner
-  const [showAutoFillBanner, setShowAutoFillBanner] = useState(false);
-
-  // Dropdown refs
-  const customerDropdownRef = useRef<HTMLDivElement>(null);
-  const deviceDropdownRef = useRef<HTMLDivElement>(null);
-  const problemDropdownRef = useRef<HTMLDivElement>(null);
-
-  // Settings & mutation hooks
-  const { data: repairProblemData } = useRepairProblem(user?._id || "");
-  const createRepairRequest = useCreateRepairRequest();
-  const createCustomer = useCreateCustomer();
-  const { data: techniciansData, isLoading: isTechniciansLoading } =
-    useRepairTechnicians(isOpen);
-  const technicians = techniciansData?.data || [];
-
-  // Customer Repair History Hook
-  const queryPhone = selectedCustomer?.phone || phone;
-  const queryEmail = selectedCustomer?.email || email;
-  const { data: customerHistoryResponse } = useCustomerRepairHistory(
+  // Compatible parts for active issue
+  const { data: compatiblePartsData } = useCompatibleParts(
     {
-      phone: queryPhone,
-      email: queryEmail,
+      modelName: selectedDevice?.modelName,
+      issue: activeIssueCategory || undefined,
+      shopId: shopkeeperId || undefined,
     },
-    isOpen && Boolean(queryPhone || queryEmail),
+    isOpen && Boolean(selectedDevice?.modelName && activeIssueCategory),
   );
+  const recommendedParts: any[] = Array.isArray(compatiblePartsData)
+    ? compatiblePartsData
+    : [];
 
-  const customerHistory = customerHistoryResponse?.data;
-  const previousRepairs = customerHistory?.repairs || [];
-  const recognizedDevices = customerHistory?.devices || [];
-  const recognizedIssues = customerHistory?.issues || [];
-  const recognizedDevicesCount =
-    customerHistory?.recognizedDevicesCount ?? recognizedDevices.length;
-
-  // Handle click outside for all popovers
+  // Initialize with default issue if empty
   useEffect(() => {
-    function handleClickOutside(e: MouseEvent) {
-      const target = e.target as Node;
-      if (
-        customerDropdownRef.current &&
-        !customerDropdownRef.current.contains(target)
-      ) {
-        setIsCustomerDropdownOpen(false);
-      }
-      if (
-        deviceDropdownRef.current &&
-        !deviceDropdownRef.current.contains(target)
-      ) {
-        setIsDeviceDropdownOpen(false);
-      }
-      if (
-        problemDropdownRef.current &&
-        !problemDropdownRef.current.contains(target)
-      ) {
-        setIsProblemDropdownOpen(false);
-      }
+    if (selectedIssues.length === 0) {
+      setSelectedIssues([
+        {
+          category: "Screen / Display",
+          problems: ["Cracked / Broken"],
+          estimatedTime: "1–2 Hours",
+          estimatedPrice: 120.0,
+        },
+      ]);
     }
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
+  }, [selectedIssues.length]);
 
-  // Filtered customer list for searchable dropdown
-  const filteredCustomers = useMemo(() => {
-    const term = customerSearch.trim().toLowerCase();
-    if (!term) return customers;
-    return customers.filter((c) => {
-      const name = `${c.firstName} ${c.lastName || ""}`.toLowerCase();
-      const phoneVal = (c.phone || "").toLowerCase();
-      const emailVal = (c.email || "").toLowerCase();
-      return (
-        name.includes(term) ||
-        phoneVal.includes(term) ||
-        emailVal.includes(term)
+  // Handle Photo selection
+  const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files) return;
+    const files = Array.from(e.target.files);
+    setPhotos((prev) => [...prev, ...files]);
+    const previews = files.map((file) => URL.createObjectURL(file));
+    setPhotoPreviews((prev) => [...prev, ...previews]);
+  };
+
+  const removePhoto = (index: number) => {
+    setPhotos((prev) => prev.filter((_, i) => i !== index));
+    setPhotoPreviews((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  // Filter device catalog
+  const filteredCatalog = useMemo(() => {
+    let list = deviceCatalogData as Array<{
+      brand: string;
+      deviceType: string;
+      modelName: string;
+      releaseYear: string;
+      modelCode: string;
+    }>;
+
+    if (selectedBrand !== "All") {
+      list = list.filter(
+        (d) => d.brand.toLowerCase() === selectedBrand.toLowerCase(),
       );
-    });
-  }, [customers, customerSearch]);
-
-  // Duplicate customer warning check
-  const duplicateCustomer = useMemo(() => {
-    if (!isCreateNewCustomer || !customers.length) return null;
-    const cleanPhone = phone.trim();
-    const cleanEmail = email.trim().toLowerCase();
-    if (!cleanPhone && !cleanEmail) return null;
-
-    return customers.find((c) => {
-      const matchPhone = cleanPhone && c.phone && c.phone.trim() === cleanPhone;
-      const matchEmail =
-        cleanEmail && c.email && c.email.trim().toLowerCase() === cleanEmail;
-      return matchPhone || matchEmail;
-    });
-  }, [isCreateNewCustomer, customers, phone, email]);
-
-  // Handle selecting an existing customer
-  const handleSelectCustomer = (customer: Customer) => {
-    setSelectedCustomer(customer);
-    setIsCreateNewCustomer(false);
-    setIsCustomerDropdownOpen(false);
-    const full = `${customer.firstName} ${customer.lastName || ""}`.trim();
-    setFullName(full);
-    setEmail(customer.email || "");
-    setPhone(customer.phone || "");
-  };
-
-  // When customer history loads, trigger smart auto-fill
-  useEffect(() => {
-    if (!isOpen || isReassignMode) return;
-
-    if (customerHistory && customerHistory.repairs?.length > 0) {
-      const mostRecent = customerHistory.mostRecentRepair;
-      if (mostRecent) {
-        // eslint-disable-next-line react-hooks/set-state-in-effect
-        setShowAutoFillBanner(true);
-        setDeviceTab("previous");
-        setDeviceModel(mostRecent.deviceModel || "");
-        setIsDeviceRecognised(true);
-
-        setIssueTab("previous");
-        setSelectedProblem(mostRecent.description || "");
-        setProblemSearch(mostRecent.description || "");
-        setProblemDescription(mostRecent.description || "");
-      }
     }
-  }, [customerHistory, isOpen, isReassignMode]);
 
-  // Clear auto-fill handler
-  const handleClearAutoFill = () => {
-    setShowAutoFillBanner(false);
-    setDeviceTab("different");
-    setDeviceModel("");
-    setIsDeviceRecognised(false);
-    setIssueTab("new");
-    setSelectedProblem("");
-    setProblemSearch("");
-    setProblemDescription("");
-    toast.info(
-      "Auto-filled details cleared. You can now enter new device and problem details.",
-    );
-  };
+    if (deviceSearch.trim()) {
+      const q = deviceSearch.trim().toLowerCase();
+      list = list.filter(
+        (d) =>
+          d.modelName.toLowerCase().includes(q) ||
+          d.modelCode.toLowerCase().includes(q) ||
+          d.releaseYear.includes(q),
+      );
+    }
 
-  // Reset form on close or submit
-  const resetForm = () => {
-    setSelectedCustomer(null);
-    setIsCreateNewCustomer(false);
-    setCustomerSearch("");
-    setFullName("");
-    setEmail("");
-    setPhone("");
-    setDeviceTab("previous");
-    setDeviceModel("");
-    setIsDeviceRecognised(false);
-    setIsDeviceDropdownOpen(false);
-    setIssueTab("previous");
-    setSelectedProblem("");
-    setProblemSearch("");
-    setIsProblemDropdownOpen(false);
-    setProblemDescription("");
-    setPrice("");
-    setImeiNumber("");
-    setTechnicianSelection("");
-    setNewTechnician("");
-    setShowAutoFillBanner(false);
-  };
+    return list.slice(0, 30);
+  }, [selectedBrand, deviceSearch]);
 
-  // Available problem choices
-  const problemSuggestions = useMemo(() => {
-    const backendProblems = (repairProblemData?.data || [])
-      .map((p) => p.description?.trim())
-      .filter((d): d is string => Boolean(d));
-
-    const list = [...STANDARD_PROBLEMS];
-    backendProblems.forEach((bp) => {
-      if (!list.includes(bp)) list.push(bp);
-    });
-    return list;
-  }, [repairProblemData?.data]);
-
-  const filteredProblemSuggestions = useMemo(() => {
-    const searchVal = problemSearch.trim().toLowerCase();
-    if (!searchVal) return problemSuggestions;
-    return problemSuggestions.filter((p) =>
-      p.toLowerCase().includes(searchVal),
-    );
-  }, [problemSearch, problemSuggestions]);
+  // Calculate total
+  const totalAmount = useMemo(() => {
+    return selectedIssues.reduce((sum, item) => {
+      let cost = item.estimatedPrice;
+      if (item.selectedPart) {
+        cost += item.selectedPart.price * item.selectedPart.quantity;
+      }
+      return sum + cost;
+    }, 0);
+  }, [selectedIssues]);
 
   // Submit Handler
-  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-
-    const nextDescription =
-      problemDescription || selectedProblem || problemSearch;
-    const isShopkeeperCreate = createCustomerOnSubmit && !isReassignMode;
-    const technician =
-      technicianSelection === ADD_NEW_TECHNICIAN
-        ? newTechnician.trim()
-        : technicianSelection;
-
-    if (isShopkeeperCreate && !shopkeeperId) {
-      toast.error("Shopkeeper session not found");
+  const handleSubmit = async () => {
+    if (!fullName.trim() && !selectedCustomer) {
+      toast.error("Please provide a customer name");
+      return;
+    }
+    if (!phone.trim() && !selectedCustomer?.phone) {
+      toast.error("Please provide a customer phone number");
       return;
     }
 
-    if (!deviceModel.trim()) {
-      toast.error("Please provide or select a device model");
-      return;
-    }
+    const primaryCustName = selectedCustomer
+      ? `${selectedCustomer.firstName} ${selectedCustomer.lastName || ""}`.trim()
+      : fullName.trim();
+    const primaryPhone = selectedCustomer?.phone || phone.trim();
+    const primaryEmail = selectedCustomer?.email || email.trim() || `${primaryPhone.replace(/\D/g, "")}@customer.local`;
 
-    if (!nextDescription.trim()) {
-      toast.error("Please provide a problem description");
-      return;
-    }
+    const description = selectedIssues
+      .map(
+        (iss) =>
+          `${iss.category}: ${(iss.problems || []).join(", ")}${
+            iss.additionalInfo ? ` (${iss.additionalInfo})` : ""
+          }`,
+      )
+      .join("\n");
+
+    const issuesPayload = selectedIssues.map((iss) => ({
+      category: iss.category,
+      problems: iss.problems || [],
+      issueCategory: iss.category,
+      commonProblems: iss.problems || [],
+      additionalInfo: iss.additionalInfo || "",
+      additionalDetails: iss.additionalInfo || "",
+      estimatedTime: iss.estimatedTime,
+      estimatedPrice: iss.estimatedPrice,
+      selectedPart: iss.selectedPart,
+    }));
 
     try {
       await createRepairRequest.mutateAsync({
-        firstName: isReassignMode ? repairRequest?.firstName || "" : fullName,
-        email: isReassignMode ? repairRequest?.email || "" : email,
-        phoneNumber: isReassignMode ? repairRequest?.phoneNumber || "" : phone,
-        price: isReassignMode
-          ? Number(repairRequest?.price || 0)
-          : Number(price || 0),
-        deviceModel: isReassignMode
-          ? repairRequest?.deviceModel || ""
-          : deviceModel,
-        IMEINumber: isReassignMode ? repairRequest?.IMEINumber : imeiNumber,
-        description: nextDescription,
-        technician,
-        status: isReassignMode ? "reassigned" : undefined,
+        firstName: primaryCustName,
+        email: primaryEmail,
+        phoneNumber: primaryPhone,
+        price: totalAmount,
+        deviceModel: `${selectedDevice.brand} ${selectedDevice.modelName}`,
+        IMEINumber: serialNumber || undefined,
+        description: description || "Repair diagnostic requested",
+        technician: technician || undefined,
+        category,
+        brand: selectedDevice.brand,
+        modelName: selectedDevice.modelName,
+        modelCode: selectedDevice.modelCode,
+        releaseYear: selectedDevice.releaseYear,
+        colour: selectedColour,
+        condition: selectedCondition,
+        serialType: serialType === "Both" ? "both" : serialType === "Serial" ? "serial" : "imei",
+        serialNumber: serialNumber || undefined,
+        issues: issuesPayload,
+        images: photos,
       });
-    } catch {
-      return;
-    }
 
-    // Save new customer if entered manually
-    if (isShopkeeperCreate && !selectedCustomer && isCreateNewCustomer) {
-      const [fName, ...lastNameParts] = fullName.trim().split(/\s+/);
-      try {
-        await createCustomer.mutateAsync({
-          firstName: fName || fullName,
-          lastName: lastNameParts.join(" "),
-          email,
-          phone,
-          address: "",
-          shopkeeperId,
-        });
-      } catch (error) {
-        const requestError = error as {
-          response?: { data?: { message?: string } };
-        };
-        if (!requestError.response?.data?.message?.includes("already exists")) {
-          toast.error(
-            requestError.response?.data?.message ||
-              "Repair request created, but customer profile could not be auto-saved",
-          );
+      if (!selectedCustomer && (createCustomerOnSubmit || fullName)) {
+        const [fName, ...lParts] = fullName.trim().split(/\s+/);
+        try {
+          await createCustomer.mutateAsync({
+            firstName: fName || fullName,
+            lastName: lParts.join(" "),
+            email: primaryEmail,
+            phone: primaryPhone,
+            address: "",
+            shopkeeperId,
+          });
+        } catch {
+          // ignore customer creation duplicate error
         }
       }
-    }
 
-    resetForm();
-    onClose();
+      toast.success("Repair Request created successfully!");
+      onClose();
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to create repair request");
+    }
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
+    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent
-        className="!max-w-[1000px] sm:!max-w-[1000px] w-[95vw] p-0 gap-0 overflow-hidden flex flex-col sm:rounded-[28px] border-border bg-card shadow-2xl max-h-[92vh]"
-        showCloseButton={true}
+        showCloseButton={false}
+        className="sm:max-w-4xl lg:max-w-5xl w-[95vw] max-w-[95vw] h-[88vh] max-h-[88vh] flex flex-col gap-0 p-0 overflow-hidden rounded-[28px] border border-border bg-card shadow-2xl"
       >
-        {/* Header */}
-        <div className="px-6 md:px-8 py-5 border-b border-border/70 bg-card shrink-0">
-          <DialogHeader>
-            <DialogTitle className="text-2xl md:text-3xl font-black text-foreground tracking-tight">
-              {isReassignMode ? "Reassigned Repair Request" : "Repair Request"}
-            </DialogTitle>
-            <DialogDescription className="text-muted-foreground font-medium text-sm mt-0.5">
-              {isReassignMode
-                ? "Please provide the new repair issue and technician assignment."
-                : "Please provide details about your device and the issue you're facing."}
-            </DialogDescription>
-          </DialogHeader>
+        {/* Header with Visual Stepper */}
+        <div className="shrink-0 bg-card border-b border-border px-6 sm:px-8 py-5">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <DialogTitle className="text-xl sm:text-2xl font-black text-foreground tracking-tight">
+                New Repair Request
+              </DialogTitle>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Complete the 5 steps to book and diagnose this device repair
+              </p>
+            </div>
+            <button
+              onClick={onClose}
+              className="w-9 h-9 rounded-full bg-surface border border-border flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <X size={16} />
+            </button>
+          </div>
+
+          {/* 5-Step Stepper */}
+          <div className="flex items-center justify-between relative px-2">
+            {[
+              { num: 1, label: "Category" },
+              { num: 2, label: "Device" },
+              { num: 3, label: "Details" },
+              { num: 4, label: "Issues" },
+              { num: 5, label: "Review" },
+            ].map((step) => {
+              const isPassed = currentStep > step.num;
+              const isCurrent = currentStep === step.num;
+              return (
+                <div key={step.num} className="flex flex-col items-center z-10">
+                  <div
+                    onClick={() => {
+                      if (step.num < currentStep) setCurrentStep(step.num);
+                    }}
+                    className={`w-9 h-9 rounded-full flex items-center justify-center text-xs font-black cursor-pointer transition-all ${
+                      isPassed
+                        ? "bg-[#10B981] text-white shadow-sm"
+                        : isCurrent
+                          ? "bg-[#10B981] text-white ring-4 ring-[#10B981]/20 shadow-sm"
+                          : "bg-surface border border-border text-muted-foreground"
+                    }`}
+                  >
+                    {isPassed ? <Check size={14} /> : step.num}
+                  </div>
+                  <span
+                    className={`text-[11px] font-bold mt-1.5 ${
+                      isCurrent || isPassed
+                        ? "text-foreground font-black"
+                        : "text-muted-foreground"
+                    }`}
+                  >
+                    {step.label}
+                  </span>
+                </div>
+              );
+            })}
+            <div className="absolute top-4.5 left-8 right-8 h-0.5 bg-border -z-0" />
+          </div>
         </div>
 
-        {/* Scrollable Form Body */}
-        <form
-          onSubmit={handleSubmit}
-          className="p-6 md:p-8 space-y-6 overflow-y-auto flex-1"
-        >
-          {isReassignMode ? (
-            /* REASSIGN MODE */
-            <div className="space-y-6">
-              <div className="space-y-2">
-                <label className="text-xs font-bold text-foreground uppercase tracking-wider">
-                  Select Problem
-                </label>
-                <div className="relative">
-                  <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                  <input
-                    value={problemSearch}
-                    onChange={(e) => {
-                      setProblemSearch(e.target.value);
-                      setIsProblemDropdownOpen(true);
-                    }}
-                    onFocus={() => setIsProblemDropdownOpen(true)}
-                    className="w-full h-12 rounded-xl border border-border bg-background pl-11 pr-11 text-foreground font-medium outline-none focus:border-[#16A34A] focus:ring-4 focus:ring-[#16A34A]/10"
-                    placeholder="Search or select a problem"
-                  />
-                  <ChevronDown className="absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                  {isProblemDropdownOpen && (
-                    <div className="absolute z-50 mt-2 max-h-64 w-full overflow-y-auto rounded-xl border border-border bg-card p-1 shadow-xl">
-                      {filteredProblemSuggestions.map((description) => (
-                        <button
-                          key={description}
-                          type="button"
-                          onClick={() => {
-                            setSelectedProblem(description);
-                            setProblemSearch(description);
-                            setProblemDescription(description);
-                            setIsProblemDropdownOpen(false);
-                          }}
-                          className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm font-medium text-foreground hover:bg-[#16A34A]/10"
-                        >
-                          <Check
-                            className={`h-4 w-4 text-[#16A34A] ${
-                              description === problemDescription
-                                ? "opacity-100"
-                                : "opacity-0"
-                            }`}
-                          />
-                          <span>{description}</span>
-                        </button>
-                      ))}
+        {/* Modal Body - Scrollable content area */}
+        <div className="flex-1 overflow-y-auto overflow-x-hidden p-6 sm:p-8 space-y-6">
+          {/* STEP 1: CATEGORY */}
+          {currentStep === 1 && (
+            <div className="space-y-4">
+              <div>
+                <h3 className="text-lg font-black text-foreground">
+                  Choose a category
+                </h3>
+                <p className="text-xs text-muted-foreground">
+                  Select the type of device or service
+                </p>
+              </div>
+
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                {CATEGORIES.map((cat) => {
+                  const IconComp = cat.icon;
+                  const isSel = category === cat.id;
+                  return (
+                    <div
+                      key={cat.id}
+                      onClick={() => setCategory(cat.id)}
+                      className={`p-5 rounded-2xl border-2 cursor-pointer transition-all flex flex-col justify-between h-40 ${
+                        isSel
+                          ? "border-[#10B981] bg-[#10B981]/5 shadow-sm ring-1 ring-[#10B981]"
+                          : "border-border bg-surface hover:border-[#10B981]/40"
+                      }`}
+                    >
+                      <div
+                        className={`w-12 h-12 rounded-xl flex items-center justify-center ${
+                          isSel
+                            ? "bg-[#10B981] text-white"
+                            : "bg-card border border-border text-foreground"
+                        }`}
+                      >
+                        <IconComp size={24} />
+                      </div>
+                      <div>
+                        <h4 className="font-bold text-foreground text-sm">
+                          {cat.title}
+                        </h4>
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          {cat.subtitle}
+                        </p>
+                      </div>
                     </div>
-                  )}
-                </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* STEP 2: DEVICE SELECTION */}
+          {currentStep === 2 && (
+            <div className="space-y-5">
+              <div>
+                <h3 className="text-lg font-black text-foreground">
+                  Select phone brand
+                </h3>
+                <p className="text-xs text-muted-foreground">
+                  Choose the brand and exact model for accurate repair options
+                </p>
               </div>
 
-              <div className="space-y-2">
-                <label className="text-xs font-bold text-foreground uppercase tracking-wider">
-                  Technician
-                </label>
-                <select
-                  value={technicianSelection}
-                  onChange={(e) => {
-                    setTechnicianSelection(e.target.value);
-                    if (e.target.value !== ADD_NEW_TECHNICIAN)
-                      setNewTechnician("");
-                  }}
-                  required
-                  className="w-full h-12 px-4 rounded-xl border border-border bg-background text-foreground font-medium outline-none focus:border-[#16A34A]"
-                >
-                  <option value="">
-                    {isTechniciansLoading
-                      ? "Loading technicians..."
-                      : "Select technician"}
-                  </option>
-                  {technicians.map((tech) => (
-                    <option key={tech} value={tech}>
-                      {tech}
-                    </option>
-                  ))}
-                  <option value={ADD_NEW_TECHNICIAN}>
-                    + Add new technician
-                  </option>
-                </select>
-                {technicianSelection === ADD_NEW_TECHNICIAN && (
-                  <input
-                    value={newTechnician}
-                    onChange={(e) => setNewTechnician(e.target.value)}
-                    required
-                    className="w-full h-12 px-4 rounded-xl border border-border bg-background text-foreground font-medium outline-none focus:border-[#16A34A] mt-2"
-                    placeholder="Enter technician name"
-                  />
-                )}
+              {/* Brand Pills */}
+              <div className="flex flex-wrap gap-2 pb-1">
+                {BRANDS.map((b) => (
+                  <button
+                    key={b}
+                    type="button"
+                    onClick={() => setSelectedBrand(b)}
+                    className={`px-4 py-2 rounded-full text-xs font-bold transition-all ${
+                      selectedBrand === b
+                        ? "bg-[#10B981] text-white shadow-sm"
+                        : "bg-surface border border-border text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    {b}
+                  </button>
+                ))}
               </div>
 
-              <div className="space-y-2">
-                <label className="text-xs font-bold text-foreground uppercase tracking-wider">
-                  Problem Description
-                </label>
+              {/* Search Bar */}
+              <div className="relative">
+                <Search
+                  size={16}
+                  className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground"
+                />
                 <input
-                  value={problemDescription}
-                  onChange={(e) => setProblemDescription(e.target.value)}
-                  required
-                  className="w-full h-12 px-4 rounded-xl border border-border bg-background text-foreground font-medium outline-none focus:border-[#16A34A]"
-                  placeholder="Describe the issue in detail..."
+                  type="text"
+                  placeholder="Search device model (e.g. iPhone 15, S24, A3105)..."
+                  value={deviceSearch}
+                  onChange={(e) => setDeviceSearch(e.target.value)}
+                  className="w-full pl-9 pr-4 py-2.5 rounded-xl bg-surface border border-border text-sm text-foreground focus:outline-none focus:border-[#10B981]"
                 />
               </div>
 
-              <div className="flex justify-end gap-3 pt-4 border-t border-border">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={onClose}
-                  className="rounded-full px-8 h-12 font-bold"
-                >
-                  Cancel
-                </Button>
-                <Button
-                  type="submit"
-                  disabled={createRepairRequest.isPending}
-                  className="rounded-full px-10 h-12 font-bold bg-[#16A34A] hover:bg-[#15803d] text-white shadow-lg shadow-[#16A34A]/25"
-                >
-                  {createRepairRequest.isPending ? (
-                    <Loader2 className="h-5 w-5 animate-spin" />
-                  ) : (
-                    "Reassigned"
-                  )}
-                </Button>
+              {/* Models List */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-72 overflow-y-auto pr-1">
+                {filteredCatalog.map((item) => {
+                  const isSel =
+                    selectedDevice?.modelName === item.modelName &&
+                    selectedDevice?.brand === item.brand;
+                  return (
+                    <div
+                      key={`${item.brand}-${item.modelName}-${item.modelCode}`}
+                      onClick={() =>
+                        setSelectedDevice({
+                          brand: item.brand,
+                          modelName: item.modelName,
+                          modelCode: item.modelCode,
+                          releaseYear: item.releaseYear,
+                        })
+                      }
+                      className={`p-3.5 rounded-xl border cursor-pointer transition-all flex items-center justify-between ${
+                        isSel
+                          ? "border-[#10B981] bg-[#10B981]/5"
+                          : "border-border bg-surface hover:border-[#10B981]/40"
+                      }`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div
+                          className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
+                            isSel
+                              ? "border-[#10B981] bg-[#10B981]"
+                              : "border-muted-foreground"
+                          }`}
+                        >
+                          {isSel && <Check size={12} className="text-white" />}
+                        </div>
+                        <div>
+                          <p className="text-sm font-bold text-foreground">
+                            {item.modelName}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {item.modelCode}
+                          </p>
+                        </div>
+                      </div>
+                      <span className="px-2.5 py-1 rounded-md text-[11px] font-bold bg-card border border-border text-muted-foreground">
+                        {item.releaseYear}
+                      </span>
+                    </div>
+                  );
+                })}
               </div>
             </div>
-          ) : (
-            /* CREATE REPAIR REQUEST MODE (Matches Client Mockup Exactly) */
-            <>
-              {/* TOP ROW: SECTION 1 (CUSTOMER) & SECTION 2 (CUSTOMER HISTORY FOUND) */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-5 items-stretch">
-                {/* SECTION 1: CUSTOMER */}
-                <div className="flex flex-col justify-start">
-                  <div className="flex items-center justify-between mb-2">
-                    <label className="text-xs font-black text-foreground uppercase tracking-wider">
-                      Customer
-                    </label>
-                    {isCreateNewCustomer && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setIsCreateNewCustomer(false);
-                          setSelectedCustomer(null);
-                          setFullName("");
-                          setEmail("");
-                          setPhone("");
-                        }}
-                        className="text-xs font-bold text-[#16A34A] hover:underline"
-                      >
-                        Search existing customer
-                      </button>
-                    )}
-                  </div>
+          )}
 
-                  {!isCreateNewCustomer ? (
-                    <div className="relative" ref={customerDropdownRef}>
-                      {/* Searchable Dropdown Trigger */}
+          {/* STEP 3: DETAILS */}
+          {currentStep === 3 && (
+            <div className="space-y-6">
+              {/* Selected Device Preview Card */}
+              <div className="p-4 rounded-2xl bg-surface border border-border flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 rounded-xl bg-card border border-border flex items-center justify-center text-foreground">
+                    <Smartphone size={22} />
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-black text-foreground">
+                      {selectedDevice.modelName}
+                    </h4>
+                    <p className="text-xs text-muted-foreground">
+                      {selectedDevice.modelCode} • {selectedDevice.releaseYear}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setCurrentStep(2)}
+                  className="text-xs font-bold text-[#10B981] hover:underline"
+                >
+                  Change
+                </button>
+              </div>
+
+              {/* Colour Selection */}
+              <div>
+                <label className="text-xs font-black uppercase text-muted-foreground tracking-wider mb-2 block">
+                  Colour
+                </label>
+                <div className="flex flex-wrap gap-2">
+                  {COLOURS.map((c) => {
+                    const isSel = selectedColour === c.name;
+                    return (
                       <button
+                        key={c.name}
                         type="button"
-                        onClick={() =>
-                          setIsCustomerDropdownOpen((prev) => !prev)
-                        }
-                        className={`w-full h-12 px-4 rounded-xl border text-left flex items-center justify-between transition-all bg-background ${
-                          isCustomerDropdownOpen
-                            ? "border-[#16A34A] ring-4 ring-[#16A34A]/10"
-                            : "border-border hover:border-foreground/30"
+                        onClick={() => setSelectedColour(c.name)}
+                        className={`px-3 py-1.5 rounded-full text-xs font-bold border flex items-center gap-2 transition-all ${
+                          isSel
+                            ? "border-[#10B981] bg-[#10B981]/10 text-foreground"
+                            : "border-border bg-surface text-muted-foreground hover:text-foreground"
                         }`}
                       >
-                        <div className="flex items-center gap-3 truncate">
-                          <Search className="h-4 w-4 text-muted-foreground shrink-0" />
-                          {selectedCustomer ? (
-                            <span className="font-bold text-foreground">
-                              {selectedCustomer.firstName}{" "}
-                              {selectedCustomer.lastName || ""}
-                            </span>
-                          ) : (
-                            <span className="text-muted-foreground font-medium text-sm">
-                              Search name, phone or email
-                            </span>
-                          )}
-                        </div>
-                        <ChevronDown
-                          className={`h-4 w-4 text-muted-foreground transition-transform ${
-                            isCustomerDropdownOpen ? "rotate-180" : ""
-                          }`}
+                        <span
+                          className="w-3 h-3 rounded-full border border-black/10"
+                          style={{ backgroundColor: c.hex }}
                         />
+                        {c.name}
                       </button>
+                    );
+                  })}
+                </div>
+              </div>
 
-                      {/* Dropdown Popover */}
-                      {isCustomerDropdownOpen && (
-                        <div className="absolute z-[60] left-0 right-0 mt-2 bg-card border border-border rounded-2xl shadow-2xl p-2 max-h-80 overflow-hidden flex flex-col animate-in fade-in-50 zoom-in-95">
-                          {/* Search Input */}
-                          <div className="p-2 border-b border-border">
-                            <div className="relative">
-                              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                              <input
-                                autoFocus
-                                value={customerSearch}
-                                onChange={(e) =>
-                                  setCustomerSearch(e.target.value)
-                                }
-                                placeholder="Search name, phone or email"
-                                className="w-full h-10 pl-9 pr-3 rounded-lg border border-border bg-background text-sm text-foreground font-medium outline-none focus:border-[#16A34A]"
-                              />
-                            </div>
-                          </div>
+              {/* Item Condition */}
+              <div>
+                <label className="text-xs font-black uppercase text-muted-foreground tracking-wider mb-2 block">
+                  Item Condition
+                </label>
+                <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+                  {CONDITIONS.map((cond) => {
+                    const isSel = selectedCondition === cond.id;
+                    const IconComp = cond.icon;
+                    return (
+                      <button
+                        key={cond.id}
+                        type="button"
+                        onClick={() => setSelectedCondition(cond.id)}
+                        className={`p-3.5 rounded-2xl border-2 flex flex-col items-center justify-center gap-2 transition-all ${
+                          isSel
+                            ? "border-[#10B981] bg-[#10B981]/10 text-[#10B981] shadow-xs"
+                            : "border-border bg-surface text-muted-foreground hover:border-[#10B981]/40 hover:text-foreground"
+                        }`}
+                      >
+                        <div
+                          className={`w-9 h-9 rounded-xl flex items-center justify-center transition-colors ${
+                            isSel
+                              ? "bg-[#10B981] text-white"
+                              : cond.color
+                          }`}
+                        >
+                          <IconComp size={18} strokeWidth={2.2} />
+                        </div>
+                        <span className="text-xs font-bold tracking-tight">
+                          {cond.label}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
 
-                          {/* Customer Results List */}
-                          <div className="overflow-y-auto flex-1 py-1 divide-y divide-border/40">
-                            {filteredCustomers.length > 0 ? (
-                              filteredCustomers.map((c) => {
-                                const isSelected =
-                                  selectedCustomer?._id === c._id;
-                                const repairsCount = c.repairCount || 0;
-                                return (
-                                  <button
-                                    key={c._id}
-                                    type="button"
-                                    onClick={() => handleSelectCustomer(c)}
-                                    className={`w-full px-3 py-2.5 text-left flex items-center justify-between hover:bg-[#16A34A]/10 transition-colors rounded-lg ${
-                                      isSelected
-                                        ? "bg-[#16A34A]/15 font-bold"
-                                        : ""
-                                    }`}
-                                  >
-                                    <div>
-                                      <p className="font-bold text-sm text-foreground leading-tight">
-                                        {c.firstName} {c.lastName || ""}
-                                      </p>
-                                      <p className="text-xs text-muted-foreground font-medium mt-0.5">
-                                        {c.phone ||
-                                          c.email ||
-                                          "No phone provided"}
-                                      </p>
-                                    </div>
-                                    <span className="text-xs font-semibold text-muted-foreground shrink-0 ml-2">
-                                      {repairsCount > 0
-                                        ? `${repairsCount} previous ${
-                                            repairsCount === 1
-                                              ? "repair"
-                                              : "repairs"
-                                          }`
-                                        : "New customer"}
-                                    </span>
-                                  </button>
-                                );
-                              })
-                            ) : (
-                              <div className="py-6 text-center text-xs font-medium text-muted-foreground">
-                                No customer found matching &ldquo;
-                                {customerSearch}&rdquo;
-                              </div>
-                            )}
-                          </div>
+              {/* Serial / IMEI Mode */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="text-xs font-black uppercase text-muted-foreground tracking-wider">
+                    Serial / IMEI
+                  </label>
+                  <div className="flex bg-surface rounded-lg p-0.5 border border-border">
+                    {(["IMEI", "Serial", "Both"] as const).map((mode) => (
+                      <button
+                        key={mode}
+                        type="button"
+                        onClick={() => setSerialType(mode)}
+                        className={`px-2.5 py-1 text-[11px] font-bold rounded-md transition-all ${
+                          serialType === mode
+                            ? "bg-[#10B981] text-white"
+                            : "text-muted-foreground hover:text-foreground"
+                        }`}
+                      >
+                        {mode === "IMEI" ? "IMEI (Phone)" : mode}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <input
+                  type="text"
+                  placeholder={`Scan or enter ${serialType.toLowerCase()} number`}
+                  value={serialNumber}
+                  onChange={(e) => setSerialNumber(e.target.value)}
+                  className="w-full px-4 py-2.5 rounded-xl bg-surface border border-border text-sm text-foreground focus:outline-none focus:border-[#10B981]"
+                />
+              </div>
 
-                          {/* Bottom Action: Create New Customer */}
-                          <div className="pt-2 border-t border-border mt-1">
+              {/* Evidence Photos (Optional) with 30-Day Auto Delete Notice */}
+              <div className="space-y-3">
+                <div>
+                  <label className="text-xs font-black uppercase text-muted-foreground tracking-wider block">
+                    Evidence Photos (Optional)
+                  </label>
+                  <p className="text-[11px] text-muted-foreground">
+                    Add photos to help with diagnosis (damaged screen, back cover, liquid damage, etc.)
+                  </p>
+                </div>
+
+                {/* 30-Day Notice Banner */}
+                <div className="p-3.5 rounded-xl bg-blue-500/10 border border-blue-500/20 flex gap-2.5 items-start">
+                  <Info size={16} className="text-blue-500 mt-0.5 shrink-0" />
+                  <div>
+                    <p className="text-xs font-bold text-blue-700 dark:text-blue-300">
+                      These photos will be automatically deleted after 30 days.
+                    </p>
+                    <p className="text-[11px] text-blue-600/80 dark:text-blue-300/80 mt-0.5">
+                      They are used only for repair diagnosis and will not be stored permanently.
+                    </p>
+                  </div>
+                </div>
+
+                {/* Photo Previews & Upload Box */}
+                <div className="grid grid-cols-3 sm:grid-cols-6 gap-3">
+                  {photoPreviews.map((preview, i) => (
+                    <div
+                      key={i}
+                      className="relative aspect-square rounded-xl overflow-hidden border border-border group"
+                    >
+                      <img
+                        src={preview}
+                        alt="Evidence"
+                        className="w-full h-full object-cover"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => removePhoto(i)}
+                        className="absolute top-1.5 right-1.5 p-1 rounded-full bg-black/60 text-white hover:bg-black"
+                      >
+                        <X size={12} />
+                      </button>
+                    </div>
+                  ))}
+                  <label className="aspect-square rounded-xl border-2 border-dashed border-border hover:border-[#10B981] flex flex-col items-center justify-center gap-1 cursor-pointer bg-surface/50">
+                    <Camera size={20} className="text-muted-foreground" />
+                    <span className="text-[11px] font-bold text-muted-foreground">
+                      Add Photo
+                    </span>
+                    <input
+                      type="file"
+                      multiple
+                      accept="image/*"
+                      onChange={handlePhotoUpload}
+                      className="hidden"
+                    />
+                  </label>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* STEP 4: REPAIR ISSUES */}
+          {currentStep === 4 && (
+            <div className="space-y-6">
+              {/* If user is editing a specific issue sub-view */}
+              {activeIssueCategory ? (
+                <div className="space-y-5 border border-border p-5 rounded-2xl bg-surface">
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-sm font-black text-foreground flex items-center gap-2">
+                      <Smartphone size={16} className="text-[#10B981]" />
+                      {activeIssueCategory}
+                    </h4>
+                    <button
+                      type="button"
+                      onClick={() => setActiveIssueCategory(null)}
+                      className="text-xs font-bold text-muted-foreground hover:text-foreground"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-bold text-muted-foreground mb-2 block">
+                      Common problems for {selectedDevice.modelName}
+                    </label>
+                    <div className="flex flex-wrap gap-2">
+                      {(COMMON_PROBLEMS[activeIssueCategory] || ["General issue"]).map(
+                        (p) => {
+                          const isSel = activeProblems.includes(p);
+                          return (
                             <button
+                              key={p}
                               type="button"
                               onClick={() => {
-                                setIsCreateNewCustomer(true);
-                                setSelectedCustomer(null);
-                                setIsCustomerDropdownOpen(false);
-                                setFullName(customerSearch);
+                                setActiveProblems((prev) =>
+                                  prev.includes(p)
+                                    ? prev.filter((x) => x !== p)
+                                    : [...prev, p],
+                                );
                               }}
-                              className="w-full py-2.5 px-3 rounded-lg text-xs font-black tracking-wider uppercase text-[#16A34A] hover:bg-[#16A34A]/10 flex items-center justify-center gap-2 transition-colors"
+                              className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-all ${
+                                isSel
+                                  ? "border-[#10B981] bg-[#10B981] text-white"
+                                  : "border-border bg-card text-foreground"
+                              }`}
                             >
-                              <Plus className="h-4 w-4" />
-                              Create New Customer
+                              {p}
                             </button>
-                          </div>
-                        </div>
+                          );
+                        },
                       )}
                     </div>
-                  ) : (
-                    /* Manual Entry: New Customer Inputs */
-                    <div className="space-y-3 bg-muted/20 border border-border p-4 rounded-2xl">
-                      <div>
-                        <label className="text-[11px] font-bold text-muted-foreground uppercase">
-                          Full Name *
-                        </label>
-                        <input
-                          value={fullName}
-                          onChange={(e) => setFullName(e.target.value)}
-                          required
-                          placeholder="e.g. Kenny"
-                          className="w-full h-11 px-3 rounded-xl border border-border bg-background text-sm text-foreground font-medium outline-none focus:border-[#16A34A]"
-                        />
-                      </div>
-
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        <div>
-                          <label className="text-[11px] font-bold text-muted-foreground uppercase">
-                            Email *
-                          </label>
-                          <input
-                            type="email"
-                            value={email}
-                            onChange={(e) => setEmail(e.target.value)}
-                            required
-                            placeholder="kenny@example.com"
-                            className="w-full h-11 px-3 rounded-xl border border-border bg-background text-sm text-foreground font-medium outline-none focus:border-[#16A34A]"
-                          />
-                        </div>
-                        <div>
-                          <label className="text-[11px] font-bold text-muted-foreground uppercase">
-                            Phone Number *
-                          </label>
-                          <input
-                            type="tel"
-                            value={phone}
-                            onChange={(e) => setPhone(e.target.value)}
-                            required
-                            placeholder="07777 787771"
-                            className="w-full h-11 px-3 rounded-xl border border-border bg-background text-sm text-foreground font-medium outline-none focus:border-[#16A34A]"
-                          />
-                        </div>
-                      </div>
-
-                      {/* Duplicate Warning */}
-                      {duplicateCustomer && (
-                        <div className="flex items-center justify-between gap-3 p-3 bg-amber-500/10 border border-amber-500/30 rounded-xl text-xs text-amber-600 dark:text-amber-400 mt-2">
-                          <div className="flex items-center gap-2">
-                            <AlertTriangle className="h-4 w-4 shrink-0" />
-                            <span>
-                              Customer already exists:{" "}
-                              <strong>
-                                {duplicateCustomer.firstName}{" "}
-                                {duplicateCustomer.lastName || ""}
-                              </strong>{" "}
-                              (
-                              {duplicateCustomer.phone ||
-                                duplicateCustomer.email}
-                              )
-                            </span>
-                          </div>
-                          <button
-                            type="button"
-                            onClick={() =>
-                              handleSelectCustomer(duplicateCustomer)
-                            }
-                            className="underline font-bold hover:text-foreground shrink-0"
-                          >
-                            Select Existing
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-
-                {/* SECTION 2: CUSTOMER HISTORY FOUND */}
-                <div className="rounded-2xl border border-[#BBF7D0] bg-[#F0FDF4] dark:bg-emerald-950/20 dark:border-emerald-800/40 p-5 flex flex-col justify-between">
-                  <div className="space-y-3">
-                    {/* Header */}
-                    <div className="flex items-start gap-3">
-                      <div className="w-8 h-8 rounded-full bg-[#DCFCE7] dark:bg-emerald-900/50 flex items-center justify-center text-[#16A34A] shrink-0">
-                        <UserIcon className="h-4 w-4" />
-                      </div>
-                      <div>
-                        <h3 className="text-xs font-black tracking-wider uppercase text-foreground">
-                          Customer History Found
-                        </h3>
-                        <p className="text-xs text-muted-foreground font-medium">
-                          {selectedCustomer
-                            ? recognizedDevicesCount > 0
-                              ? `imoscan recognised ${recognizedDevicesCount} previous ${
-                                  recognizedDevicesCount === 1
-                                    ? "device"
-                                    : "devices"
-                                }`
-                              : "No previous device records found for this customer"
-                            : "Select a customer to view their previous devices & repairs"}
-                        </p>
-                      </div>
-                    </div>
-
-                    {/* Customer Info Grid */}
-                    {selectedCustomer ? (
-                      <div className="grid grid-cols-3 gap-2 py-2 border-y border-[#BBF7D0]/60 dark:border-emerald-800/30 text-xs">
-                        <div>
-                          <span className="text-muted-foreground font-semibold block text-[10px] uppercase">
-                            Name
-                          </span>
-                          <span className="font-bold text-foreground truncate block">
-                            {fullName || "—"}
-                          </span>
-                        </div>
-                        <div>
-                          <span className="text-muted-foreground font-semibold block text-[10px] uppercase">
-                            Email
-                          </span>
-                          <span className="font-bold text-foreground truncate block">
-                            {email || "—"}
-                          </span>
-                        </div>
-                        <div>
-                          <span className="text-muted-foreground font-semibold block text-[10px] uppercase">
-                            Phone
-                          </span>
-                          <span className="font-bold text-foreground truncate block">
-                            {phone || "—"}
-                          </span>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="py-2 text-xs text-muted-foreground italic border-y border-[#BBF7D0]/40">
-                        Search and select an existing customer from the dropdown
-                        on the left.
-                      </div>
-                    )}
-
-                    {/* Previous Repairs List */}
-                    {previousRepairs.length > 0 && (
-                      <div>
-                        <p className="text-[11px] font-extrabold uppercase tracking-wider text-muted-foreground mb-1.5">
-                          Previous Repairs
-                        </p>
-                        <div className="space-y-1.5 max-h-32 overflow-y-auto pr-1">
-                          {previousRepairs.slice(0, 3).map((repair) => (
-                            <div
-                              key={repair._id}
-                              className="bg-card border border-border/80 rounded-xl p-2.5 flex items-center gap-3"
-                            >
-                              <div className="w-7 h-7 rounded-lg bg-muted flex items-center justify-center text-foreground shrink-0">
-                                <Smartphone className="h-4 w-4 text-[#16A34A]" />
-                              </div>
-                              <div className="min-w-0 flex-1">
-                                <p className="text-xs font-bold text-foreground truncate">
-                                  {repair.deviceModel} — {repair.description}
-                                </p>
-                                <p className="text-[10px] text-muted-foreground font-medium flex items-center gap-1 mt-0.5">
-                                  <Clock className="h-3 w-3" />
-                                  Last repaired:{" "}
-                                  {repair.createdAt
-                                    ? format(
-                                        new Date(repair.createdAt),
-                                        "dd MMM yyyy",
-                                      )
-                                    : "N/A"}
-                                </p>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
                   </div>
 
-                  {/* Suggestion note at bottom */}
-                  {previousRepairs.length > 0 && (
-                    <div className="flex items-center gap-1.5 text-xs font-semibold text-[#16A34A] pt-2 mt-2 border-t border-[#BBF7D0]/50">
-                      <Sparkles className="h-3.5 w-3.5" />
-                      <span>Suggested from previous repair records</span>
-                    </div>
-                  )}
-                </div>
-              </div>
+                  {/* Additional details */}
+                  <div>
+                    <label className="text-xs font-bold text-muted-foreground mb-1 block">
+                      Additional Information (Optional)
+                    </label>
+                    <textarea
+                      rows={2}
+                      placeholder="Add more details (e.g. error codes, when it happens)..."
+                      value={activeDetails}
+                      onChange={(e) => setActiveDetails(e.target.value)}
+                      className="w-full px-3 py-2 rounded-xl bg-card border border-border text-xs text-foreground focus:outline-none focus:border-[#10B981]"
+                    />
+                  </div>
 
-              {/* SECTION 5: SMART AUTO-FILL BANNER */}
-              {showAutoFillBanner && (
-                <div className="bg-[#F0FDF4] dark:bg-emerald-950/30 border border-[#86EFAC] dark:border-emerald-800 rounded-2xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 animate-in fade-in-50">
-                  <div className="flex items-start gap-3">
-                    <div className="w-8 h-8 rounded-full bg-[#DCFCE7] dark:bg-emerald-900/50 flex items-center justify-center text-[#16A34A] shrink-0">
-                      <Sparkles className="h-4 w-4" />
+                  {/* Estimated time & price */}
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-xs font-bold text-muted-foreground mb-1 block">
+                        Estimated Time
+                      </label>
+                      <select
+                        value={activeTime}
+                        onChange={(e) => setActiveTime(e.target.value)}
+                        className="w-full px-3 py-2 rounded-xl bg-card border border-border text-xs text-foreground focus:outline-none focus:border-[#10B981]"
+                      >
+                        <option>30–60 Mins</option>
+                        <option>1–2 Hours</option>
+                        <option>2–4 Hours</option>
+                        <option>1–2 Days</option>
+                      </select>
                     </div>
                     <div>
-                      <h4 className="text-xs font-black tracking-wider uppercase text-emerald-900 dark:text-emerald-200">
-                        Smart Auto-Fill
-                      </h4>
-                      <p className="text-xs text-muted-foreground font-medium">
-                        Customer, contact details, previous device and issue
-                        have been filled from repair history. Review before
-                        submitting.
+                      <label className="text-xs font-bold text-muted-foreground mb-1 block">
+                        Estimated Price (£)
+                      </label>
+                      <input
+                        type="number"
+                        value={activePrice}
+                        onChange={(e) => setActivePrice(e.target.value)}
+                        className="w-full px-3 py-2 rounded-xl bg-card border border-border text-xs text-foreground focus:outline-none focus:border-[#10B981]"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Recommended Parts Section with Live Stock */}
+                  {recommendedParts.length > 0 && (
+                    <div className="space-y-2 pt-2 border-t border-border">
+                      <div className="flex justify-between items-center">
+                        <label className="text-xs font-black uppercase tracking-wider text-muted-foreground">
+                          Recommended parts ({recommendedParts.length})
+                        </label>
+                      </div>
+                      <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                        {recommendedParts.map((part: any) => (
+                          <div
+                            key={part._id}
+                            className="p-3 rounded-xl bg-card border border-border flex items-center justify-between"
+                          >
+                            <div>
+                              <p className="text-xs font-bold text-foreground">
+                                {part.partName || part.category}
+                              </p>
+                              <p className="text-[10px] text-muted-foreground">
+                                SKU: {part.sku} • £{part.sellingPrice?.toFixed(2)}
+                              </p>
+                              <span className="inline-block mt-1 px-2 py-0.5 rounded text-[9px] font-black bg-[#10B981]/15 text-[#10B981]">
+                                {part.available > 0
+                                  ? `In Stock (${part.available})`
+                                  : "Out of Stock"}
+                              </span>
+                            </div>
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              onClick={() => {
+                                setSelectedIssues((prev) => [
+                                  ...prev,
+                                  {
+                                    category: activeIssueCategory,
+                                    problems: activeProblems.length
+                                      ? activeProblems
+                                      : ["Repair issue"],
+                                    additionalInfo: activeDetails,
+                                    estimatedTime: activeTime,
+                                    estimatedPrice: parseFloat(activePrice) || 0,
+                                    selectedPart: {
+                                      variantId: part._id,
+                                      variantName: part.partName || part.category,
+                                      sku: part.sku,
+                                      price: part.sellingPrice,
+                                      quantity: activePartQuantity,
+                                    },
+                                  },
+                                ]);
+                                setActiveIssueCategory(null);
+                                setActiveProblems([]);
+                                setActiveDetails("");
+                                toast.success("Issue and part added");
+                              }}
+                              className="h-8 text-xs font-bold"
+                            >
+                              Add
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  <Button
+                    type="button"
+                    onClick={() => {
+                      if (!activeProblems.length) {
+                        toast.error("Please select at least one problem");
+                        return;
+                      }
+                      setSelectedIssues((prev) => [
+                        ...prev,
+                        {
+                          category: activeIssueCategory,
+                          problems: activeProblems,
+                          additionalInfo: activeDetails,
+                          estimatedTime: activeTime,
+                          estimatedPrice: parseFloat(activePrice) || 0,
+                        },
+                      ]);
+                      setActiveIssueCategory(null);
+                      setActiveProblems([]);
+                      setActiveDetails("");
+                    }}
+                    className="w-full bg-[#10B981] text-white hover:bg-[#10B981]/90"
+                  >
+                    Add Issue
+                  </Button>
+                </div>
+              ) : (
+                <>
+                  {/* Selected Issues Summary */}
+                  {selectedIssues.length > 0 && (
+                    <div className="space-y-3">
+                      <div className="flex justify-between items-center">
+                        <label className="text-xs font-black uppercase tracking-wider text-muted-foreground">
+                          Selected issues ({selectedIssues.length})
+                        </label>
+                      </div>
+                      <div className="space-y-2">
+                        {selectedIssues.map((iss, idx) => (
+                          <div
+                            key={idx}
+                            className="p-4 rounded-2xl bg-surface border border-border flex items-start justify-between"
+                          >
+                            <div className="space-y-1">
+                              <h4 className="text-sm font-black text-foreground">
+                                {iss.category}
+                              </h4>
+                              <div className="flex flex-wrap gap-1">
+                                {iss.problems.map((p) => (
+                                  <span
+                                    key={p}
+                                    className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-[#10B981]/15 text-[#10B981]"
+                                  >
+                                    {p}
+                                  </span>
+                                ))}
+                              </div>
+                              {iss.selectedPart && (
+                                <p className="text-xs text-muted-foreground">
+                                  Part: {iss.selectedPart.variantName} (£
+                                  {iss.selectedPart.price.toFixed(2)})
+                                </p>
+                              )}
+                              <p className="text-xs text-muted-foreground">
+                                Est. {iss.estimatedTime} • £
+                                {iss.estimatedPrice.toFixed(2)}
+                              </p>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setSelectedIssues((prev) =>
+                                  prev.filter((_, i) => i !== idx),
+                                )
+                              }
+                              className="text-red-500 hover:text-red-600 p-1"
+                            >
+                              <Trash2 size={16} />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Add Another Issue Button / Categories Grid */}
+                  <div>
+                    <label className="text-xs font-black uppercase tracking-wider text-muted-foreground mb-3 block">
+                      Choose issue to add
+                    </label>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+                      {ISSUE_CATEGORIES.map((cat) => (
+                        <button
+                          key={cat.id}
+                          type="button"
+                          onClick={() => {
+                            setActiveIssueCategory(cat.id);
+                            setActiveProblems([]);
+                            setActiveDetails("");
+                          }}
+                          className="p-3 rounded-xl border border-border bg-surface hover:border-[#10B981] flex items-center justify-between text-left text-xs font-bold text-foreground transition-all"
+                        >
+                          <span>{cat.label}</span>
+                          <Plus size={14} className="text-muted-foreground" />
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+
+          {/* STEP 5: REVIEW & BOOK */}
+          {currentStep === 5 && (
+            <div className="space-y-6">
+              <div>
+                <h3 className="text-lg font-black text-foreground">
+                  Review & book
+                </h3>
+                <p className="text-xs text-muted-foreground">
+                  Check all details before creating the repair request
+                </p>
+              </div>
+
+              {/* Device Summary Card */}
+              <div className="p-4 rounded-2xl bg-surface border border-border flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 rounded-xl bg-card border border-border flex items-center justify-center text-foreground">
+                    <Smartphone size={22} />
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-black text-foreground">
+                      {selectedDevice.modelName}
+                    </h4>
+                    <p className="text-xs text-muted-foreground">
+                      {selectedDevice.modelCode} • {selectedDevice.releaseYear}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {selectedColour} • {selectedCondition}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setCurrentStep(2)}
+                  className="text-xs font-bold text-[#10B981] hover:underline"
+                >
+                  Edit
+                </button>
+              </div>
+
+              {/* Repair Issues Summary */}
+              <div className="p-4 rounded-2xl bg-surface border border-border space-y-3">
+                <div className="flex justify-between items-center">
+                  <h4 className="text-xs font-black uppercase text-muted-foreground tracking-wider">
+                    Repair Issues ({selectedIssues.length})
+                  </h4>
+                  <button
+                    type="button"
+                    onClick={() => setCurrentStep(4)}
+                    className="text-xs font-bold text-[#10B981] hover:underline"
+                  >
+                    Edit
+                  </button>
+                </div>
+                <div className="space-y-2">
+                  {selectedIssues.map((iss, idx) => (
+                    <div
+                      key={idx}
+                      className="p-3 rounded-xl bg-card border border-border flex justify-between items-center"
+                    >
+                      <div>
+                        <p className="text-xs font-bold text-foreground">
+                          {iss.category}
+                        </p>
+                        <p className="text-[11px] text-muted-foreground">
+                          {iss.problems.join(", ")}
+                        </p>
+                        {iss.selectedPart && (
+                          <p className="text-[11px] text-[#10B981] font-semibold">
+                            Part: {iss.selectedPart.variantName}
+                          </p>
+                        )}
+                      </div>
+                      <p className="text-xs font-black text-foreground">
+                        £{iss.estimatedPrice.toFixed(2)}
                       </p>
                     </div>
-                  </div>
-
-                  <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
-                    <Button
-                      type="button"
-                      size="sm"
-                      onClick={() => setShowAutoFillBanner(false)}
-                      className="h-9 px-4 rounded-xl font-bold bg-[#16A34A] hover:bg-[#15803d] text-white text-xs shadow-sm"
-                    >
-                      Use These Details
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={handleClearAutoFill}
-                      className="h-9 px-4 rounded-xl font-semibold text-xs border-border bg-card"
-                    >
-                      Clear &amp; Enter New
-                    </Button>
-                  </div>
+                  ))}
                 </div>
-              )}
+              </div>
 
-              {/* MIDDLE ROW: SECTION 3 (DEVICE SELECTION) & SECTION 4 (ISSUE SELECTION) */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                {/* SECTION 3: DEVICE SELECTION */}
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-black text-foreground uppercase tracking-wider">
-                      Device Selection
-                    </span>
-                    {/* Tabs */}
-                    <div className="inline-flex rounded-full bg-muted/60 p-1 border border-border">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setDeviceTab("previous");
-                          if (recognizedDevices.length > 0) {
-                            setDeviceModel(recognizedDevices[0]);
-                            setIsDeviceRecognised(true);
-                          }
-                        }}
-                        className={`px-3 py-1 rounded-full text-[11px] font-extrabold uppercase tracking-wider transition-all ${
-                          deviceTab === "previous"
-                            ? "bg-[#DCFCE7] text-[#16A34A] shadow-sm border border-[#86EFAC]"
-                            : "text-muted-foreground hover:text-foreground"
-                        }`}
-                      >
-                        Previous Device
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setDeviceTab("different");
-                          setIsDeviceRecognised(false);
-                        }}
-                        className={`px-3 py-1 rounded-full text-[11px] font-extrabold uppercase tracking-wider transition-all ${
-                          deviceTab === "different"
-                            ? "bg-[#DCFCE7] text-[#16A34A] shadow-sm border border-[#86EFAC]"
-                            : "text-muted-foreground hover:text-foreground"
-                        }`}
-                      >
-                        Different Device
-                      </button>
-                    </div>
-                  </div>
+              {/* Customer Details Form */}
+              <div className="p-4 rounded-2xl bg-surface border border-border space-y-3">
+                <h4 className="text-xs font-black uppercase text-muted-foreground tracking-wider">
+                  Customer Details
+                </h4>
 
-                  {/* Device Input / Select */}
-                  <div className="space-y-1.5">
-                    <div className="flex items-center justify-between">
-                      <label className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
-                        Device Model
-                      </label>
-                      {isDeviceRecognised && (
-                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-[#DCFCE7] text-[#16A34A] border border-[#86EFAC]">
-                          Recognised from history
-                        </span>
-                      )}
-                    </div>
-
-                    {deviceTab === "previous" &&
-                    recognizedDevices.length > 0 ? (
-                      /* Custom Select for Recognized Devices */
-                      <div className="relative" ref={deviceDropdownRef}>
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setIsDeviceDropdownOpen((prev) => !prev)
-                          }
-                          className="w-full h-12 px-4 rounded-xl border border-border bg-background text-foreground font-semibold flex items-center justify-between text-left outline-none focus:border-[#16A34A]"
-                        >
-                          <span className="truncate">
-                            {deviceModel || "Select saved device"}
-                          </span>
-                          <ChevronDown
-                            className={`h-4 w-4 text-muted-foreground transition-transform ${
-                              isDeviceDropdownOpen ? "rotate-180" : ""
-                            }`}
-                          />
-                        </button>
-
-                        {isDeviceDropdownOpen && (
-                          <div className="absolute z-50 left-0 right-0 mt-2 bg-card border border-border rounded-2xl shadow-xl p-1.5 space-y-1">
-                            {recognizedDevices.map((dev) => (
-                              <button
-                                key={dev}
-                                type="button"
-                                onClick={() => {
-                                  setDeviceModel(dev);
-                                  setIsDeviceRecognised(true);
-                                  setIsDeviceDropdownOpen(false);
-                                }}
-                                className={`w-full px-3 py-2 rounded-xl text-left text-xs font-bold transition-colors flex items-center justify-between ${
-                                  deviceModel === dev
-                                    ? "bg-[#DCFCE7] text-[#16A34A]"
-                                    : "hover:bg-muted text-foreground"
-                                }`}
-                              >
-                                <span>{dev} — previous</span>
-                                {deviceModel === dev && (
-                                  <Check className="h-4 w-4 text-[#16A34A]" />
-                                )}
-                              </button>
-                            ))}
-                            <div className="border-t border-border pt-1">
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setDeviceTab("different");
-                                  setDeviceModel("");
-                                  setIsDeviceRecognised(false);
-                                  setIsDeviceDropdownOpen(false);
-                                }}
-                                className="w-full px-3 py-2 rounded-xl text-left text-xs font-bold text-muted-foreground hover:bg-muted"
-                              >
-                                Choose a different device
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setDeviceTab("different");
-                                  setDeviceModel("");
-                                  setIsDeviceRecognised(false);
-                                  setIsDeviceDropdownOpen(false);
-                                }}
-                                className="w-full px-3 py-2 rounded-xl text-left text-xs font-black text-[#16A34A] hover:bg-[#16A34A]/10 flex items-center gap-1.5"
-                              >
-                                <Plus className="h-3.5 w-3.5" />
-                                Add new device
-                              </button>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    ) : (
-                      /* Text input for different or new device */
-                      <input
-                        value={deviceModel}
-                        onChange={(e) => {
-                          setDeviceModel(e.target.value);
-                          setIsDeviceRecognised(false);
-                        }}
-                        required
-                        placeholder="e.g. Samsung A06"
-                        className="w-full h-12 px-4 rounded-xl border border-border bg-background text-foreground font-semibold outline-none focus:border-[#16A34A] focus:ring-4 focus:ring-[#16A34A]/10"
-                      />
-                    )}
-                  </div>
-                </div>
-
-                {/* SECTION 4: ISSUE SELECTION */}
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-black text-foreground uppercase tracking-wider">
-                      Issue Selection
-                    </span>
-                    {/* Tabs */}
-                    <div className="inline-flex rounded-full bg-muted/60 p-1 border border-border">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setIssueTab("previous");
-                          if (recognizedIssues.length > 0) {
-                            setSelectedProblem(recognizedIssues[0]);
-                            setProblemDescription(recognizedIssues[0]);
-                          }
-                        }}
-                        className={`px-3 py-1 rounded-full text-[11px] font-extrabold uppercase tracking-wider transition-all ${
-                          issueTab === "previous"
-                            ? "bg-[#DCFCE7] text-[#16A34A] shadow-sm border border-[#86EFAC]"
-                            : "text-muted-foreground hover:text-foreground"
-                        }`}
-                      >
-                        Previous Issue
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setIssueTab("new");
-                          setIsProblemDropdownOpen(true);
-                        }}
-                        className={`px-3 py-1 rounded-full text-[11px] font-extrabold uppercase tracking-wider transition-all ${
-                          issueTab === "new"
-                            ? "bg-[#DCFCE7] text-[#16A34A] shadow-sm border border-[#86EFAC]"
-                            : "text-muted-foreground hover:text-foreground"
-                        }`}
-                      >
-                        New Problem
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Issue Input / Select */}
-                  <div className="space-y-1.5">
-                    <label className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider block">
-                      Select Problem
+                {/* Search existing or type new */}
+                {customers.length > 0 && (
+                  <div>
+                    <label className="text-[11px] font-bold text-muted-foreground mb-1 block">
+                      Select Existing Customer
                     </label>
+                    <select
+                      value={selectedCustomer?._id || ""}
+                      onChange={(e) => {
+                        const found = customers.find((c) => c._id === e.target.value);
+                        if (found) {
+                          setSelectedCustomer(found);
+                          setFullName(`${found.firstName} ${found.lastName || ""}`.trim());
+                          setPhone(found.phone || "");
+                          setEmail(found.email || "");
+                        } else {
+                          setSelectedCustomer(null);
+                        }
+                      }}
+                      className="w-full px-3 py-2 rounded-xl bg-card border border-border text-xs text-foreground focus:outline-none focus:border-[#10B981]"
+                    >
+                      <option value="">-- Manual Entry / New Customer --</option>
+                      {customers.map((c) => (
+                        <option key={c._id} value={c._id}>
+                          {c.firstName} {c.lastName} ({c.phone})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
 
-                    {issueTab === "previous" && recognizedIssues.length > 0 ? (
-                      /* Custom Select for Recognized / Common Issues */
-                      <div className="relative" ref={problemDropdownRef}>
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setIsProblemDropdownOpen((prev) => !prev)
-                          }
-                          className="w-full h-12 px-4 rounded-xl border border-border bg-background text-foreground font-semibold flex items-center justify-between text-left outline-none focus:border-[#16A34A]"
-                        >
-                          <span className="truncate">
-                            {selectedProblem || "Select problem"}
-                          </span>
-                          <ChevronDown
-                            className={`h-4 w-4 text-muted-foreground transition-transform ${
-                              isProblemDropdownOpen ? "rotate-180" : ""
-                            }`}
-                          />
-                        </button>
-
-                        {isProblemDropdownOpen && (
-                          <div className="absolute z-50 left-0 right-0 mt-2 bg-card border border-border rounded-2xl shadow-xl p-1.5 max-h-64 overflow-y-auto space-y-1">
-                            {recognizedIssues.map((issue) => (
-                              <button
-                                key={issue}
-                                type="button"
-                                onClick={() => {
-                                  setSelectedProblem(issue);
-                                  setProblemDescription(issue);
-                                  setIsProblemDropdownOpen(false);
-                                }}
-                                className={`w-full px-3 py-2 rounded-xl text-left text-xs font-bold transition-colors flex items-center justify-between ${
-                                  selectedProblem === issue
-                                    ? "bg-[#DCFCE7] text-[#16A34A]"
-                                    : "hover:bg-muted text-foreground"
-                                }`}
-                              >
-                                <span>{issue} — previous</span>
-                                {selectedProblem === issue && (
-                                  <Check className="h-4 w-4 text-[#16A34A]" />
-                                )}
-                              </button>
-                            ))}
-                            <div className="border-t border-border pt-1">
-                              {STANDARD_PROBLEMS.filter(
-                                (sp) => !recognizedIssues.includes(sp),
-                              ).map((sp) => (
-                                <button
-                                  key={sp}
-                                  type="button"
-                                  onClick={() => {
-                                    setSelectedProblem(sp);
-                                    setProblemDescription(sp);
-                                    setIsProblemDropdownOpen(false);
-                                  }}
-                                  className={`w-full px-3 py-2 rounded-xl text-left text-xs font-medium transition-colors ${
-                                    selectedProblem === sp
-                                      ? "bg-muted font-bold text-foreground"
-                                      : "hover:bg-muted text-foreground"
-                                  }`}
-                                >
-                                  {sp}
-                                </button>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    ) : (
-                      /* Searchable problem combobox for new problems */
-                      <div className="relative" ref={problemDropdownRef}>
-                        <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                        <input
-                          value={problemSearch}
-                          onChange={(e) => {
-                            setProblemSearch(e.target.value);
-                            setProblemDescription(e.target.value);
-                            setSelectedProblem(e.target.value);
-                            setIsProblemDropdownOpen(true);
-                          }}
-                          onFocus={() => setIsProblemDropdownOpen(true)}
-                          className="w-full h-12 rounded-xl border border-border bg-background pl-11 pr-11 text-foreground font-semibold outline-none focus:border-[#16A34A] focus:ring-4 focus:ring-[#16A34A]/10"
-                          placeholder="Search or select a problem"
-                        />
-                        <ChevronDown
-                          className={`absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground transition-transform ${
-                            isProblemDropdownOpen ? "rotate-180" : ""
-                          }`}
-                        />
-
-                        {isProblemDropdownOpen && (
-                          <div className="absolute z-50 left-0 right-0 mt-2 max-h-56 w-full overflow-y-auto rounded-2xl border border-border bg-card p-1 shadow-xl">
-                            {filteredProblemSuggestions.length > 0 ? (
-                              filteredProblemSuggestions.map((description) => {
-                                const isSelected =
-                                  description === selectedProblem ||
-                                  description === problemDescription;
-                                return (
-                                  <button
-                                    key={description}
-                                    type="button"
-                                    onMouseDown={(e) => e.preventDefault()}
-                                    onClick={() => {
-                                      setSelectedProblem(description);
-                                      setProblemSearch(description);
-                                      setProblemDescription(description);
-                                      setIsProblemDropdownOpen(false);
-                                    }}
-                                    className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left text-xs font-semibold text-foreground hover:bg-muted"
-                                  >
-                                    <Check
-                                      className={`h-4 w-4 text-[#16A34A] shrink-0 ${
-                                        isSelected ? "opacity-100" : "opacity-0"
-                                      }`}
-                                    />
-                                    <span>{description}</span>
-                                  </button>
-                                );
-                              })
-                            ) : (
-                              <div className="p-3 text-xs text-muted-foreground">
-                                Press enter or click elsewhere to use this
-                                custom problem.
-                              </div>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    )}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-[11px] font-bold text-muted-foreground mb-1 block">
+                      Customer Name *
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="e.g. John Smith"
+                      value={fullName}
+                      onChange={(e) => setFullName(e.target.value)}
+                      className="w-full px-3 py-2 rounded-xl bg-card border border-border text-xs text-foreground focus:outline-none focus:border-[#10B981]"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[11px] font-bold text-muted-foreground mb-1 block">
+                      Phone Number *
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="+44 7700 900123"
+                      value={phone}
+                      onChange={(e) => setPhone(e.target.value)}
+                      className="w-full px-3 py-2 rounded-xl bg-card border border-border text-xs text-foreground focus:outline-none focus:border-[#10B981]"
+                    />
                   </div>
                 </div>
-              </div>
 
-              {/* BOTTOM ROW: PRICE, IMEI, TECHNICIAN, PROBLEM DESCRIPTION */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 pt-3 border-t border-border/80">
-                {/* PRICE */}
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-foreground uppercase tracking-wider block">
-                    Price
+                <div>
+                  <label className="text-[11px] font-bold text-muted-foreground mb-1 block">
+                    Email Address
                   </label>
                   <input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={price}
-                    onChange={(e) => setPrice(e.target.value)}
-                    required
-                    placeholder="e.g. 150.00"
-                    className="w-full h-12 px-4 rounded-xl border border-border bg-background text-foreground font-semibold outline-none focus:border-[#16A34A] focus:ring-4 focus:ring-[#16A34A]/10"
-                  />
-                </div>
-
-                {/* IMEI NUMBER */}
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-foreground uppercase tracking-wider block">
-                    IMEI Number (Optional)
-                  </label>
-                  <input
-                    value={imeiNumber}
-                    onChange={(e) => setImeiNumber(e.target.value)}
-                    placeholder="Enter IMEI"
-                    className="w-full h-12 px-4 rounded-xl border border-border bg-background text-foreground font-semibold outline-none focus:border-[#16A34A] focus:ring-4 focus:ring-[#16A34A]/10"
-                  />
-                </div>
-
-                {/* TECHNICIAN */}
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-foreground uppercase tracking-wider block">
-                    Technician
-                  </label>
-                  <select
-                    value={technicianSelection}
-                    onChange={(e) => {
-                      setTechnicianSelection(e.target.value);
-                      if (e.target.value !== ADD_NEW_TECHNICIAN) {
-                        setNewTechnician("");
-                      }
-                    }}
-                    className="w-full h-12 px-4 rounded-xl border border-border bg-background text-foreground font-semibold outline-none focus:border-[#16A34A] focus:ring-4 focus:ring-[#16A34A]/10"
-                  >
-                    <option value="">
-                      {isTechniciansLoading
-                        ? "Loading..."
-                        : "Select technician"}
-                    </option>
-                    {technicians.map((t) => (
-                      <option key={t} value={t}>
-                        {t}
-                      </option>
-                    ))}
-                    <option value={ADD_NEW_TECHNICIAN}>
-                      + Add new technician
-                    </option>
-                  </select>
-                  {technicianSelection === ADD_NEW_TECHNICIAN && (
-                    <input
-                      value={newTechnician}
-                      onChange={(e) => setNewTechnician(e.target.value)}
-                      required
-                      placeholder="Technician name"
-                      className="w-full h-10 px-3 rounded-lg border border-border bg-background text-xs text-foreground font-medium outline-none focus:border-[#16A34A] mt-1"
-                    />
-                  )}
-                </div>
-
-                {/* PROBLEM DESCRIPTION */}
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-foreground uppercase tracking-wider block">
-                    Problem Description
-                  </label>
-                  <input
-                    value={problemDescription}
-                    onChange={(e) => setProblemDescription(e.target.value)}
-                    required
-                    placeholder="Describe the issue in detail..."
-                    className="w-full h-12 px-4 rounded-xl border border-border bg-background text-foreground font-medium outline-none focus:border-[#16A34A] focus:ring-4 focus:ring-[#16A34A]/10"
+                    type="email"
+                    placeholder="john@example.com"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl bg-card border border-border text-xs text-foreground focus:outline-none focus:border-[#10B981]"
                   />
                 </div>
               </div>
 
-              {/* FOOTER ACTIONS */}
-              <div className="flex items-center justify-end gap-3 pt-4 border-t border-border/80">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={onClose}
-                  className="rounded-full px-8 h-12 font-bold border-border"
-                >
-                  Cancel
-                </Button>
-                <Button
-                  type="submit"
-                  disabled={
-                    createRepairRequest.isPending || createCustomer.isPending
-                  }
-                  className="rounded-full px-10 h-12 font-bold bg-[#16A34A] hover:bg-[#15803d] text-white shadow-lg shadow-[#16A34A]/25 hover:scale-[1.02] transition-all"
-                >
-                  {createRepairRequest.isPending || createCustomer.isPending ? (
-                    <Loader2 className="h-5 w-5 animate-spin" />
-                  ) : (
-                    "Submit Request"
-                  )}
-                </Button>
+              {/* Total Calculation */}
+              <div className="p-4 rounded-2xl bg-card border border-border flex items-center justify-between">
+                <div>
+                  <p className="text-xs font-bold text-muted-foreground">
+                    Estimated Total
+                  </p>
+                  <p className="text-2xl font-black text-foreground">
+                    £{totalAmount.toFixed(2)}
+                  </p>
+                </div>
+                <div className="flex items-center gap-1.5 text-xs text-[#10B981] font-bold">
+                  <Calendar size={16} />
+                  Ready to book
+                </div>
               </div>
-            </>
+            </div>
           )}
-        </form>
+        </div>
+
+        {/* Modal Footer Controls - ALWAYS PINNED AT BOTTOM */}
+        <div className="shrink-0 bg-card border-t border-border px-6 sm:px-8 py-4 flex items-center justify-between z-10 shadow-sm">
+          {currentStep > 1 ? (
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setCurrentStep((s) => s - 1)}
+              className="rounded-full px-6 h-11 font-bold border-border hover:bg-surface"
+            >
+              <ArrowLeft size={16} className="mr-2" />
+              Back
+            </Button>
+          ) : (
+            <div />
+          )}
+
+          {currentStep < 5 ? (
+            <Button
+              type="button"
+              onClick={() => {
+                if (currentStep === 2 && !selectedDevice) {
+                  toast.error("Please select a device model to continue");
+                  return;
+                }
+                setCurrentStep((s) => s + 1);
+              }}
+              className="rounded-full px-8 h-11 bg-[#10B981] hover:bg-[#059669] text-white font-bold flex items-center gap-1.5 shadow-sm active:scale-[0.98] transition-all"
+            >
+              <span>Continue</span>
+              <ChevronRight size={16} />
+            </Button>
+          ) : (
+            <Button
+              type="button"
+              disabled={createRepairRequest.isPending}
+              onClick={handleSubmit}
+              className="rounded-full px-8 h-11 bg-[#10B981] hover:bg-[#059669] text-white font-black flex items-center gap-2 shadow-sm active:scale-[0.98] transition-all"
+            >
+              {createRepairRequest.isPending ? (
+                <>
+                  <Loader2 size={16} className="animate-spin" />
+                  <span>Creating...</span>
+                </>
+              ) : (
+                <>
+                  <Calendar size={16} />
+                  <span>Create Repair Request</span>
+                </>
+              )}
+            </Button>
+          )}
+        </div>
       </DialogContent>
     </Dialog>
   );

@@ -31,6 +31,17 @@ export interface RepairRequestPayload {
   description: string;
   technician?: string;
   status?: string;
+  category?: string;
+  brand?: string;
+  modelName?: string;
+  modelCode?: string;
+  releaseYear?: string;
+  colour?: string;
+  condition?: string;
+  serialType?: string;
+  serialNumber?: string;
+  issues?: any[];
+  evidencePhotos?: any[];
   images?: File[];
 }
 
@@ -98,7 +109,11 @@ export interface RepairRequest {
   firstName: string;
   email: string;
   phoneNumber?: string;
+  phone?: string;
   price?: number;
+  quotedPrice?: number;
+  totalEstimatedPrice?: number;
+  totalAmount?: number;
   deviceModel: string;
   IMEINumber?: string;
   description: string;
@@ -115,4 +130,17 @@ export interface RepairRequest {
   unableToRepairReason?: string;
   unableToRepairNote?: string;
   unableToRepairCustomerMessage?: string;
+  orderNumber?: string;
+  category?: string;
+  brand?: string;
+  modelName?: string;
+  modelCode?: string;
+  releaseYear?: string;
+  colour?: string;
+  condition?: string;
+  serialType?: string;
+  serialNumber?: string;
+  issues?: any[];
+  evidencePhotos?: any[];
+  history?: any[];
 }

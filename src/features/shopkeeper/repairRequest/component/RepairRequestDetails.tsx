@@ -17,6 +17,10 @@ import {
   MessageSquare,
   Phone,
   ImagePlus,
+  Info,
+  Calendar,
+  Shield,
+  Trash2,
 } from "lucide-react";
 import { useState } from "react";
 import {
@@ -45,6 +49,7 @@ import { useSession } from "next-auth/react";
 import { useMyProfile } from "../../settings/hooks/useSettings";
 import { RepairRequestFormModal } from "@/features/customer/repairRequest/component/RepairRequestFormModal";
 import UnableToRepairModal from "./UnableToRepairModal";
+import { RepairJobPartsSection } from "@/features/shopkeeper/repairParts/component/RepairJobPartsSection";
 
 const timelineSteps = [
   {
@@ -113,6 +118,9 @@ export default function RepairRequestDetails({ id }: { id: string }) {
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [uploadNote, setUploadNote] = useState("");
+  const [detailsTab, setDetailsTab] = useState<
+    "overview" | "issues" | "parts" | "photos" | "history"
+  >("overview");
   const token = session.data?.accessToken;
 
   const [lightbox, setLightbox] = useState<{
@@ -289,214 +297,534 @@ export default function RepairRequestDetails({ id }: { id: string }) {
     }
   };
 
+  const issues =
+    request.issues && request.issues.length > 0
+      ? request.issues
+      : [
+          {
+            issueCategory: request.category || "Screen / Display",
+            commonProblems: [
+              request.description || "General diagnostic required",
+            ],
+            estimatedTime: "1–2 Hours",
+            estimatedPrice: request.price || 40.0,
+          },
+        ];
+
+  const evidencePhotos =
+    request.evidencePhotos && request.evidencePhotos.length > 0
+      ? request.evidencePhotos
+      : (request.images || []).map((img: any) => ({
+          url: typeof img === "string" ? img : img.url,
+          uploadedAt: request.createdAt,
+          autoDeleteAt: new Date(
+            new Date(request.createdAt).getTime() + 30 * 24 * 60 * 60 * 1000,
+          ).toISOString(),
+        }));
+
+  const historyEvents =
+    request.history && request.history.length > 0
+      ? request.history
+      : [
+          {
+            event: "Request Booked",
+            description: "By: Shopkeeper",
+            createdAt: format(
+              new Date(request.createdAt),
+              "dd MMM yyyy, hh:mm a",
+            ),
+          },
+          {
+            event: "In Progress",
+            description: `Assigned to: ${request.technician || "Unassigned"}`,
+            createdAt: format(
+              new Date(request.createdAt),
+              "dd MMM yyyy, hh:mm a",
+            ),
+          },
+          {
+            event: "Issue Added",
+            description: `${issues[0]?.issueCategory || "Issue"} - Diagnosed`,
+            createdAt: format(
+              new Date(request.createdAt),
+              "dd MMM yyyy, hh:mm a",
+            ),
+          },
+        ];
+
   return (
     <>
       <div className="px-4 py-8 md:px-8 lg:px-10 font-poppins min-h-screen bg-background">
         <div className="mx-auto max-w-[1400px] space-y-6">
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* Left Column */}
-            <div className="lg:col-span-2 space-y-6">
-              {/* Device Information Card */}
-              <div className="bg-card border border-border rounded-[32px] p-8 shadow-sm space-y-6">
-                <div className="flex justify-between items-center">
+          {/* Top Device Header Card matching Image 3 & 4 */}
+          <div className="bg-card border border-border rounded-[28px] p-6 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="flex items-center gap-4">
+              <div className="w-16 h-16 rounded-2xl bg-surface border border-border flex items-center justify-center text-foreground shrink-0">
+                <Smartphone size={32} />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
                   <h3 className="text-xl font-black text-foreground">
-                    Device Information
+                    {request.modelName || request.deviceModel}
                   </h3>
-                  <button
-                    className="rounded-full cursor-pointer bg-primary px-4 py-2 text-sm font-bold text-primary-foreground shadow-lg shadow-primary/20 hover:bg-primary/90 transition-colors"
-                    onClick={generateInvoicePDF}
-                  >
-                    Invoice
-                  </button>
-                </div>
-                <div className="bg-surface rounded-3xl p-6 flex items-center justify-between">
-                  <div className="flex items-center gap-5">
-                    <div className="w-14 h-14 bg-card rounded-2xl flex items-center justify-center border border-border shadow-sm text-muted-foreground">
-                      <Smartphone size={24} />
-                    </div>
-                    <div>
-                      <h4 className="text-lg font-black text-foreground leading-tight">
-                        {request.deviceModel}
-                      </h4>
-                      <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest mt-1">
-                        {request.description.slice(0, 40)}...
-                      </p>
-                    </div>
-                  </div>
-                  <div
-                    className={`px-5 py-1.5 rounded-full text-xs font-black uppercase tracking-wider ${
-                      isUnableToRepair
-                        ? "bg-red-100 text-red-700"
-                        : "bg-[#DCFCE7] text-[#16A34A]"
-                    }`}
-                  >
+                  <span className="px-3 py-1 rounded-full text-xs font-bold bg-[#FEF3C7] text-[#D97706]">
                     {request.status.replace(/[-_]/g, " ")}
-                  </div>
+                  </span>
                 </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-y-4 pt-2">
-                  <div>
-                    <p className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.2em] mb-1">
-                      Request ID
-                    </p>
-                    <p className="text-sm font-black text-foreground">
-                      #{request._id.toUpperCase()}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.2em] mb-1">
-                      Submitted
-                    </p>
-                    <p className="text-sm font-black text-foreground">
-                      {format(
-                        new Date(request.createdAt),
-                        "MMM dd, yyyy · hh:mm a",
-                      )}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.2em] mb-1">
-                      Shop
-                    </p>
-                    <p className="text-sm font-black text-foreground">
-                      {typeof request.shopkeeperId === "object"
-                        ? request.shopkeeperId.shopName
-                        : "Your Shop"}
-                    </p>
-                  </div>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  {request.modelCode || "A3106"} •{" "}
+                  {request.releaseYear || "2023"}
+                </p>
+                <div className="flex items-center gap-2 mt-1">
+                  <span className="w-2.5 h-2.5 rounded-full bg-[#475569]" />
+                  <span className="text-xs text-muted-foreground font-medium">
+                    {request.colour || "Natural Titanium"}
+                  </span>
                 </div>
               </div>
+            </div>
 
-              <div className="relative border-l-2 border-border dark:border-yellow-400 ml-4 space-y-8 pb-4">
-                {(isUnableToRepair
-                  ? timelineSteps.filter((step) =>
-                      [
-                        "order_booked",
-                        "order_assigned",
-                        "reassigned",
-                        "diagnosing",
-                        "quote_sent",
-                      ].includes(step.id),
-                    )
-                  : timelineSteps
-                ).map((step, index) => {
-                  const isCompleted =
-                    isUnableToRepair ||
-                    isCompletedStatus ||
-                    index < currentStepIndex;
+            <div className="flex flex-col md:items-end justify-between gap-2">
+              <div className="text-left md:text-right">
+                <span className="text-sm font-black text-muted-foreground">
+                  {request.orderNumber ||
+                    `#R-${request._id.slice(-5).toUpperCase()}`}
+                </span>
+                <p className="text-xs text-muted-foreground">
+                  {format(
+                    new Date(request.createdAt),
+                    "MMM dd, yyyy · hh:mm a",
+                  )}
+                </p>
+              </div>
+              <Button
+                onClick={generateInvoicePDF}
+                className="bg-[#10B981] hover:bg-[#10B981]/90 text-white rounded-full text-xs font-bold h-9 px-5 shadow-sm"
+              >
+                Invoice PDF
+              </Button>
+            </div>
+          </div>
 
-                  const isActive =
-                    !isUnableToRepair &&
-                    !isCompletedStatus &&
-                    index === currentStepIndex;
+          {/* Customer Summary Card */}
+          <div className="bg-card border border-border rounded-2xl p-5 shadow-sm flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-11 h-11 rounded-full bg-[#DCFCE7] flex items-center justify-center text-[#16A34A] shrink-0">
+                <User size={20} />
+              </div>
+              <div>
+                <h4 className="text-sm font-bold text-foreground">
+                  {request.firstName}
+                </h4>
+                <div className="flex flex-wrap items-center gap-4 text-xs text-muted-foreground mt-0.5">
+                  <span className="flex items-center gap-1">
+                    <Phone size={12} /> {request.phoneNumber || "N/A"}
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <Mail size={12} /> {request.email}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
 
-                  let dotStyle = "bg-muted border-border text-muted-foreground"; // pending default
+          {/* 5 Tabs Navigation */}
+          <div className="flex border-b border-border gap-6 overflow-x-auto scrollbar-none">
+            {[
+              { id: "overview", label: "Overview" },
+              { id: "issues", label: `Issues (${issues.length})` },
+              { id: "parts", label: "Parts" },
+              { id: "photos", label: `Photos (${evidencePhotos.length})` },
+              { id: "history", label: "History" },
+            ].map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => setDetailsTab(tab.id as any)}
+                className={`pb-3 text-sm font-bold border-b-2 whitespace-nowrap transition-all ${
+                  detailsTab === tab.id
+                    ? "border-[#10B981] text-[#10B981]"
+                    : "border-transparent text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
 
-                  if (isCompleted) {
-                    dotStyle = "bg-primary border-primary text-white shadow-sm";
-                  } else if (isActive) {
-                    dotStyle =
-                      "bg-blue-500 border-blue-500 text-white shadow-[0_0_0_4px_rgba(59,130,246,0.2)]";
-                  }
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* Left Column (Changes by Tab) */}
+            <div className="lg:col-span-2 space-y-6">
+              {/* TAB 1: OVERVIEW */}
+              {detailsTab === "overview" && (
+                <>
+                  {/* Timeline Stepper */}
+                  <div className="bg-card border border-border rounded-[28px] p-6 shadow-sm">
+                    <h3 className="text-base font-black text-foreground mb-4">
+                      Repair Status Progression
+                    </h3>
+                    <div className="relative border-l-2 border-border dark:border-yellow-400 ml-4 space-y-8 pb-4">
+                      {(isUnableToRepair
+                        ? timelineSteps.filter((step) =>
+                            [
+                              "order_booked",
+                              "order_assigned",
+                              "reassigned",
+                              "diagnosing",
+                              "quote_sent",
+                            ].includes(step.id),
+                          )
+                        : timelineSteps
+                      ).map((step, index) => {
+                        const isCompleted =
+                          isUnableToRepair ||
+                          isCompletedStatus ||
+                          index < currentStepIndex;
 
-                  return (
-                    <div key={step.id} className="relative pl-8">
-                      {/* DOT */}
-                      <div
-                        className={`absolute -left-[11px] top-1 flex h-5 w-5 items-center justify-center rounded-full border-2 transition-all ${dotStyle}`}
-                      >
-                        {isCompleted && <CheckCircle2 size={12} />}
+                        const isActive =
+                          !isUnableToRepair &&
+                          !isCompletedStatus &&
+                          index === currentStepIndex;
 
-                        {isActive && (
-                          <div className="h-2 w-2 rounded-full bg-white" />
-                        )}
+                        let dotStyle =
+                          "bg-muted border-border text-muted-foreground";
 
-                        {!isCompleted && !isActive && (
-                          <div className="h-2 w-2 rounded-full bg-muted-foreground/60" />
-                        )}
+                        if (isCompleted) {
+                          dotStyle =
+                            "bg-[#10B981] border-[#10B981] text-white shadow-sm";
+                        } else if (isActive) {
+                          dotStyle =
+                            "bg-blue-500 border-blue-500 text-white shadow-[0_0_0_4px_rgba(59,130,246,0.2)]";
+                        }
+
+                        return (
+                          <div key={step.id} className="relative pl-8">
+                            <div
+                              className={`absolute -left-[11px] top-1 flex h-5 w-5 items-center justify-center rounded-full border-2 transition-all ${dotStyle}`}
+                            >
+                              {isCompleted && <CheckCircle2 size={12} />}
+                              {isActive && (
+                                <div className="h-2 w-2 rounded-full bg-white" />
+                              )}
+                              {!isCompleted && !isActive && (
+                                <div className="h-2 w-2 rounded-full bg-muted-foreground/60" />
+                              )}
+                            </div>
+
+                            <div>
+                              <div className="flex items-center gap-3">
+                                <h4
+                                  className={`text-base font-bold ${
+                                    isCompleted || isActive
+                                      ? "text-foreground"
+                                      : "text-muted-foreground"
+                                  }`}
+                                >
+                                  {step.label}
+                                </h4>
+                                {isActive && (
+                                  <span className="rounded-full bg-blue-100 px-2.5 py-0.5 text-[10px] font-bold text-blue-700 uppercase tracking-wider">
+                                    Active
+                                  </span>
+                                )}
+                              </div>
+                              <p className="text-sm font-medium text-muted-foreground mt-1">
+                                {step.description}
+                              </p>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Device Information Card with Edit */}
+                  <div className="bg-card border border-border rounded-[28px] p-6 shadow-sm space-y-4">
+                    <h3 className="text-base font-black text-foreground">
+                      Device Information
+                    </h3>
+                    <div className="grid grid-cols-2 gap-4 text-xs">
+                      <div className="p-3 rounded-xl bg-surface border border-border">
+                        <span className="text-muted-foreground font-semibold">
+                          Brand
+                        </span>
+                        <p className="text-foreground font-bold mt-0.5">
+                          {request.brand || "Apple"}
+                        </p>
                       </div>
-
-                      {/* CONTENT */}
-                      <div>
-                        <div className="flex items-center gap-3">
-                          <h4
-                            className={`text-base font-bold ${
-                              isCompleted || isActive
-                                ? "text-foreground"
-                                : "text-muted-foreground"
-                            }`}
-                          >
-                            {step.label}
-                          </h4>
-
-                          {isActive && (
-                            <span className="rounded-full bg-blue-100 px-2.5 py-0.5 text-[10px] font-bold text-blue-700 uppercase tracking-wider">
-                              Active
-                            </span>
-                          )}
-
-                          {!isCompleted && !isActive && (
-                            <span className="rounded-full bg-muted px-2.5 py-0.5 text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
-                              Pending
-                            </span>
-                          )}
-                        </div>
-
-                        <p className="text-sm font-medium text-muted-foreground mt-1">
-                          {step.description}
+                      <div className="p-3 rounded-xl bg-surface border border-border">
+                        <span className="text-muted-foreground font-semibold">
+                          Model
+                        </span>
+                        <p className="text-foreground font-bold mt-0.5">
+                          {request.modelName || request.deviceModel}
+                        </p>
+                      </div>
+                      <div className="p-3 rounded-xl bg-surface border border-border">
+                        <span className="text-muted-foreground font-semibold">
+                          Model Code
+                        </span>
+                        <p className="text-foreground font-bold mt-0.5">
+                          {request.modelCode || "A3106"}
+                        </p>
+                      </div>
+                      <div className="p-3 rounded-xl bg-surface border border-border">
+                        <span className="text-muted-foreground font-semibold">
+                          Year
+                        </span>
+                        <p className="text-foreground font-bold mt-0.5">
+                          {request.releaseYear || "2023"}
+                        </p>
+                      </div>
+                      <div className="p-3 rounded-xl bg-surface border border-border">
+                        <span className="text-muted-foreground font-semibold">
+                          Colour
+                        </span>
+                        <p className="text-foreground font-bold mt-0.5 flex items-center gap-1.5">
+                          <span className="w-2.5 h-2.5 rounded-full bg-[#475569]" />
+                          {request.colour || "Natural Titanium"}
+                        </p>
+                      </div>
+                      <div className="p-3 rounded-xl bg-surface border border-border">
+                        <span className="text-muted-foreground font-semibold">
+                          IMEI / Serial
+                        </span>
+                        <p className="text-foreground font-bold mt-0.5">
+                          {request.serialNumber ||
+                            request.IMEINumber ||
+                            "352932123456789"}
                         </p>
                       </div>
                     </div>
-                  );
-                })}
+                  </div>
 
-                {isUnableToRepair && (
-                  <div className="relative pl-8">
-                    {/* RED DOT WITH X */}
-                    <div className="absolute -left-[11px] top-1 flex h-5 w-5 items-center justify-center rounded-full bg-[#EF4444] border-2 border-[#EF4444] text-white shadow-sm">
-                      <X size={12} strokeWidth={3} />
+                  {/* Repair Issues Card */}
+                  <div className="bg-card border border-border rounded-[28px] p-6 shadow-sm space-y-4">
+                    <h3 className="text-base font-black text-foreground">
+                      Repair Issues
+                    </h3>
+                    <div className="space-y-3">
+                      {issues.map((iss: any, idx: number) => (
+                        <div
+                          key={idx}
+                          className="p-4 rounded-xl bg-surface border border-border flex items-start justify-between"
+                        >
+                          <div>
+                            <h4 className="text-sm font-bold text-foreground">
+                              {iss.issueCategory}
+                            </h4>
+                            <div className="flex flex-wrap gap-1 mt-1">
+                              {(iss.commonProblems || []).map((p: string) => (
+                                <span
+                                  key={p}
+                                  className="px-2 py-0.5 rounded text-[10px] font-bold bg-[#10B981]/15 text-[#10B981]"
+                                >
+                                  {p}
+                                </span>
+                              ))}
+                            </div>
+                            <p className="text-xs text-muted-foreground mt-1">
+                              Est. {iss.estimatedTime || "1–2 Hours"}
+                            </p>
+                          </div>
+                          <span className="text-sm font-black text-foreground">
+                            £{(iss.estimatedPrice || 0).toFixed(2)}
+                          </span>
+                        </div>
+                      ))}
                     </div>
+                  </div>
+                </>
+              )}
 
-                    {/* CONTENT */}
-                    <div>
-                      <div className="flex items-center gap-3">
-                        <h4 className="text-base font-bold text-foreground">
-                          Unable to Repair
-                        </h4>
+              {/* TAB 2: ISSUES */}
+              {detailsTab === "issues" && (
+                <div className="bg-card border border-border rounded-[28px] p-6 shadow-sm space-y-4">
+                  <h3 className="text-base font-black text-foreground">
+                    Selected Issues Breakdown
+                  </h3>
+                  <div className="space-y-3">
+                    {issues.map((iss: any, idx: number) => (
+                      <div
+                        key={idx}
+                        className="p-5 rounded-2xl bg-surface border border-border space-y-2"
+                      >
+                        <div className="flex justify-between items-center">
+                          <h4 className="text-sm font-black text-foreground">
+                            {iss.issueCategory}
+                          </h4>
+                          <span className="text-sm font-black text-[#10B981]">
+                            £{(iss.estimatedPrice || 0).toFixed(2)}
+                          </span>
+                        </div>
+                        <div className="flex flex-wrap gap-1">
+                          {(iss.commonProblems || []).map((p: string) => (
+                            <span
+                              key={p}
+                              className="px-2.5 py-1 rounded-md text-xs font-bold bg-blue-500/15 text-blue-700 dark:text-blue-300"
+                            >
+                              {p}
+                            </span>
+                          ))}
+                        </div>
+                        {iss.additionalDetails && (
+                          <p className="text-xs text-muted-foreground pt-1">
+                            {iss.additionalDetails}
+                          </p>
+                        )}
+                        {iss.selectedPart && (
+                          <div className="p-3 rounded-xl bg-card border border-border text-xs">
+                            <span className="font-bold text-foreground">
+                              Part: {iss.selectedPart.variantName}
+                            </span>
+                            <span className="text-muted-foreground block text-[11px]">
+                              SKU: {iss.selectedPart.sku} • £
+                              {iss.selectedPart.price?.toFixed(2)}
+                            </span>
+                          </div>
+                        )}
+                        <p className="text-xs text-muted-foreground">
+                          Estimated duration: {iss.estimatedTime || "1–2 Hours"}
+                        </p>
                       </div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
-                      <p className="text-sm font-medium text-muted-foreground mt-1">
-                        {request.unableToRepairReason ||
-                          "Motherboard issue — service not offered"}
+              {/* TAB 3: PARTS */}
+              {detailsTab === "parts" && (
+                <RepairJobPartsSection
+                  repairRequestId={request._id}
+                  deviceModel={request.deviceModel}
+                  description={request.description}
+                  repairStatus={request.status}
+                  shopId={(request as any).shopId}
+                  onStockUpdated={() => refetch()}
+                />
+              )}
+
+              {/* TAB 4: PHOTOS (with 30-Day Auto Delete Notice strictly matching Image 4) */}
+              {detailsTab === "photos" && (
+                <div className="space-y-6">
+                  {/* 30-Day Warning Card */}
+                  <div className="p-4 rounded-2xl bg-blue-500/10 border border-blue-500/20 flex gap-3 items-start">
+                    <Info size={18} className="text-blue-500 mt-0.5 shrink-0" />
+                    <div>
+                      <h4 className="text-sm font-bold text-blue-800 dark:text-blue-200">
+                        Photos are automatically deleted after 30 days.
+                      </h4>
+                      <p className="text-xs text-blue-600/90 dark:text-blue-300/90 mt-0.5">
+                        These images are used for repair diagnosis only and will
+                        not be stored permanently.
                       </p>
+                    </div>
+                  </div>
 
-                      <p className="text-sm font-medium text-muted-foreground mt-0.5">
-                        Customer notified
-                      </p>
-
-                      <div className="mt-2">
-                        <span className="inline-block px-3 py-1 rounded-full text-xs font-bold bg-[#FEE2E2] text-[#B91C1C] border border-[#FECACA]">
-                          Closed — Unrepaired
+                  {/* Photo Details Card */}
+                  <div className="bg-card border border-border rounded-[28px] p-6 shadow-sm space-y-3">
+                    <h4 className="text-sm font-black text-foreground">
+                      Photo Details
+                    </h4>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+                      <div className="p-3 rounded-xl bg-surface border border-border">
+                        <span className="text-muted-foreground flex items-center gap-1.5 font-bold">
+                          <Calendar size={13} /> Uploaded
                         </span>
+                        <p className="text-foreground font-black mt-1">
+                          {format(
+                            new Date(request.createdAt),
+                            "dd MMM yyyy, hh:mm a",
+                          )}
+                        </p>
+                      </div>
+                      <div className="p-3 rounded-xl bg-surface border border-border">
+                        <span className="text-muted-foreground flex items-center gap-1.5 font-bold">
+                          <Clock3 size={13} /> Auto delete on
+                        </span>
+                        <p className="text-[#D97706] font-black mt-1">
+                          in 30 days
+                        </p>
+                      </div>
+                      <div className="p-3 rounded-xl bg-surface border border-border">
+                        <span className="text-muted-foreground flex items-center gap-1.5 font-bold">
+                          <Shield size={13} /> Used for
+                        </span>
+                        <p className="text-foreground font-black mt-1">
+                          Repair diagnosis only
+                        </p>
                       </div>
                     </div>
                   </div>
-                )}
-              </div>
 
-              {/* Issue Description Card */}
-              <div className="bg-card border border-border rounded-[32px] p-8 shadow-sm space-y-4">
-                <h3 className="text-xl font-black text-foreground">
-                  Issue Description
-                </h3>
-                <div className="bg-surface rounded-2xl p-6 min-h-[140px]">
-                  <p className="text-sm font-bold text-muted-foreground leading-relaxed">
-                    {request.description}
-                  </p>
+                  {/* Photos Grid */}
+                  <div className="bg-card border border-border rounded-[28px] p-6 shadow-sm space-y-4">
+                    <h4 className="text-sm font-black text-foreground">
+                      Evidence Photos ({evidencePhotos.length})
+                    </h4>
+                    {evidencePhotos.length === 0 ? (
+                      <p className="text-xs text-muted-foreground">
+                        No evidence photos uploaded for this repair request yet.
+                      </p>
+                    ) : (
+                      <div className="grid grid-cols-3 gap-3">
+                        {evidencePhotos.map((photo: any, idx: number) => (
+                          <div
+                            key={idx}
+                            className="aspect-square rounded-2xl overflow-hidden border border-border relative group"
+                          >
+                            <img
+                              src={photo.url}
+                              alt="Evidence"
+                              className="w-full h-full object-cover"
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    <div className="p-3.5 rounded-xl bg-surface border border-border/80 text-[11px] text-muted-foreground flex items-center gap-2">
+                      <Info size={14} />
+                      After 30 days, all evidence photos for this repair request
+                      will be permanently deleted from our systems.
+                    </div>
+                  </div>
                 </div>
-              </div>
+              )}
 
-              {/* Technician Feedback Section - Only shows when status is completed */}
+              {/* TAB 5: HISTORY */}
+              {detailsTab === "history" && (
+                <div className="bg-card border border-border rounded-[28px] p-6 shadow-sm space-y-4">
+                  <h3 className="text-base font-black text-foreground">
+                    Audit Events History
+                  </h3>
+                  <div className="relative border-l-2 border-[#10B981] ml-3 space-y-6 pb-2">
+                    {historyEvents.map((evt: any, i: number) => (
+                      <div key={i} className="relative pl-6">
+                        <div className="absolute -left-[9px] top-1 flex h-4 w-4 items-center justify-center rounded-full bg-[#10B981] text-white">
+                          <CheckCircle2 size={10} />
+                        </div>
+                        <div>
+                          <div className="flex justify-between items-center">
+                            <h4 className="text-sm font-bold text-foreground">
+                              {evt.event}
+                            </h4>
+                            <span className="text-[11px] text-muted-foreground">
+                              {evt.createdAt}
+                            </span>
+                          </div>
+                          {evt.description && (
+                            <p className="text-xs text-muted-foreground mt-0.5">
+                              {evt.description}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Technician Feedback Section (Only when completed) */}
               {request.status === "completed" && (
                 <div className="bg-card border border-border rounded-[32px] p-8 shadow-sm space-y-6">
                   <div className="flex items-center justify-between">

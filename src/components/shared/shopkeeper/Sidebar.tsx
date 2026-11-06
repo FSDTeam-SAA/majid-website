@@ -86,6 +86,7 @@ const navItems = [
     href: "/shopkeeper/inventory",
     submenu: [
       { label: "Inventory List", href: "/shopkeeper/inventory" },
+      { label: "Repair Parts", href: "/shopkeeper/inventory/repair-parts" },
       { label: "Supplier", href: "/shopkeeper/inventory/suppliers" },
       { label: "Pop Ups", href: "/shopkeeper/inventory/pop-ups" },
     ],
