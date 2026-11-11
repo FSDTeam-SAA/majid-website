@@ -353,7 +353,7 @@ export function CashManagementCard({
         </div>
 
         {/* Selected Period Stats Bar */}
-        <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
           <div className="rounded-2xl bg-white p-4 shadow-sm dark:bg-slate-800">
             <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">
               Cash Sales ({periodLabels[selectedPeriod]})
@@ -375,24 +375,6 @@ export function CashManagementCard({
             </p>
             <span className="text-[11px] font-bold text-slate-500">
               {activePeriodMetrics.expenseCount} stock purchases
-            </span>
-          </div>
-
-          <div className="rounded-2xl bg-white p-4 shadow-sm dark:bg-slate-800">
-            <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">
-              Net Cash Flow
-            </span>
-            <p
-              className={`mt-1 text-xl font-black ${
-                activePeriodMetrics.netCash >= 0
-                  ? "text-slate-900 dark:text-white"
-                  : "text-rose-600"
-              }`}
-            >
-              {formatCurrency(activePeriodMetrics.netCash)}
-            </p>
-            <span className="text-[11px] font-bold text-slate-500">
-              Sales minus Expenses
             </span>
           </div>
 
