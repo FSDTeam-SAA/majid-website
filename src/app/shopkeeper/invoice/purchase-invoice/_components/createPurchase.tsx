@@ -1069,7 +1069,7 @@ export default function CreatePurchaseReceipt() {
       color: "",
       condition: "",
       quantity: 1,
-      expectedPrice: 0,
+      expectedPrice: "",
       serials: [],
     },
   ]);
@@ -1735,7 +1735,7 @@ export default function CreatePurchaseReceipt() {
           color: "",
           condition: "",
           quantity: 1,
-          expectedPrice: 0,
+          expectedPrice: "",
           serials: [],
         },
       ]);
@@ -2469,13 +2469,16 @@ export default function CreatePurchaseReceipt() {
                             <Input
                               type="number"
                               min={1}
-                              className="rounded-2xl h-12 border-primary bg-background font-bold"
-                              value={item.quantity}
+                              placeholder="1"
+                              className="rounded-2xl h-12 border-primary bg-background font-bold [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                              value={item.quantity ?? ""}
                               onChange={(e) =>
                                 updateItem(
                                   itemIndex,
                                   "quantity",
-                                  Math.max(1, Number(e.target.value)),
+                                  e.target.value === ""
+                                    ? ""
+                                    : Math.max(1, Number(e.target.value)),
                                 )
                               }
                             />
@@ -2487,13 +2490,19 @@ export default function CreatePurchaseReceipt() {
                             <Input
                               type="number"
                               min={0}
-                              className="rounded-2xl h-12 border-primary bg-background font-bold"
-                              value={item.expectedPrice}
+                              step="any"
+                              placeholder="0.00"
+                              className="rounded-2xl h-12 border-primary bg-background font-bold [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                              value={
+                                item.expectedPrice === 0
+                                  ? ""
+                                  : (item.expectedPrice ?? "")
+                              }
                               onChange={(e) =>
                                 updateItem(
                                   itemIndex,
                                   "expectedPrice",
-                                  Number(e.target.value),
+                                  e.target.value === "" ? "" : e.target.value,
                                 )
                               }
                             />

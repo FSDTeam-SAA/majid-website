@@ -235,7 +235,7 @@ export function CollectPaymentModal({
                             amountReceived: event.target.value,
                           }))
                         }
-                        className="h-11 rounded-xl border-slate-200 bg-white text-sm font-black focus-visible:ring-[#84CC16]"
+                        className="h-11 rounded-xl border-slate-200 bg-white text-sm font-black focus-visible:ring-[#84CC16] [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                       />
                     </label>
                     <div className="rounded-xl border border-lime-100 bg-lime-50 px-4 py-3">
@@ -386,6 +386,7 @@ export function CollectPaymentModal({
                       min="0"
                       max={Math.max(0, totalAmount - 0.01)}
                       step="0.01"
+                      placeholder="0.00"
                       value={paymentForm.amountPaid}
                       onChange={(event) =>
                         setPaymentForm((current) => ({
@@ -393,7 +394,7 @@ export function CollectPaymentModal({
                           amountPaid: event.target.value,
                         }))
                       }
-                      className="h-11 rounded-xl border-slate-200 bg-white text-xs font-bold focus-visible:ring-[#84CC16]"
+                      className="h-11 rounded-xl border-slate-200 bg-white text-xs font-bold focus-visible:ring-[#84CC16] [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                     />
                   </label>
                   <label className="space-y-1.5">
