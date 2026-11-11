@@ -291,6 +291,9 @@ export function useCreateInvoice() {
     }) => createInvoice(input),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: INVENTORY_KEYS.all });
+      queryClient.invalidateQueries({ queryKey: ["cash-drawer-metrics"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard-overview"] });
+      queryClient.invalidateQueries({ queryKey: ["cashManagement"] });
     },
   });
 }

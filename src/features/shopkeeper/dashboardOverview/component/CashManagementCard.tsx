@@ -224,7 +224,7 @@ export function CashManagementCard({
                 {formatCurrency(availableCashToday)}
               </p>
               <p className="mt-1 text-xs font-semibold text-white/85">
-                Starting Float + Cash Sales − Banked to Owner
+                Starting Float + Cash Sales − Stock Purchases − Banked to Owner
               </p>
             </div>
 

@@ -60,13 +60,23 @@ export function useCashDrawerMetrics(
   const allTimeMetrics = drawerData?.allTimeMetrics || defaultMetrics;
   const cashExpensesList = drawerData?.cashExpensesList || [];
 
+  const round2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
+
   const previousSalesTotal = Number(
-    drawerData?.previousSalesTotal ??
-      Math.max(0, allTimeMetrics.cashSales + startingDayCash - banked),
+    drawerData?.previousSalesTotal ?? round2(allTimeMetrics.cashSales),
   );
 
   const availableCashToday = Number(
-    drawerData?.availableCashToday ?? previousSalesTotal,
+    drawerData?.availableCashToday ??
+      Math.max(
+        0,
+        round2(
+          startingDayCash +
+            todayMetrics.cashSales -
+            todayMetrics.cashExpenses -
+            banked,
+        ),
+      ),
   );
 
   // Invalidate queries after mutation
@@ -75,6 +85,8 @@ export function useCashDrawerMetrics(
       refetchCashManagement(),
       refetchDrawerMetrics(),
       queryClient.invalidateQueries({ queryKey: ["cash-drawer-metrics"] }),
+      queryClient.invalidateQueries({ queryKey: ["dashboard-overview"] }),
+      queryClient.invalidateQueries({ queryKey: ["cashManagement"] }),
     ]);
   };
 
@@ -95,8 +107,8 @@ export function useCashDrawerMetrics(
     }
 
     try {
-      const newBanked = banked + amount;
-      const newDrawer = Math.max(0, availableCashToday - amount);
+      const newBanked = round2(banked + amount);
+      const newDrawer = Math.max(0, round2(availableCashToday - amount));
 
       await saveCashManagement({
         shopkeeperId,
@@ -136,7 +148,12 @@ export function useCashDrawerMetrics(
     }
 
     try {
-      const newDrawer = Math.max(0, allTimeMetrics.cashSales + amount - banked);
+      const newDrawer = Math.max(
+        0,
+        round2(
+          amount + todayMetrics.cashSales - todayMetrics.cashExpenses - banked,
+        ),
+      );
 
       await saveCashManagement({
         shopkeeperId,
@@ -174,10 +191,15 @@ export function useCashDrawerMetrics(
     }
 
     try {
-      const newStarting = startingDayCash + amount;
+      const newStarting = round2(startingDayCash + amount);
       const newDrawer = Math.max(
         0,
-        allTimeMetrics.cashSales + newStarting - banked,
+        round2(
+          newStarting +
+            todayMetrics.cashSales -
+            todayMetrics.cashExpenses -
+            banked,
+        ),
       );
 
       await saveCashManagement({
