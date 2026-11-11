@@ -191,14 +191,14 @@ export function useCashDrawerMetrics(
     }
 
     try {
-      const newStarting = round2(startingDayCash + amount);
-      const newDrawer = Math.max(
-        0,
-        round2(
-          newStarting +
-            todayMetrics.cashSales -
-            todayMetrics.cashExpenses -
-            banked,
+      const targetAvailable = round2(availableCashToday + amount);
+      const newStarting = round2(
+        Math.max(
+          startingDayCash + amount,
+          targetAvailable +
+            todayMetrics.cashExpenses +
+            banked -
+            todayMetrics.cashSales,
         ),
       );
 
@@ -206,7 +206,7 @@ export function useCashDrawerMetrics(
         shopkeeperId,
         startingDayCash: newStarting,
         banked,
-        cashInDrawer: newDrawer,
+        cashInDrawer: targetAvailable,
       });
 
       toast.success("Cash added to drawer successfully");
@@ -237,11 +237,23 @@ export function useCashDrawerMetrics(
     }
 
     try {
+      const safeBanked = Math.max(0, targetBanked);
+      const safeDrawer = Math.max(0, targetDrawer);
+      const neededStarting = round2(
+        Math.max(
+          0,
+          safeDrawer +
+            todayMetrics.cashExpenses +
+            safeBanked -
+            todayMetrics.cashSales,
+        ),
+      );
+
       await saveCashManagement({
         shopkeeperId,
-        startingDayCash,
-        banked: Math.max(0, targetBanked),
-        cashInDrawer: Math.max(0, targetDrawer),
+        startingDayCash: neededStarting,
+        banked: safeBanked,
+        cashInDrawer: safeDrawer,
       });
 
       toast.success("Cash allocation updated successfully");
