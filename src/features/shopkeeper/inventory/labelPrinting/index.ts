@@ -3,3 +3,8 @@ export * from "./templates";
 export * from "./barcodeUtils";
 export * from "./adapters";
 export * from "./LabelPreview";
+export * from "./LabelShapeThumbnail";
+export * from "./DimensionGuidePreview";
+export * from "./ChooseLabelSizeModal";
+export * from "./PrinterSetupModal";
+export * from "./printerConnection";

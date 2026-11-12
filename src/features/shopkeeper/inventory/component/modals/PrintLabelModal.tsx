@@ -4,9 +4,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogDescription,
 } from "@/components/ui/dialog";
-import { Checkbox } from "@/components/ui/checkbox";
 import {
   Select,
   SelectContent,
@@ -14,25 +12,54 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Input } from "@/components/ui/input";
 import { useReactToPrint } from "react-to-print";
 import type { InventoryItem } from "../../types";
 import { useCurrency } from "@/hooks/useCurrency";
-import { Printer, Loader2, Code2, Check, Copy } from "lucide-react";
+import {
+  Printer,
+  Loader2,
+  CheckCircle2,
+  AlertTriangle,
+  RotateCcw,
+  Settings,
+  Search,
+  Plus,
+  Minus,
+  Download,
+  MonitorCheck,
+  Check,
+} from "lucide-react";
 import { toast } from "sonner";
 import {
   BarcodeFormat,
   CommonLabelData,
   LabelFields,
+  LabelOrientation,
   LabelTemplate,
   PrinterBrand,
-  PRINTER_BRANDS,
   LABEL_TEMPLATES,
-  getTemplatesForBrand,
+  INSTALLED_PRINTER_DEVICES,
   getDefaultTemplateForBrand,
   getPrinterAdapter,
+  getPrintLayoutDimensions,
   LabelPreview,
+  LabelShapeThumbnail,
+  ChooseLabelSizeModal,
+  PrinterSetupModal,
+  usePrinterConnection,
 } from "../../labelPrinting";
+
+const STORAGE_KEY_PREFS = "imoscan_label_printer_pref";
+
+function getInitialPreferences() {
+  if (typeof window === "undefined") return null;
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY_PREFS);
+    return saved ? JSON.parse(saved) : null;
+  } catch {
+    return null;
+  }
+}
 
 interface PrintLabelModalProps {
   isOpen: boolean;
@@ -47,115 +74,154 @@ export function PrintLabelModal({
 }: PrintLabelModalProps) {
   const { currencySymbol } = useCurrency();
 
-  // 1. Printer selection
-  const [selectedBrand, setSelectedBrand] = useState<PrinterBrand>("DYMO");
+  // Saved preferences in localStorage
+  const [selectedPrinterId, setSelectedPrinterId] = useState<string>(
+    () => getInitialPreferences()?.printerId || INSTALLED_PRINTER_DEVICES[0].id,
+  );
+  const [selectedBrand, setSelectedBrand] = useState<PrinterBrand>(
+    () => getInitialPreferences()?.brand || "DYMO",
+  );
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string>(
+    () => getInitialPreferences()?.templateId || "dymo-s0722540",
+  );
+  const [orientation, setOrientation] = useState<LabelOrientation>(
+    () => getInitialPreferences()?.orientation || "landscape",
+  );
+  const [quantity, setQuantity] = useState<number>(
+    () => getInitialPreferences()?.quantity || 1,
+  );
+  const [location, setLocation] = useState<string>(
+    () => getInitialPreferences()?.location || "Main Store",
+  );
 
-  // 2. Label template selection (defaults to DYMO 1933085)
-  const [selectedTemplateId, setSelectedTemplateId] =
-    useState<string>("dymo-1933085");
+  // Barcode format & details fields
+  const [barcodeFormat, setBarcodeFormat] = useState<BarcodeFormat>(
+    () => getInitialPreferences()?.barcodeFormat || "CODE128",
+  );
+  const [details, setDetails] = useState<LabelFields>(
+    () =>
+      getInitialPreferences()?.details || {
+        sku: true,
+        gtin: false,
+        variationName: true,
+        price: true,
+        itemName: true,
+        unitAbbreviation: false,
+      },
+  );
 
-  // Custom dimensions (if custom size is selected)
-  const [customWidth, setCustomWidth] = useState<number>(2.5);
-  const [customHeight, setCustomHeight] = useState<number>(1.5);
-  const [customUnit, setCustomUnit] = useState<"inch" | "mm">("inch");
-
-  // 3. Location selection (preserving existing feature)
-  const [location, setLocation] = useState("Mobile Kit Distribution");
-
-  // 4. Barcode format selection
-  const [barcodeFormat, setBarcodeFormat] = useState<BarcodeFormat>("CODE128");
-
-  // 5. Label details checkboxes
-  const [details, setDetails] = useState<LabelFields>({
-    sku: true,
-    gtin: false,
-    variationName: true,
-    price: true,
-    itemName: true,
-    unitAbbreviation: false,
-  });
-
-  // State for raw command inspection & printing loader
-  const [showRawCommands, setShowRawCommands] = useState(false);
+  // Dialog sub-states
+  const [isChooseSizeOpen, setIsChooseSizeOpen] = useState(false);
+  const [isSetupGuideOpen, setIsSetupGuideOpen] = useState(false);
   const [isPrinting, setIsPrinting] = useState(false);
-  const [copiedRaw, setCopiedRaw] = useState(false);
 
   const printRef = useRef<HTMLDivElement>(null);
 
-  // Available templates for selected brand
-  const availableTemplates = useMemo(() => {
-    return getTemplatesForBrand(selectedBrand);
-  }, [selectedBrand]);
-
-  // When brand changes, switch to its default template
-  const handleBrandChange = (brand: PrinterBrand) => {
-    setSelectedBrand(brand);
-    const defaultTemplate = getDefaultTemplateForBrand(brand);
-    setSelectedTemplateId(defaultTemplate.id);
+  // Save preferences whenever they change
+  const savePreferences = (
+    updated: Partial<{
+      printerId: string;
+      brand: PrinterBrand;
+      templateId: string;
+      orientation: LabelOrientation;
+      location: string;
+      quantity: number;
+      details: LabelFields;
+      barcodeFormat: BarcodeFormat;
+    }>,
+  ) => {
+    try {
+      const current = {
+        printerId: updated.printerId ?? selectedPrinterId,
+        brand: updated.brand ?? selectedBrand,
+        templateId: updated.templateId ?? selectedTemplateId,
+        orientation: updated.orientation ?? orientation,
+        location: updated.location ?? location,
+        quantity: updated.quantity ?? quantity,
+        details: updated.details ?? details,
+        barcodeFormat: updated.barcodeFormat ?? barcodeFormat,
+      };
+      localStorage.setItem(STORAGE_KEY_PREFS, JSON.stringify(current));
+    } catch {
+      // Ignore local storage error
+    }
   };
+
+  // Real-time printer connection probe (Developer Note 4)
+  const {
+    status: connectionStatus,
+    isRechecking,
+    recheck: recheckConnection,
+  } = usePrinterConnection(selectedBrand, isOpen);
 
   // Active template object
   const activeTemplate: LabelTemplate = useMemo(() => {
     const found = LABEL_TEMPLATES.find((t) => t.id === selectedTemplateId);
-    if (found) {
-      if (found.isCustom) {
-        return {
-          ...found,
-          width: customWidth > 0 ? customWidth : 2.5,
-          height: customHeight > 0 ? customHeight : 1.5,
-          unit: customUnit,
-        };
-      }
-      return found;
-    }
-    return availableTemplates[0] || LABEL_TEMPLATES[0];
-  }, [
-    selectedTemplateId,
-    availableTemplates,
-    customWidth,
-    customHeight,
-    customUnit,
-  ]);
+    if (found) return found;
+    return getDefaultTemplateForBrand(selectedBrand);
+  }, [selectedTemplateId, selectedBrand]);
 
-  // Supported barcode formats for active template
-  const availableBarcodeFormats = useMemo(() => {
-    return (
-      activeTemplate.barcode_format || [
-        "CODE128",
-        "EAN-13",
-        "EAN-8",
-        "UPC-A",
-        "QR Code",
-      ]
-    );
-  }, [activeTemplate]);
+  // Dimensions keeping stock size separate from rotation (Developer Note 3)
+  const stockWidth =
+    activeTemplate.stock_width_mm ||
+    (activeTemplate.unit === "inch"
+      ? Math.round(activeTemplate.width * 25.4)
+      : activeTemplate.width);
+  const stockHeight =
+    activeTemplate.stock_height_mm ||
+    (activeTemplate.unit === "inch"
+      ? Math.round(activeTemplate.height * 25.4)
+      : activeTemplate.height);
 
-  // Derive valid barcode format without setState in effect
-  const effectiveBarcodeFormat = useMemo(() => {
-    return availableBarcodeFormats.includes(barcodeFormat)
-      ? barcodeFormat
-      : availableBarcodeFormats[0] || "CODE128";
-  }, [availableBarcodeFormats, barcodeFormat]);
+  const layoutDims = useMemo(() => {
+    return getPrintLayoutDimensions(activeTemplate, orientation);
+  }, [activeTemplate, orientation]);
+
+  // Physical page dimensions for CSS print styling
+  const pageSize = useMemo(() => {
+    const widthStr =
+      layoutDims.unit === "inch"
+        ? `${layoutDims.width}in`
+        : `${layoutDims.width}mm`;
+    const heightStr =
+      layoutDims.unit === "inch"
+        ? `${layoutDims.height}in`
+        : `${layoutDims.height}mm`;
+    return { width: widthStr, height: heightStr };
+  }, [layoutDims]);
 
   // Active printer adapter
   const adapter = useMemo(() => {
     return getPrinterAdapter(selectedBrand);
   }, [selectedBrand]);
 
-  // Physical page dimensions for CSS print styling
-  const pageSize = useMemo(() => {
-    const widthStr =
-      activeTemplate.unit === "inch"
-        ? `${activeTemplate.width}in`
-        : `${activeTemplate.width}mm`;
-    const heightStr =
-      activeTemplate.unit === "inch"
-        ? `${activeTemplate.height}in`
-        : `${activeTemplate.height}mm`;
-    return { width: widthStr, height: heightStr };
-  }, [activeTemplate]);
+  // Switch installed printer device
+  const handleDeviceChange = (deviceId: string) => {
+    setSelectedPrinterId(deviceId);
+    const dev = INSTALLED_PRINTER_DEVICES.find((d) => d.id === deviceId);
+    if (dev) {
+      setSelectedBrand(dev.brand);
+      if (dev.location) setLocation(dev.location);
+      const defaultTpl = getDefaultTemplateForBrand(dev.brand);
+      setSelectedTemplateId(defaultTpl.id);
+      savePreferences({
+        printerId: deviceId,
+        brand: dev.brand,
+        location: dev.location || location,
+        templateId: defaultTpl.id,
+      });
+    }
+  };
 
-  // Configure browser print engine
+  // Toggle orientation
+  const handleToggleOrientation = () => {
+    const next: LabelOrientation =
+      orientation === "landscape" ? "portrait" : "landscape";
+    setOrientation(next);
+    savePreferences({ orientation: next });
+  };
+
+  // Configure browser print engine via react-to-print
   const handleReactToPrint = useReactToPrint({
     contentRef: printRef,
     pageStyle: `
@@ -182,10 +248,9 @@ export function PrintLabelModal({
   const variationString = [item.storage, item.color, item.size]
     .filter(Boolean)
     .join(" ");
-
   const rawItem = item as InventoryItem & { gtin?: string; unit?: string };
 
-  // Formulate common label data payload
+  // Common label data payload
   const commonLabelData: CommonLabelData = {
     itemName: item.itemName,
     sku: item.sku || item.imeiNumber || item._id || "",
@@ -194,29 +259,38 @@ export function PrintLabelModal({
     price: displayPrice,
     unitAbbreviation: rawItem.unit || "pcs",
     barcode: barcodeValue,
-    barcodeFormat: effectiveBarcodeFormat,
-    labelWidth: activeTemplate.width,
-    labelHeight: activeTemplate.height,
-    unit: activeTemplate.unit,
+    barcodeFormat,
+    labelWidth: layoutDims.width,
+    labelHeight: layoutDims.height,
+    unit: layoutDims.unit,
+    orientation,
+    quantity,
     location,
     currencySymbol: currencySymbol || "£",
     fields: details,
     template: activeTemplate,
   };
 
-  // Generate raw commands (ZPL / ePOS / ESC-POS / XML)
-  const rawCommands = adapter.generateRawCommands(commonLabelData);
-
+  // One-click print action
   const handlePrint = async () => {
     setIsPrinting(true);
     try {
+      // 1. Refresh connection probe before printing as instructed in Note 4
+      await recheckConnection();
+
+      // 2. Dispatch print job
       const result = await adapter.print(commonLabelData, {
         contentRef: printRef,
+        copies: quantity,
         triggerBrowserPrint: () => handleReactToPrint(),
       });
 
       if (result.success) {
-        toast.success(result.message || "Print job sent to printer");
+        toast.success(
+          result.message ||
+            `Sent ${quantity} label${quantity > 1 ? "s" : ""} to ${selectedBrand} printer`,
+        );
+        onClose();
       } else {
         toast.error(result.message || "Failed to print label");
       }
@@ -229,421 +303,405 @@ export function PrintLabelModal({
     }
   };
 
-  const handleCopyRaw = () => {
-    if (rawCommands) {
-      navigator.clipboard.writeText(rawCommands);
-      setCopiedRaw(true);
-      setTimeout(() => setCopiedRaw(false), 2000);
-      toast.success("Copied printer commands to clipboard");
-    }
-  };
-
   return (
-    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-2xl bg-card text-foreground rounded-xl p-0 shadow-lg font-poppins max-h-[92vh] overflow-y-auto custom-scrollbar">
-        <DialogHeader className="p-6 border-b border-border flex flex-col gap-1">
-          <div className="flex items-center justify-between">
-            <DialogTitle className="text-xl font-bold">
-              Print labels
-            </DialogTitle>
-            <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-[#84CC16]/10 text-[#65a30d] border border-[#84CC16]/20">
+    <>
+      <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+        <DialogContent className="max-w-lg bg-card text-foreground rounded-2xl p-0 shadow-2xl font-poppins max-h-[94vh] flex flex-col overflow-hidden">
+          {/* Header */}
+          <DialogHeader className="p-5 pb-3 border-b border-border flex flex-row items-center justify-between shrink-0">
+            <div className="flex items-center gap-2">
+              <DialogTitle className="text-xl font-bold tracking-tight">
+                Print label
+              </DialogTitle>
+            </div>
+            <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-[#84CC16]/10 text-[#65a30d] border border-[#84CC16]/20">
               {selectedBrand}
             </span>
-          </div>
-          <DialogDescription className="text-sm text-muted-foreground">
-            Configure and print item label
-          </DialogDescription>
-        </DialogHeader>
+          </DialogHeader>
 
-        <div className="p-6 space-y-6">
-          <div className="grid grid-cols-1 gap-5">
-            {/* 1. PRINTER SELECTION */}
-            <div className="space-y-2">
-              <label className="text-sm font-semibold flex items-center justify-between">
-                <span>Printer</span>
-                <span className="text-[11px] font-normal text-muted-foreground">
-                  Select your label printer hardware
-                </span>
-              </label>
-              <Select
-                value={selectedBrand}
-                onValueChange={(val) => handleBrandChange(val as PrinterBrand)}
-              >
-                <SelectTrigger className="w-full h-12 rounded-xl border border-input bg-background font-medium">
-                  <SelectValue placeholder="Select printer" />
-                </SelectTrigger>
-                <SelectContent>
-                  {PRINTER_BRANDS.map((brand) => (
-                    <SelectItem key={brand} value={brand}>
-                      <span className="font-semibold">{brand}</span>
-                      {brand === "DYMO" && " (LabelWriter 450/550/4XL)"}
-                      {brand === "Zebra" && " (ZPL Thermal Series)"}
-                      {brand === "Brother" && " (QL Series DK Labels)"}
-                      {brand === "Rollo" && " (Thermal Label Printers)"}
-                      {brand === "Epson" && " (TM Series ePOS & ColorWorks)"}
-                      {brand === "Generic" &&
-                        " (Standard OS / Desktop Printer)"}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* 2. LABEL TYPE SELECTION */}
-            <div className="space-y-2">
-              <label className="text-sm font-semibold flex items-center justify-between">
-                <span>Label type</span>
-                <span className="text-[11px] font-normal text-muted-foreground">
-                  {activeTemplate.width} x {activeTemplate.height}{" "}
-                  {activeTemplate.unit}
-                </span>
-              </label>
-              <Select
-                value={selectedTemplateId}
-                onValueChange={setSelectedTemplateId}
-              >
-                <SelectTrigger className="w-full h-12 rounded-xl border border-input bg-background font-medium">
-                  <SelectValue placeholder="Select label type" />
-                </SelectTrigger>
-                <SelectContent>
-                  {availableTemplates.map((tpl) => (
-                    <SelectItem key={tpl.id} value={tpl.id}>
-                      <div className="flex flex-col text-left">
-                        <span className="font-medium">{tpl.label_name}</span>
-                        {tpl.description && (
-                          <span className="text-[10px] text-muted-foreground">
-                            {tpl.description}
-                          </span>
-                        )}
-                      </div>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Custom Dimensions Form (if custom size selected) */}
-            {activeTemplate.isCustom && (
-              <div className="p-4 rounded-xl bg-muted/40 border border-border space-y-3">
-                <p className="text-xs font-bold text-foreground">
-                  Custom Label Dimensions
-                </p>
-                <div className="grid grid-cols-3 gap-3">
-                  <div>
-                    <label className="text-[10px] font-semibold uppercase text-muted-foreground">
-                      Width
-                    </label>
-                    <Input
-                      type="number"
-                      step="0.1"
-                      min="0.5"
-                      value={customWidth}
-                      onChange={(e) =>
-                        setCustomWidth(parseFloat(e.target.value) || 2.5)
-                      }
-                      className="h-10 rounded-lg text-xs"
-                    />
+          {/* Body */}
+          <div className="flex-1 overflow-y-auto custom-scrollbar p-6 space-y-4">
+            {/* 1. PRINTER CONNECTION STATUS BANNER (Developer Note 4) */}
+            <div className="space-y-1.5">
+              {connectionStatus === "connected" && (
+                <div className="flex items-center justify-between px-3.5 py-2.5 rounded-xl bg-[#dcfce7] text-[#15803d] border border-[#86efac] text-xs font-bold shadow-sm">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 size={16} className="text-[#16a34a]" />
+                    <span>Printer connected</span>
                   </div>
-                  <div>
-                    <label className="text-[10px] font-semibold uppercase text-muted-foreground">
-                      Height
-                    </label>
-                    <Input
-                      type="number"
-                      step="0.1"
-                      min="0.5"
-                      value={customHeight}
-                      onChange={(e) =>
-                        setCustomHeight(parseFloat(e.target.value) || 1.5)
-                      }
-                      className="h-10 rounded-lg text-xs"
-                    />
+                  <span className="text-[11px] font-semibold opacity-80">
+                    Verified
+                  </span>
+                </div>
+              )}
+
+              {connectionStatus === "unverified" && (
+                <div className="flex items-center justify-between px-3.5 py-2.5 rounded-xl bg-[#fef3c7] text-[#92400e] border border-[#fde68a] text-xs font-bold shadow-sm">
+                  <div className="flex items-center gap-2">
+                    <AlertTriangle size={16} className="text-[#d97706]" />
+                    <span>Connection unverified</span>
                   </div>
-                  <div>
-                    <label className="text-[10px] font-semibold uppercase text-muted-foreground">
-                      Unit
-                    </label>
-                    <Select
-                      value={customUnit}
-                      onValueChange={(u) => setCustomUnit(u as "inch" | "mm")}
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => recheckConnection()}
+                      disabled={isRechecking}
+                      className="px-2 py-1 rounded-lg bg-white/70 hover:bg-white text-[#92400e] text-[11px] font-bold transition flex items-center gap-1 shadow-xs"
+                      title="Re-check printer connection"
                     >
-                      <SelectTrigger className="h-10 rounded-lg text-xs">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="inch">Inches (in)</SelectItem>
-                        <SelectItem value="mm">Millimeters (mm)</SelectItem>
-                      </SelectContent>
-                    </Select>
+                      <RotateCcw
+                        size={12}
+                        className={isRechecking ? "animate-spin" : ""}
+                      />
+                      <span>Recheck</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setIsSetupGuideOpen(true)}
+                      className="px-2 py-1 rounded-lg bg-white/70 hover:bg-white text-[#92400e] text-[11px] font-bold transition shadow-xs"
+                    >
+                      Printer setup
+                    </button>
                   </div>
                 </div>
-              </div>
-            )}
+              )}
 
-            {/* 3. LOCATION */}
-            <div className="space-y-2">
-              <label className="text-sm font-semibold">Location</label>
-              <Select value={location} onValueChange={setLocation}>
-                <SelectTrigger className="w-full h-12 rounded-xl border border-input bg-background font-medium">
-                  <SelectValue placeholder="Select location" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Mobile Kit Distribution">
-                    Mobile Kit Distribution
-                  </SelectItem>
-                  <SelectItem value="Main Store">Main Store</SelectItem>
-                </SelectContent>
-              </Select>
+              {connectionStatus === "offline" && (
+                <div className="flex items-center justify-between px-3.5 py-2.5 rounded-xl bg-[#fee2e2] text-[#991b1b] border border-[#fca5a5] text-xs font-bold shadow-sm">
+                  <div className="flex items-center gap-2">
+                    <AlertTriangle size={16} className="text-[#dc2626]" />
+                    <span>Printer offline</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => recheckConnection()}
+                      disabled={isRechecking}
+                      className="px-2 py-1 rounded-lg bg-white/70 hover:bg-white text-[#991b1b] text-[11px] font-bold transition flex items-center gap-1"
+                    >
+                      <RotateCcw
+                        size={12}
+                        className={isRechecking ? "animate-spin" : ""}
+                      />
+                      <span>Recheck</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setIsSetupGuideOpen(true)}
+                      className="px-2 py-1 rounded-lg bg-white/70 hover:bg-white text-[#991b1b] text-[11px] font-bold transition"
+                    >
+                      Printer setup
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {connectionStatus === "checking" && (
+                <div className="flex items-center justify-between px-3.5 py-2.5 rounded-xl bg-muted/60 text-muted-foreground border border-border text-xs font-semibold">
+                  <div className="flex items-center gap-2">
+                    <Loader2
+                      size={15}
+                      className="animate-spin text-muted-foreground"
+                    />
+                    <span>Checking printer connection...</span>
+                  </div>
+                </div>
+              )}
             </div>
 
-            {/* 4. BARCODE FORMAT */}
-            <div className="space-y-2">
-              <label className="text-sm font-semibold flex items-center justify-between">
-                <span>Barcode format</span>
-                <span className="text-[11px] font-normal text-muted-foreground">
-                  Symbology
-                </span>
-              </label>
+            {/* 2. PRINTER HARDWARE SELECTOR */}
+            <div className="space-y-1.5">
               <Select
-                value={barcodeFormat}
-                onValueChange={(val) => setBarcodeFormat(val as BarcodeFormat)}
+                value={selectedPrinterId}
+                onValueChange={handleDeviceChange}
               >
-                <SelectTrigger className="w-full h-12 rounded-xl border border-input bg-background font-medium">
-                  <SelectValue placeholder="Select format" />
+                <SelectTrigger className="w-full h-12 rounded-xl border border-border bg-background font-semibold text-xs shadow-xs focus:ring-1 focus:ring-[#84CC16]">
+                  <div className="flex items-center gap-2.5 truncate">
+                    <Printer size={16} className="text-[#65a30d] shrink-0" />
+                    <SelectValue />
+                  </div>
                 </SelectTrigger>
                 <SelectContent>
-                  {availableBarcodeFormats.map((fmt) => (
-                    <SelectItem key={fmt} value={fmt}>
-                      {fmt}
-                      {fmt === "CODE128" && " (Alphanumeric - Most Versatile)"}
-                      {fmt === "EAN-13" && " (13-Digit International)"}
-                      {fmt === "EAN-8" && " (8-Digit Compact)"}
-                      {fmt === "UPC-A" && " (12-Digit Retail)"}
-                      {fmt === "QR Code" && " (2D Matrix Code)"}
+                  {INSTALLED_PRINTER_DEVICES.map((device) => (
+                    <SelectItem key={device.id} value={device.id}>
+                      <span className="font-semibold text-xs">
+                        {device.name}
+                      </span>
+                      {device.location && (
+                        <span className="text-muted-foreground text-xs">
+                          {" "}
+                          • {device.location}
+                        </span>
+                      )}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
 
-            {/* 5. LABEL DETAILS */}
-            <div className="space-y-4 pt-4 border-t border-border">
-              <div className="flex items-center justify-between">
-                <label className="text-sm font-semibold">Label details</label>
-                <span className="text-[11px] text-muted-foreground">
-                  Select fields to print
-                </span>
+            {/* 3. SELECTED LABEL SUMMARY CARD */}
+            <div
+              role="button"
+              tabIndex={0}
+              onClick={() => setIsChooseSizeOpen(true)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ")
+                  setIsChooseSizeOpen(true);
+              }}
+              className="group p-3.5 rounded-xl bg-card border border-border hover:border-[#84CC16]/60 transition-all cursor-pointer flex items-center justify-between shadow-xs"
+            >
+              <div className="space-y-0.5">
+                <div className="font-bold text-sm text-foreground group-hover:text-[#65a30d] transition-colors">
+                  {activeTemplate.label_name}
+                </div>
+                <div className="text-xs text-muted-foreground font-medium">
+                  {activeTemplate.product_code || activeTemplate.id} |{" "}
+                  {stockWidth} × {stockHeight} mm
+                </div>
               </div>
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-                <div className="flex items-center space-x-3 p-2 rounded-lg hover:bg-muted/30 transition-colors">
-                  <Checkbox
-                    id="sku"
-                    checked={details.sku}
-                    onCheckedChange={(c) =>
-                      setDetails((prev) => ({ ...prev, sku: c as boolean }))
-                    }
-                    className="h-5 w-5 rounded-md"
-                  />
-                  <label
-                    htmlFor="sku"
-                    className="text-sm font-medium leading-none cursor-pointer"
-                  >
-                    SKU
-                  </label>
-                </div>
 
-                <div className="flex items-center space-x-3 p-2 rounded-lg hover:bg-muted/30 transition-colors">
-                  <Checkbox
-                    id="gtin"
-                    checked={details.gtin}
-                    onCheckedChange={(c) =>
-                      setDetails((prev) => ({ ...prev, gtin: c as boolean }))
-                    }
-                    className="h-5 w-5 rounded-md"
-                  />
-                  <label
-                    htmlFor="gtin"
-                    className="text-sm font-medium leading-none cursor-pointer"
-                  >
-                    GTIN
-                  </label>
-                </div>
-
-                <div className="flex items-center space-x-3 p-2 rounded-lg hover:bg-muted/30 transition-colors">
-                  <Checkbox
-                    id="variation"
-                    checked={details.variationName}
-                    onCheckedChange={(c) =>
-                      setDetails((prev) => ({
-                        ...prev,
-                        variationName: c as boolean,
-                      }))
-                    }
-                    className="h-5 w-5 rounded-md"
-                  />
-                  <label
-                    htmlFor="variation"
-                    className="text-sm font-medium leading-none cursor-pointer"
-                  >
-                    Variation name
-                  </label>
-                </div>
-
-                <div className="flex items-center space-x-3 p-2 rounded-lg hover:bg-muted/30 transition-colors">
-                  <Checkbox
-                    id="price"
-                    checked={details.price}
-                    onCheckedChange={(c) =>
-                      setDetails((prev) => ({ ...prev, price: c as boolean }))
-                    }
-                    className="h-5 w-5 rounded-md"
-                  />
-                  <label
-                    htmlFor="price"
-                    className="text-sm font-medium leading-none cursor-pointer"
-                  >
-                    Price
-                  </label>
-                </div>
-
-                <div className="flex items-center space-x-3 p-2 rounded-lg hover:bg-muted/30 transition-colors">
-                  <Checkbox
-                    id="itemname"
-                    checked={details.itemName}
-                    onCheckedChange={(c) =>
-                      setDetails((prev) => ({
-                        ...prev,
-                        itemName: c as boolean,
-                      }))
-                    }
-                    className="h-5 w-5 rounded-md"
-                  />
-                  <label
-                    htmlFor="itemname"
-                    className="text-sm font-medium leading-none cursor-pointer"
-                  >
-                    Item name
-                  </label>
-                </div>
-
-                <div className="flex items-center space-x-3 p-2 rounded-lg hover:bg-muted/30 transition-colors">
-                  <Checkbox
-                    id="unit"
-                    checked={details.unitAbbreviation}
-                    onCheckedChange={(c) =>
-                      setDetails((prev) => ({
-                        ...prev,
-                        unitAbbreviation: c as boolean,
-                      }))
-                    }
-                    className="h-5 w-5 rounded-md"
-                  />
-                  <label
-                    htmlFor="unit"
-                    className="text-sm font-medium leading-none cursor-pointer"
-                  >
-                    Unit abbreviation
-                  </label>
-                </div>
+              {/* Shape Thumbnail */}
+              <div className="p-1.5 rounded-lg bg-muted border border-border shrink-0">
+                <LabelShapeThumbnail
+                  shape={activeTemplate.shape}
+                  widthMm={stockWidth}
+                  heightMm={stockHeight}
+                  className="w-10 h-7 text-foreground"
+                />
               </div>
             </div>
 
-            {/* 6. LIVE VISUAL LABEL PREVIEW */}
-            <div className="space-y-2 pt-4 border-t border-border">
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-semibold">
-                  Live Label Preview
+            {/* 4. QUICK SEARCH TRIGGER */}
+            <div
+              role="button"
+              tabIndex={0}
+              onClick={() => setIsChooseSizeOpen(true)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ")
+                  setIsChooseSizeOpen(true);
+              }}
+              className="flex items-center justify-between w-full h-11 px-3.5 rounded-xl bg-background border border-border hover:border-[#84CC16]/60 text-xs font-medium text-muted-foreground transition-colors cursor-pointer shadow-xs"
+            >
+              <div className="flex items-center gap-2.5">
+                <Search size={15} className="text-muted-foreground" />
+                <span>Search name, code or size</span>
+              </div>
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-muted text-muted-foreground">
+                Browse
+              </span>
+            </div>
+
+            {/* 5. ORIENTATION TOGGLE (Landscape layout • 57 x 32 mm) */}
+            <div className="flex items-center justify-between py-1">
+              <label
+                onClick={handleToggleOrientation}
+                className="flex items-center gap-2 text-xs font-semibold text-foreground cursor-pointer select-none"
+              >
+                <div
+                  className={`w-4 h-4 rounded border flex items-center justify-center transition-colors ${
+                    orientation === "landscape"
+                      ? "bg-[#84CC16] border-[#84CC16] text-white"
+                      : "border-input bg-background"
+                  }`}
+                >
+                  {orientation === "landscape" && (
+                    <Check size={12} strokeWidth={3} />
+                  )}
+                </div>
+                <span>
+                  Landscape layout • {layoutDims.width} × {layoutDims.height} mm
                 </span>
-                <span className="text-[11px] font-bold text-muted-foreground">
-                  Target: {activeTemplate.width} {activeTemplate.unit} ×{" "}
-                  {activeTemplate.height} {activeTemplate.unit}
+              </label>
+
+              <button
+                type="button"
+                onClick={handleToggleOrientation}
+                className="text-[11px] font-bold text-[#65a30d] hover:underline"
+              >
+                Switch to{" "}
+                {orientation === "landscape" ? "Portrait" : "Landscape"}
+              </button>
+            </div>
+
+            {/* 6. LIVE LABEL PREVIEW CARD */}
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                  Preview
+                </span>
+                <span className="text-[11px] font-semibold text-muted-foreground">
+                  Target: {layoutDims.width} × {layoutDims.height} mm
                 </span>
               </div>
 
-              <div className="flex items-center justify-center p-6 bg-slate-100 dark:bg-slate-900 rounded-2xl border border-dashed border-border overflow-x-auto min-h-[120px]">
-                <div className="shadow-lg border border-slate-300 rounded overflow-hidden">
+              <div className="flex items-center justify-center p-4 bg-slate-100 dark:bg-slate-900/60 rounded-2xl border border-slate-200 dark:border-slate-800 overflow-x-auto min-h-[110px]">
+                <div className="shadow-md border border-slate-300 dark:border-slate-700 rounded overflow-hidden bg-white">
                   <LabelPreview data={commonLabelData} />
                 </div>
               </div>
             </div>
 
-            {/* OPTIONAL RAW COMMAND INSPECTION (ZPL / ePOS / ESC-POS / XML) */}
-            <div className="space-y-2">
-              <button
-                type="button"
-                onClick={() => setShowRawCommands((prev) => !prev)}
-                className="text-xs font-bold text-muted-foreground hover:text-foreground flex items-center gap-1.5 transition-colors"
-              >
-                <Code2 size={14} />
-                <span>
-                  {showRawCommands ? "Hide" : "View"} Printer Commands (
-                  {activeTemplate.printing_protocol.toUpperCase()})
+            {/* 7. QUANTITY STEPPER & CHANGE SETTINGS */}
+            <div className="flex items-center justify-between pt-1">
+              <div className="flex items-center gap-3">
+                <span className="text-xs font-bold text-foreground">
+                  Quantity
                 </span>
-              </button>
-
-              {showRawCommands && (
-                <div className="relative rounded-xl bg-slate-950 p-4 text-slate-100 text-[11px] font-mono overflow-x-auto max-h-48 custom-scrollbar border border-slate-800">
+                <div className="flex items-center border border-border rounded-xl bg-background shadow-xs overflow-hidden">
                   <button
                     type="button"
-                    onClick={handleCopyRaw}
-                    className="absolute top-2.5 right-2.5 flex items-center gap-1 px-2 py-1 rounded bg-slate-800 text-slate-200 hover:bg-slate-700 text-[10px] font-bold transition-colors"
+                    onClick={() => {
+                      const next = Math.max(1, quantity - 1);
+                      setQuantity(next);
+                      savePreferences({ quantity: next });
+                    }}
+                    className="p-2 hover:bg-muted text-muted-foreground hover:text-foreground transition"
+                    title="Decrease quantity"
                   >
-                    {copiedRaw ? (
-                      <>
-                        <Check size={12} className="text-green-400" />
-                        <span>Copied</span>
-                      </>
-                    ) : (
-                      <>
-                        <Copy size={12} />
-                        <span>Copy</span>
-                      </>
-                    )}
+                    <Minus size={14} />
                   </button>
-                  <pre className="whitespace-pre-wrap">{rawCommands}</pre>
+                  <span className="w-8 text-center text-xs font-bold">
+                    {quantity}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const next = quantity + 1;
+                      setQuantity(next);
+                      savePreferences({ quantity: next });
+                    }}
+                    className="p-2 hover:bg-muted text-muted-foreground hover:text-foreground transition"
+                    title="Increase quantity"
+                  >
+                    <Plus size={14} />
+                  </button>
                 </div>
-              )}
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setIsChooseSizeOpen(true)}
+                className="flex items-center gap-1.5 text-xs font-bold text-[#65a30d] hover:text-[#52840a] transition-colors"
+              >
+                <Settings size={14} />
+                <span>Change settings</span>
+              </button>
+            </div>
+
+            {/* 8. PRIMARY PRINT ACTION BUTTON */}
+            <div className="pt-2">
+              <button
+                type="button"
+                onClick={handlePrint}
+                disabled={isPrinting}
+                className="w-full py-3.5 px-6 bg-[#84CC16] hover:bg-[#76b813] text-white font-bold text-sm rounded-xl transition shadow-md active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none flex items-center justify-center gap-2.5"
+              >
+                {isPrinting ? (
+                  <>
+                    <Loader2 size={18} className="animate-spin" />
+                    <span>
+                      Printing {quantity} label{quantity > 1 ? "s" : ""}...
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    <Printer size={18} strokeWidth={2.5} />
+                    <span>Print label</span>
+                  </>
+                )}
+              </button>
+              <p className="text-[11px] text-center text-muted-foreground mt-1.5 font-medium">
+                One click sends to the saved printer
+              </p>
+            </div>
+
+            {/* 9. PROCESS STEPS BANNER (Image 1 Bottom) */}
+            <div className="pt-3 border-t border-border">
+              <div className="grid grid-cols-3 gap-2 text-center text-[10px] text-muted-foreground font-semibold">
+                <div className="p-2 rounded-lg bg-muted/40 flex flex-col items-center gap-1">
+                  <Download size={14} className="text-[#65a30d]" />
+                  <span>1. Install driver + connector</span>
+                </div>
+                <div className="p-2 rounded-lg bg-muted/40 flex flex-col items-center gap-1">
+                  <MonitorCheck size={14} className="text-[#65a30d]" />
+                  <span>2. Select & test once</span>
+                </div>
+                <div className="p-2 rounded-lg bg-muted/40 flex flex-col items-center gap-1">
+                  <Printer size={14} className="text-[#65a30d]" />
+                  <span>3. Print directly</span>
+                </div>
+              </div>
+              <p className="text-[10px] text-center text-muted-foreground mt-2 italic">
+                Concept: verify printer, media and connection before enabling
+                Print.
+              </p>
             </div>
           </div>
+        </DialogContent>
 
-          {/* FOOTER ACTIONS */}
-          <div className="flex justify-end gap-3 pt-4 border-t border-border">
-            <button
-              type="button"
-              onClick={onClose}
-              disabled={isPrinting}
-              className="px-5 py-2.5 rounded-xl font-bold text-muted-foreground hover:bg-muted transition disabled:opacity-50"
-            >
-              Cancel
-            </button>
-            <button
-              type="button"
-              onClick={handlePrint}
-              disabled={isPrinting}
-              className="flex items-center gap-2 px-6 py-2.5 bg-[#84CC16] text-white font-bold rounded-xl hover:bg-[#76b813] transition shadow-md active:scale-95 disabled:opacity-50 disabled:pointer-events-none"
-            >
-              {isPrinting ? (
-                <>
-                  <Loader2 size={18} className="animate-spin" />
-                  <span>Printing...</span>
-                </>
-              ) : (
-                <>
-                  <Printer size={18} strokeWidth={2.5} />
-                  <span>Print Label</span>
-                </>
-              )}
-            </button>
+        {/* Hidden Print Target used by react-to-print */}
+        <div className="hidden">
+          <div ref={printRef}>
+            {Array.from({ length: quantity }).map((_, idx) => (
+              <div
+                key={idx}
+                style={{
+                  pageBreakAfter: idx === quantity - 1 ? "auto" : "always",
+                  breakAfter: idx === quantity - 1 ? "auto" : "page",
+                }}
+              >
+                <LabelPreview data={commonLabelData} />
+              </div>
+            ))}
           </div>
         </div>
-      </DialogContent>
+      </Dialog>
 
-      {/* Hidden Print Target used by react-to-print */}
-      <div className="hidden">
-        <div ref={printRef}>
-          <LabelPreview data={commonLabelData} />
-        </div>
-      </div>
-    </Dialog>
+      {/* Tier 2 Modal: Choose label sizes easily (Image 2) */}
+      <ChooseLabelSizeModal
+        isOpen={isChooseSizeOpen}
+        onClose={() => setIsChooseSizeOpen(false)}
+        brand={selectedBrand}
+        activeTemplate={activeTemplate}
+        orientation={orientation}
+        fields={details}
+        barcodeFormat={barcodeFormat}
+        sampleItem={{
+          itemName: item.itemName,
+          price: displayPrice,
+          barcode: barcodeValue,
+          sku: item.sku,
+          gtin: rawItem.gtin,
+          variationName: variationString,
+          unitAbbreviation: rawItem.unit,
+          location,
+          currencySymbol: currencySymbol || "£",
+        }}
+        onSave={({
+          template,
+          orientation: nextOrient,
+          fields: nextFields,
+          barcodeFormat: nextFormat,
+        }) => {
+          setSelectedTemplateId(template.id);
+          setOrientation(nextOrient);
+          setDetails(nextFields);
+          setBarcodeFormat(nextFormat);
+          savePreferences({
+            templateId: template.id,
+            orientation: nextOrient,
+            details: nextFields,
+            barcodeFormat: nextFormat,
+          });
+          toast.success(`Saved label size: ${template.label_name}`);
+        }}
+      />
+
+      {/* Printer Setup & Driver Guide Dialog */}
+      <PrinterSetupModal
+        isOpen={isSetupGuideOpen}
+        onClose={() => setIsSetupGuideOpen(false)}
+      />
+    </>
   );
 }

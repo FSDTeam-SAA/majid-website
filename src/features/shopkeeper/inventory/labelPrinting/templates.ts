@@ -1,6 +1,9 @@
 import {
   BarcodeFormat,
+  InstalledPrinterDevice,
+  LabelDimensionUnit,
   LabelFields,
+  LabelOrientation,
   LabelTemplate,
   PrinterBrand,
 } from "./types";
@@ -22,15 +25,159 @@ const STANDARD_BARCODES: BarcodeFormat[] = [
   "QR Code",
 ];
 
+export const INSTALLED_PRINTER_DEVICES: InstalledPrinterDevice[] = [
+  {
+    id: "dymo-lw-550-turbo-main",
+    name: "DYMO LabelWriter 550 Turbo",
+    brand: "DYMO",
+    location: "Main Store",
+    isDefault: true,
+  },
+  {
+    id: "dymo-lw-450-counter",
+    name: "DYMO LabelWriter 450",
+    brand: "DYMO",
+    location: "Front Counter",
+  },
+  {
+    id: "zebra-zd421-main",
+    name: "Zebra ZD421 (203 dpi)",
+    brand: "Zebra",
+    location: "Main Store",
+  },
+  {
+    id: "brother-ql-820-pack",
+    name: "Brother QL-820NWB",
+    brand: "Brother",
+    location: "Packing Station",
+  },
+  {
+    id: "rollo-thermal-shipping",
+    name: "Rollo Wireless Thermal",
+    brand: "Rollo",
+    location: "Shipping Desk",
+  },
+  {
+    id: "epson-tm-l90-pos",
+    name: "Epson TM-L90 Plus",
+    brand: "Epson",
+    location: "POS Terminal",
+  },
+  {
+    id: "generic-system-printer",
+    name: "Standard Desktop / System Printer",
+    brand: "Generic",
+    location: "Office",
+  },
+];
+
 export const LABEL_TEMPLATES: LabelTemplate[] = [
   // ──────────────────────────────────────────
   // 1. DYMO
   // ──────────────────────────────────────────
   {
+    id: "dymo-s0722540",
+    printer_brand: "DYMO",
+    printer_model: "LabelWriter 450 / 550 / 4XL",
+    label_name: "Multipurpose Labels",
+    product_code: "S0722540",
+    stock_width_mm: 32,
+    stock_height_mm: 57,
+    shape: "rounded_rectangle",
+    default_orientation: "landscape",
+    width: 57,
+    height: 32,
+    unit: "mm",
+    barcode_format: STANDARD_BARCODES,
+    supported_fields: ALL_FIELDS,
+    printing_protocol: "browser",
+    description:
+      "Standard multipurpose product, bin, and price tag label (32 x 57 mm)",
+  },
+  {
+    id: "dymo-s0722520",
+    printer_brand: "DYMO",
+    printer_model: "LabelWriter 450 / 550 / 4XL",
+    label_name: "Large Return Address Labels",
+    product_code: "S0722520",
+    stock_width_mm: 25,
+    stock_height_mm: 54,
+    shape: "rounded_rectangle",
+    default_orientation: "landscape",
+    width: 54,
+    height: 25,
+    unit: "mm",
+    barcode_format: STANDARD_BARCODES,
+    supported_fields: ALL_FIELDS,
+    printing_protocol: "browser",
+    description: "Standard address and long barcode label (25 x 54 mm)",
+  },
+  {
+    id: "dymo-1976411",
+    printer_brand: "DYMO",
+    printer_model: "LabelWriter 450 / 550 / 4XL",
+    label_name: "Durable Labels",
+    product_code: "1976411",
+    stock_width_mm: 25,
+    stock_height_mm: 54,
+    shape: "rounded_rectangle",
+    default_orientation: "landscape",
+    width: 54,
+    height: 25,
+    unit: "mm",
+    barcode_format: STANDARD_BARCODES,
+    supported_fields: ALL_FIELDS,
+    printing_protocol: "browser",
+    description:
+      "Tear-resistant durable label for retail and storage (25 x 54 mm)",
+  },
+  {
+    id: "dymo-1933084",
+    printer_brand: "DYMO",
+    printer_model: "LabelWriter 450 / 550 / 4XL",
+    label_name: "Durable Labels",
+    product_code: "1933084",
+    stock_width_mm: 57,
+    stock_height_mm: 32,
+    shape: "rounded_rectangle",
+    default_orientation: "landscape",
+    width: 57,
+    height: 32,
+    unit: "mm",
+    barcode_format: STANDARD_BARCODES,
+    supported_fields: ALL_FIELDS,
+    printing_protocol: "browser",
+    description:
+      "Heavy-duty durable label resistant to moisture and abrasion (57 x 32 mm)",
+  },
+  {
+    id: "dymo-1933081",
+    printer_brand: "DYMO",
+    printer_model: "LabelWriter 450 / 550 / 4XL",
+    label_name: "Durable Labels",
+    product_code: "1933081",
+    stock_width_mm: 25,
+    stock_height_mm: 89,
+    shape: "slim_rectangle",
+    default_orientation: "landscape",
+    width: 89,
+    height: 25,
+    unit: "mm",
+    barcode_format: STANDARD_BARCODES,
+    supported_fields: ALL_FIELDS,
+    printing_protocol: "browser",
+    description: "Long durable shelf and equipment asset label (25 x 89 mm)",
+  },
+  {
     id: "dymo-1933085",
     printer_brand: "DYMO",
     printer_model: "LabelWriter 450 / 550 / 4XL",
     label_name: "DYMO 1933085 - LW Durable 19 mm x 64 mm",
+    product_code: "1933085",
+    stock_width_mm: 19,
+    stock_height_mm: 64,
+    shape: "cable_flag",
+    default_orientation: "landscape",
     width: 64,
     height: 19,
     unit: "mm",
@@ -44,6 +191,11 @@ export const LABEL_TEMPLATES: LabelTemplate[] = [
     printer_brand: "DYMO",
     printer_model: "LabelWriter 450 / 550 / 4XL",
     label_name: "DYMO 30336 - 1 x 2-1/8 in",
+    product_code: "30336",
+    stock_width_mm: 25,
+    stock_height_mm: 54,
+    shape: "rounded_rectangle",
+    default_orientation: "landscape",
     width: 2.125,
     height: 1,
     unit: "inch",
@@ -57,6 +209,11 @@ export const LABEL_TEMPLATES: LabelTemplate[] = [
     printer_brand: "DYMO",
     printer_model: "LabelWriter 450 / 550 / 4XL",
     label_name: "DYMO 30252 - Address 1-1/8 x 3-1/2 in",
+    product_code: "30252",
+    stock_width_mm: 28,
+    stock_height_mm: 89,
+    shape: "rounded_rectangle",
+    default_orientation: "landscape",
     width: 3.5,
     height: 1.125,
     unit: "inch",
@@ -70,6 +227,11 @@ export const LABEL_TEMPLATES: LabelTemplate[] = [
     printer_brand: "DYMO",
     printer_model: "LabelWriter 450 / 550 / 4XL",
     label_name: "DYMO 30334 - Multi-Purpose 2-1/4 x 1-1/4 in",
+    product_code: "30334",
+    stock_width_mm: 32,
+    stock_height_mm: 57,
+    shape: "rounded_rectangle",
+    default_orientation: "landscape",
     width: 2.25,
     height: 1.25,
     unit: "inch",
@@ -83,6 +245,11 @@ export const LABEL_TEMPLATES: LabelTemplate[] = [
     printer_brand: "DYMO",
     printer_model: "LabelWriter 450 / 550 / 4XL",
     label_name: "DYMO 30332 - 1 x 1 in (Square)",
+    product_code: "30332",
+    stock_width_mm: 25,
+    stock_height_mm: 25,
+    shape: "square",
+    default_orientation: "portrait",
     width: 1,
     height: 1,
     unit: "inch",
@@ -100,6 +267,11 @@ export const LABEL_TEMPLATES: LabelTemplate[] = [
     printer_brand: "Zebra",
     printer_model: "ZD410 / ZD421 / GX420d / ZT230",
     label_name: "Zebra 2 x 1 inch",
+    product_code: "ZD-2x1",
+    stock_width_mm: 25,
+    stock_height_mm: 51,
+    shape: "rounded_rectangle",
+    default_orientation: "landscape",
     width: 2,
     height: 1,
     unit: "inch",
@@ -114,6 +286,11 @@ export const LABEL_TEMPLATES: LabelTemplate[] = [
     printer_brand: "Zebra",
     printer_model: "ZD410 / ZD420 / ZD421 / GK420d",
     label_name: "Zebra 2.25 x 1.25 inch",
+    product_code: "ZD-2.25x1.25",
+    stock_width_mm: 32,
+    stock_height_mm: 57,
+    shape: "rounded_rectangle",
+    default_orientation: "landscape",
     width: 2.25,
     height: 1.25,
     unit: "inch",
@@ -127,6 +304,11 @@ export const LABEL_TEMPLATES: LabelTemplate[] = [
     printer_brand: "Zebra",
     printer_model: "ZD421 / GX420d / ZT411",
     label_name: "Zebra 3 x 1 inch",
+    product_code: "ZD-3x1",
+    stock_width_mm: 25,
+    stock_height_mm: 76,
+    shape: "slim_rectangle",
+    default_orientation: "landscape",
     width: 3,
     height: 1,
     unit: "inch",
@@ -140,6 +322,11 @@ export const LABEL_TEMPLATES: LabelTemplate[] = [
     printer_brand: "Zebra",
     printer_model: "ZD410 / ZD420 / ZD421 / ZT230",
     label_name: "Zebra 2 x 2 inch",
+    product_code: "ZD-2x2",
+    stock_width_mm: 51,
+    stock_height_mm: 51,
+    shape: "square",
+    default_orientation: "portrait",
     width: 2,
     height: 2,
     unit: "inch",
@@ -498,6 +685,72 @@ export function getTemplateById(id: string): LabelTemplate | undefined {
 }
 
 export function getDefaultTemplateForBrand(brand: PrinterBrand): LabelTemplate {
+  if (brand === "DYMO") {
+    const dymoMultipurpose = LABEL_TEMPLATES.find(
+      (t) => t.id === "dymo-s0722540",
+    );
+    if (dymoMultipurpose) return dymoMultipurpose;
+  }
   const brandTemplates = getTemplatesForBrand(brand);
   return brandTemplates[0] || LABEL_TEMPLATES[0];
+}
+
+/**
+ * Calculates print layout dimensions keeping stock size separate from rotation.
+ * In landscape: width is the longer dimension, height is the shorter dimension.
+ * In portrait: width is the shorter dimension, height is the longer dimension.
+ */
+export function getPrintLayoutDimensions(
+  template: LabelTemplate,
+  orientation: LabelOrientation = "landscape",
+): { width: number; height: number; unit: LabelDimensionUnit } {
+  // If stock dimensions are defined in mm
+  if (template.stock_width_mm && template.stock_height_mm) {
+    const minDim = Math.min(template.stock_width_mm, template.stock_height_mm);
+    const maxDim = Math.max(template.stock_width_mm, template.stock_height_mm);
+    if (orientation === "landscape") {
+      return { width: maxDim, height: minDim, unit: "mm" };
+    } else {
+      return { width: minDim, height: maxDim, unit: "mm" };
+    }
+  }
+
+  // Fallback to width & height in template
+  const minDim = Math.min(template.width, template.height);
+  const maxDim = Math.max(template.width, template.height);
+  if (orientation === "landscape") {
+    return { width: maxDim, height: minDim, unit: template.unit };
+  } else {
+    return { width: minDim, height: maxDim, unit: template.unit };
+  }
+}
+
+/**
+ * Searches templates by name, product code, description, or dimensions
+ */
+export function searchTemplates(
+  query: string,
+  brand?: PrinterBrand,
+): LabelTemplate[] {
+  const normalizedQuery = query.toLowerCase().trim();
+  const pool = brand ? getTemplatesForBrand(brand) : LABEL_TEMPLATES;
+
+  if (!normalizedQuery) return pool;
+
+  return pool.filter((tpl) => {
+    const nameMatch = tpl.label_name.toLowerCase().includes(normalizedQuery);
+    const codeMatch = tpl.product_code?.toLowerCase().includes(normalizedQuery);
+    const descMatch = tpl.description?.toLowerCase().includes(normalizedQuery);
+    const dimMmMatch =
+      tpl.stock_width_mm &&
+      tpl.stock_height_mm &&
+      `${tpl.stock_width_mm}x${tpl.stock_height_mm}`.includes(
+        normalizedQuery.replace(/\s+/g, ""),
+      );
+    const dimInMatch = `${tpl.width}x${tpl.height}`.includes(
+      normalizedQuery.replace(/\s+/g, ""),
+    );
+
+    return nameMatch || codeMatch || descMatch || dimMmMatch || dimInMatch;
+  });
 }

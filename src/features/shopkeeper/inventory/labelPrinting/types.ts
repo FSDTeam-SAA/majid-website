@@ -6,6 +6,26 @@ export type BarcodeFormat =
 
 export type LabelDimensionUnit = "mm" | "inch";
 
+export type LabelOrientation = "portrait" | "landscape";
+
+export type LabelShape =
+  | "rounded_rectangle"
+  | "rectangle"
+  | "square"
+  | "cable_flag"
+  | "slim_rectangle";
+
+export type PrinterConnectionStatus =
+  "checking" | "connected" | "unverified" | "offline";
+
+export interface InstalledPrinterDevice {
+  id: string;
+  name: string;
+  brand: PrinterBrand;
+  location?: string;
+  isDefault?: boolean;
+}
+
 export type PrintingProtocol =
   "browser" | "zpl" | "brother_raster" | "epos" | "esc_pos" | "generic";
 
@@ -23,6 +43,11 @@ export interface LabelTemplate {
   printer_brand: PrinterBrand;
   printer_model?: string;
   label_name: string;
+  product_code?: string;
+  stock_width_mm?: number;
+  stock_height_mm?: number;
+  shape?: LabelShape;
+  default_orientation?: LabelOrientation;
   width: number;
   height: number;
   unit: LabelDimensionUnit;
@@ -31,6 +56,16 @@ export interface LabelTemplate {
   printing_protocol: PrintingProtocol;
   description?: string;
   isCustom?: boolean;
+}
+
+export interface SavedPrinterConfig {
+  printerId: string;
+  brand: PrinterBrand;
+  location: string;
+  templateId: string;
+  orientation: LabelOrientation;
+  quantity: number;
+  details: LabelFields;
 }
 
 export interface CommonLabelData {
@@ -45,6 +80,8 @@ export interface CommonLabelData {
   labelWidth: number;
   labelHeight: number;
   unit: LabelDimensionUnit;
+  orientation?: LabelOrientation;
+  quantity?: number;
   location?: string;
   currencySymbol?: string;
   fields: LabelFields;

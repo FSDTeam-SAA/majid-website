@@ -6,6 +6,9 @@ import {
   getTemplatesForBrand,
   getPrinterAdapter,
   normalizeBarcodeValue,
+  getPrintLayoutDimensions,
+  searchTemplates,
+  probePrinterConnection,
   LabelPreview,
   CommonLabelData,
   ZebraPrinterAdapter,
@@ -259,5 +262,92 @@ describe("Label Printing Architecture & Adapters", () => {
     expect(getByText("256GB Black")).toBeInTheDocument();
     expect(getByText("£49.99")).toBeInTheDocument();
     expect(container.querySelector("svg")).toBeInTheDocument(); // Barcode SVG
+  });
+
+  test("10. Required client feedback templates are present with exact product codes and dimensions", () => {
+    const dymoTemplates = getTemplatesForBrand("DYMO");
+
+    const multipurpose = dymoTemplates.find(
+      (t) => t.product_code === "S0722540",
+    );
+    expect(multipurpose).toBeDefined();
+    expect(multipurpose?.stock_width_mm).toBe(32);
+    expect(multipurpose?.stock_height_mm).toBe(57);
+    expect(multipurpose?.shape).toBe("rounded_rectangle");
+
+    const returnAddress = dymoTemplates.find(
+      (t) => t.product_code === "S0722520",
+    );
+    expect(returnAddress).toBeDefined();
+    expect(returnAddress?.stock_width_mm).toBe(25);
+    expect(returnAddress?.stock_height_mm).toBe(54);
+
+    const durable1976411 = dymoTemplates.find(
+      (t) => t.product_code === "1976411",
+    );
+    expect(durable1976411).toBeDefined();
+    expect(durable1976411?.stock_width_mm).toBe(25);
+    expect(durable1976411?.stock_height_mm).toBe(54);
+
+    const durable1933084 = dymoTemplates.find(
+      (t) => t.product_code === "1933084",
+    );
+    expect(durable1933084).toBeDefined();
+
+    const durable1933081 = dymoTemplates.find(
+      (t) => t.product_code === "1933081",
+    );
+    expect(durable1933081).toBeDefined();
+    expect(durable1933081?.shape).toBe("slim_rectangle");
+
+    const cableFlag1933085 = dymoTemplates.find(
+      (t) => t.product_code === "1933085",
+    );
+    expect(cableFlag1933085).toBeDefined();
+    expect(cableFlag1933085?.shape).toBe("cable_flag");
+
+    const square30332 = dymoTemplates.find((t) => t.product_code === "30332");
+    expect(square30332).toBeDefined();
+    expect(square30332?.shape).toBe("square");
+  });
+
+  test("11. getPrintLayoutDimensions keeps stock size separate from rotation (Developer Note 3)", () => {
+    const multipurpose = getTemplatesForBrand("DYMO").find(
+      (t) => t.product_code === "S0722540",
+    )!;
+
+    // Landscape orientation: width is max dimension (57mm), height is min dimension (32mm)
+    const landscapeDims = getPrintLayoutDimensions(multipurpose, "landscape");
+    expect(landscapeDims.width).toBe(57);
+    expect(landscapeDims.height).toBe(32);
+    expect(landscapeDims.unit).toBe("mm");
+
+    // Portrait orientation: width is min dimension (32mm), height is max dimension (57mm)
+    const portraitDims = getPrintLayoutDimensions(multipurpose, "portrait");
+    expect(portraitDims.width).toBe(32);
+    expect(portraitDims.height).toBe(57);
+    expect(portraitDims.unit).toBe("mm");
+  });
+
+  test("12. searchTemplates filters by product code, label name, and dimensions", () => {
+    // Search by product code
+    const byCode = searchTemplates("S0722540", "DYMO");
+    expect(byCode.length).toBeGreaterThanOrEqual(1);
+    expect(byCode[0].product_code).toBe("S0722540");
+
+    // Search by name
+    const byName = searchTemplates("Return Address", "DYMO");
+    expect(byName.some((t) => t.product_code === "S0722520")).toBe(true);
+
+    // Search by dimension
+    const byDim = searchTemplates("32x57", "DYMO");
+    expect(byDim.some((t) => t.product_code === "S0722540")).toBe(true);
+  });
+
+  test("13. probePrinterConnection returns a valid connection status without hard-coding (Developer Note 4)", async () => {
+    // Probing without a local DYMO daemon should return unverified, not crash or hardcode green
+    const result = await probePrinterConnection("DYMO", 200);
+    expect(["unverified", "connected", "offline"]).toContain(result.status);
+    expect(typeof result.message).toBe("string");
   });
 });

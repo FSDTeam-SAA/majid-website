@@ -12,6 +12,7 @@ export interface StaffUser {
   email: string;
   phone?: string;
   role?: string;
+  jobRole?: string;
   image?: {
     url?: string;
   } | null;
@@ -27,6 +28,9 @@ export interface StaffUser {
   shopId?: string | { _id: string; shopName: string; shopAddress?: string };
   shop?: { _id: string; shopName: string; shopAddress?: string };
   createdAt?: string;
+  street?: string;
+  location?: string;
+  postalCode?: string;
 }
 
 export interface StaffCreationPayload {
@@ -43,6 +47,13 @@ export interface StaffCreationPayload {
   weekendDays?: string[];
   idVerificationStatus?: "pending" | "verified" | "rejected";
   idNumber?: string;
+  staffId?: string;
+  pin?: string;
+  jobRole?: string;
+  street?: string;
+  location?: string;
+  postalCode?: string;
+  referenceFaceUrl?: string;
 }
 
 export interface StaffIdVerificationResponse {
