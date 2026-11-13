@@ -135,23 +135,23 @@ export const CURRENCY_LIST: CurrencyOption[] = [
   { code: "NAD", name: "Namibian Dollar", symbol: "N$" },
 ];
 
-export function getCurrencySymbol(code: string): string {
-  const upper = (code || "USD").toUpperCase();
+export function getCurrencySymbol(code?: string | null): string {
+  const upper = (code || "GBP").toUpperCase();
   return CURRENCY_SYMBOLS[upper] || upper;
 }
 
 export function normalizeCurrencyCode(code?: string | null): string {
-  return (code || "USD").trim().toUpperCase();
+  return (code || "GBP").trim().toUpperCase();
 }
 
 export function formatCurrency(
   amount: number,
-  currencyCode: string = "USD",
+  currencyCode: string = "GBP",
 ): string {
   try {
-    return new Intl.NumberFormat("en-US", {
+    return new Intl.NumberFormat("en-GB", {
       style: "currency",
-      currency: (currencyCode || "USD").toUpperCase(),
+      currency: (currencyCode || "GBP").toUpperCase(),
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     }).format(amount);
@@ -164,8 +164,10 @@ export function formatCurrency(
   }
 }
 
-export function getCurrencyByCode(code: string): CurrencyOption | undefined {
-  return CURRENCY_LIST.find((c) => c.code === (code || "USD").toUpperCase());
+export function getCurrencyByCode(
+  code?: string | null,
+): CurrencyOption | undefined {
+  return CURRENCY_LIST.find((c) => c.code === (code || "GBP").toUpperCase());
 }
 
 export function getExchangeRate(

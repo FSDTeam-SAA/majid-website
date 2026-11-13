@@ -6,7 +6,13 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
-import { Download, MonitorCheck, Printer, AlertTriangle } from "lucide-react";
+import {
+  Download,
+  MonitorCheck,
+  Printer,
+  AlertTriangle,
+  ExternalLink,
+} from "lucide-react";
 
 interface PrinterSetupModalProps {
   isOpen: boolean;
@@ -96,6 +102,36 @@ export const PrinterSetupModal: React.FC<PrinterSetupModalProps> = ({
                 </p>
               </div>
             </div>
+          </div>
+
+          {/* DYMO LabelWriter 450 Turbo Quick Connect Guide */}
+          <div className="p-4 rounded-xl bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 space-y-2">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 text-blue-900 dark:text-blue-200 font-bold text-xs">
+                <Printer size={15} className="text-blue-600 shrink-0" />
+                <span>DYMO LabelWriter 450 Turbo Setup</span>
+              </div>
+              <button
+                type="button"
+                onClick={() =>
+                  window.open(
+                    "https://127.0.0.1:41951/DYMO/DLS/Printing/StatusConnected",
+                    "_blank",
+                  )
+                }
+                className="px-2.5 py-1 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-bold text-[11px] transition shadow-xs flex items-center gap-1 cursor-pointer"
+              >
+                <ExternalLink size={12} />
+                <span>Authorize DYMO (41951)</span>
+              </button>
+            </div>
+            <p className="text-[11px] text-blue-800 dark:text-blue-300 leading-relaxed">
+              If your DYMO Connect desktop app says{" "}
+              <strong>&ldquo;Connected&rdquo;</strong>, click the button above
+              to authorize the local web service in your browser once (click
+              &ldquo;Advanced &rarr; Proceed to 127.0.0.1&rdquo;), then return
+              and click <strong>Recheck</strong>.
+            </p>
           </div>
 
           {/* Note on Connection Unverified status */}

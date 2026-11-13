@@ -11,19 +11,59 @@ export class DymoPrinterAdapter extends PrinterAdapter {
   readonly brand: PrinterBrand = "DYMO";
   readonly defaultProtocol: PrintingProtocol = "browser";
   readonly description =
-    "DYMO LabelWriter (Direct Browser Print & DYMO Connect XML format)";
+    "DYMO LabelWriter 450 Turbo / 450 / 550 (Direct Browser Print & DYMO Connect XML format)";
 
   async print(
     data: CommonLabelData,
     options?: PrintOptions,
   ): Promise<PrintResult> {
     try {
+      const printerName = "DYMO LabelWriter 450 Turbo";
+
+      // 1. If triggerBrowserPrint is explicitly provided (default flow from PrintLabelModal),
+      // we invoke browser print to ensure instant compatibility with user's installed Windows driver.
       if (options?.triggerBrowserPrint) {
+        // Also attempt background direct print to DYMO service in parallel or fallback
+        try {
+          const params = new URLSearchParams();
+          params.append("printerName", printerName);
+          params.append(
+            "printParamsXml",
+            `<LabelWriterPrintParams><Copies>${options?.copies || 1}</Copies></LabelWriterPrintParams>`,
+          );
+          params.append("labelXml", this.generateRawCommands(data));
+          params.append("labelSetXml", "");
+
+          const controller = new AbortController();
+          const timeout = setTimeout(() => controller.abort(), 800);
+          const res = await fetch(
+            "https://127.0.0.1:41951/DYMO/DLS/Printing/PrintLabel",
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/x-www-form-urlencoded",
+              },
+              body: params.toString(),
+              signal: controller.signal,
+            },
+          );
+          clearTimeout(timeout);
+          if (res.ok) {
+            return {
+              success: true,
+              protocol: "browser",
+              message: `Label sent directly to ${printerName} via DYMO Connect Web Service`,
+            };
+          }
+        } catch {
+          // Fall through to browser print engine
+        }
+
         options.triggerBrowserPrint();
         return {
           success: true,
           protocol: "browser",
-          message: `Label sent to DYMO print engine (${this.getWidthCss(data)} x ${this.getHeightCss(data)})`,
+          message: `Label sent to ${printerName} print engine (${this.getWidthCss(data)} x ${this.getHeightCss(data)})`,
         };
       }
 
@@ -32,7 +72,7 @@ export class DymoPrinterAdapter extends PrinterAdapter {
       return {
         success: true,
         protocol: "browser",
-        message: "Triggered system print dialog for DYMO printer",
+        message: `Triggered system print dialog for ${printerName}`,
       };
     } catch (error: unknown) {
       const errMsg =

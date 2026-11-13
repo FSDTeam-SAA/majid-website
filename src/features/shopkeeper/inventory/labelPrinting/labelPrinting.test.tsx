@@ -3,12 +3,14 @@ import { render } from "@testing-library/react";
 import {
   PRINTER_BRANDS,
   LABEL_TEMPLATES,
+  INSTALLED_PRINTER_DEVICES,
   getTemplatesForBrand,
   getPrinterAdapter,
   normalizeBarcodeValue,
   getPrintLayoutDimensions,
   searchTemplates,
   probePrinterConnection,
+  parseDymoPrintersXml,
   LabelPreview,
   CommonLabelData,
   ZebraPrinterAdapter,
@@ -349,5 +351,33 @@ describe("Label Printing Architecture & Adapters", () => {
     const result = await probePrinterConnection("DYMO", 200);
     expect(["unverified", "connected", "offline"]).toContain(result.status);
     expect(typeof result.message).toBe("string");
+  });
+
+  test("14. DYMO LabelWriter 450 Turbo is present in installed devices and configured as default", () => {
+    const turboDevice = INSTALLED_PRINTER_DEVICES.find(
+      (d) => d.name === "DYMO LabelWriter 450 Turbo",
+    );
+    expect(turboDevice).toBeDefined();
+    expect(turboDevice?.id).toBe("dymo-lw-450-turbo-main");
+    expect(turboDevice?.brand).toBe("DYMO");
+    expect(turboDevice?.isDefault).toBe(true);
+  });
+
+  test("15. parseDymoPrintersXml accurately extracts DYMO LabelWriter 450 Turbo and connection state", () => {
+    const sampleXml = `<?xml version="1.0" encoding="utf-8"?>
+<Printers>
+  <LabelWriterPrinter>
+    <Name>DYMO LabelWriter 450 Turbo</Name>
+    <ModelName>DYMO LabelWriter 450 Turbo</ModelName>
+    <IsConnected>True</IsConnected>
+    <IsLocal>True</IsLocal>
+    <IsTwinTurbo>False</IsTwinTurbo>
+  </LabelWriterPrinter>
+</Printers>`;
+
+    const parsed = parseDymoPrintersXml(sampleXml);
+    expect(parsed.detectedModel).toBe("DYMO LabelWriter 450 Turbo");
+    expect(parsed.connectedPrinters).toContain("DYMO LabelWriter 450 Turbo");
+    expect(parsed.allPrinters).toContain("DYMO LabelWriter 450 Turbo");
   });
 });

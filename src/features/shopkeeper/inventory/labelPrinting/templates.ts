@@ -27,8 +27,8 @@ const STANDARD_BARCODES: BarcodeFormat[] = [
 
 export const INSTALLED_PRINTER_DEVICES: InstalledPrinterDevice[] = [
   {
-    id: "dymo-lw-550-turbo-main",
-    name: "DYMO LabelWriter 550 Turbo",
+    id: "dymo-lw-450-turbo-main",
+    name: "DYMO LabelWriter 450 Turbo",
     brand: "DYMO",
     location: "Main Store",
     isDefault: true,
@@ -38,6 +38,12 @@ export const INSTALLED_PRINTER_DEVICES: InstalledPrinterDevice[] = [
     name: "DYMO LabelWriter 450",
     brand: "DYMO",
     location: "Front Counter",
+  },
+  {
+    id: "dymo-lw-550-turbo-main",
+    name: "DYMO LabelWriter 550 Turbo",
+    brand: "DYMO",
+    location: "Main Store",
   },
   {
     id: "zebra-zd421-main",
@@ -78,7 +84,7 @@ export const LABEL_TEMPLATES: LabelTemplate[] = [
   {
     id: "dymo-s0722540",
     printer_brand: "DYMO",
-    printer_model: "LabelWriter 450 / 550 / 4XL",
+    printer_model: "LabelWriter 450 / 450 Turbo / 550 / 4XL",
     label_name: "Multipurpose Labels",
     product_code: "S0722540",
     stock_width_mm: 32,
@@ -97,7 +103,7 @@ export const LABEL_TEMPLATES: LabelTemplate[] = [
   {
     id: "dymo-s0722520",
     printer_brand: "DYMO",
-    printer_model: "LabelWriter 450 / 550 / 4XL",
+    printer_model: "LabelWriter 450 / 450 Turbo / 550 / 4XL",
     label_name: "Large Return Address Labels",
     product_code: "S0722520",
     stock_width_mm: 25,
@@ -115,7 +121,7 @@ export const LABEL_TEMPLATES: LabelTemplate[] = [
   {
     id: "dymo-1976411",
     printer_brand: "DYMO",
-    printer_model: "LabelWriter 450 / 550 / 4XL",
+    printer_model: "LabelWriter 450 / 450 Turbo / 550 / 4XL",
     label_name: "Durable Labels",
     product_code: "1976411",
     stock_width_mm: 25,
@@ -134,7 +140,7 @@ export const LABEL_TEMPLATES: LabelTemplate[] = [
   {
     id: "dymo-1933084",
     printer_brand: "DYMO",
-    printer_model: "LabelWriter 450 / 550 / 4XL",
+    printer_model: "LabelWriter 450 / 450 Turbo / 550 / 4XL",
     label_name: "Durable Labels",
     product_code: "1933084",
     stock_width_mm: 57,
@@ -153,7 +159,7 @@ export const LABEL_TEMPLATES: LabelTemplate[] = [
   {
     id: "dymo-1933081",
     printer_brand: "DYMO",
-    printer_model: "LabelWriter 450 / 550 / 4XL",
+    printer_model: "LabelWriter 450 / 450 Turbo / 550 / 4XL",
     label_name: "Durable Labels",
     product_code: "1933081",
     stock_width_mm: 25,
@@ -171,7 +177,7 @@ export const LABEL_TEMPLATES: LabelTemplate[] = [
   {
     id: "dymo-1933085",
     printer_brand: "DYMO",
-    printer_model: "LabelWriter 450 / 550 / 4XL",
+    printer_model: "LabelWriter 450 / 450 Turbo / 550 / 4XL",
     label_name: "DYMO 1933085 - LW Durable 19 mm x 64 mm",
     product_code: "1933085",
     stock_width_mm: 19,
@@ -189,7 +195,7 @@ export const LABEL_TEMPLATES: LabelTemplate[] = [
   {
     id: "dymo-30336",
     printer_brand: "DYMO",
-    printer_model: "LabelWriter 450 / 550 / 4XL",
+    printer_model: "LabelWriter 450 / 450 Turbo / 550 / 4XL",
     label_name: "DYMO 30336 - 1 x 2-1/8 in",
     product_code: "30336",
     stock_width_mm: 25,
@@ -207,7 +213,7 @@ export const LABEL_TEMPLATES: LabelTemplate[] = [
   {
     id: "dymo-30252",
     printer_brand: "DYMO",
-    printer_model: "LabelWriter 450 / 550 / 4XL",
+    printer_model: "LabelWriter 450 / 450 Turbo / 550 / 4XL",
     label_name: "DYMO 30252 - Address 1-1/8 x 3-1/2 in",
     product_code: "30252",
     stock_width_mm: 28,
@@ -225,7 +231,7 @@ export const LABEL_TEMPLATES: LabelTemplate[] = [
   {
     id: "dymo-30334",
     printer_brand: "DYMO",
-    printer_model: "LabelWriter 450 / 550 / 4XL",
+    printer_model: "LabelWriter 450 / 450 Turbo / 550 / 4XL",
     label_name: "DYMO 30334 - Multi-Purpose 2-1/4 x 1-1/4 in",
     product_code: "30334",
     stock_width_mm: 32,
@@ -243,7 +249,7 @@ export const LABEL_TEMPLATES: LabelTemplate[] = [
   {
     id: "dymo-30332",
     printer_brand: "DYMO",
-    printer_model: "LabelWriter 450 / 550 / 4XL",
+    printer_model: "LabelWriter 450 / 450 Turbo / 550 / 4XL",
     label_name: "DYMO 30332 - 1 x 1 in (Square)",
     product_code: "30332",
     stock_width_mm: 25,

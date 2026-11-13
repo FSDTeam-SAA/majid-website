@@ -1,4 +1,4 @@
-import React, { useRef, useState, useMemo } from "react";
+import React, { useRef, useState, useMemo, useCallback } from "react";
 import {
   Dialog,
   DialogContent,
@@ -28,6 +28,7 @@ import {
   Download,
   MonitorCheck,
   Check,
+  ExternalLink,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -75,9 +76,11 @@ export function PrintLabelModal({
   const { currencySymbol } = useCurrency();
 
   // Saved preferences in localStorage
-  const [selectedPrinterId, setSelectedPrinterId] = useState<string>(
-    () => getInitialPreferences()?.printerId || INSTALLED_PRINTER_DEVICES[0].id,
-  );
+  const [selectedPrinterId, setSelectedPrinterId] = useState<string>(() => {
+    const saved = getInitialPreferences()?.printerId;
+    if (saved && saved !== "dymo-lw-550-turbo-main") return saved;
+    return INSTALLED_PRINTER_DEVICES[0].id;
+  });
   const [selectedBrand, setSelectedBrand] = useState<PrinterBrand>(
     () => getInitialPreferences()?.brand || "DYMO",
   );
@@ -151,8 +154,48 @@ export function PrintLabelModal({
   const {
     status: connectionStatus,
     isRechecking,
+    detectedPrinter,
+    connectedPrinters,
+    serviceEndpoint,
     recheck: recheckConnection,
   } = usePrinterConnection(selectedBrand, isOpen);
+
+  // Available printers (installed + dynamically detected)
+  const availablePrinters = useMemo(() => {
+    const list = [...INSTALLED_PRINTER_DEVICES];
+    if (Array.isArray(connectedPrinters)) {
+      for (const prName of connectedPrinters) {
+        if (!list.some((p) => p.name.toLowerCase() === prName.toLowerCase())) {
+          list.push({
+            id: `detected-${prName.toLowerCase().replace(/[^a-z0-9]/g, "-")}`,
+            name: prName,
+            brand: selectedBrand,
+            location: "Local USB",
+          });
+        }
+      }
+    }
+    return list;
+  }, [connectedPrinters, selectedBrand]);
+
+  const handleRecheck = useCallback(async () => {
+    const res = await recheckConnection();
+    if (res?.detectedPrinter?.toLowerCase().includes("450")) {
+      setSelectedPrinterId("dymo-lw-450-turbo-main");
+    }
+    return res;
+  }, [recheckConnection]);
+
+  const handleAuthorizeDymoService = () => {
+    const url =
+      serviceEndpoint ||
+      "https://127.0.0.1:41951/DYMO/DLS/Printing/StatusConnected";
+    window.open(url, "_blank");
+    toast.info(
+      "Opening DYMO service in a new tab. In that tab, click 'Advanced' → 'Proceed to 127.0.0.1', then return here and click [Recheck]!",
+      { duration: 8000 },
+    );
+  };
 
   // Active template object
   const activeTemplate: LabelTemplate = useMemo(() => {
@@ -198,7 +241,7 @@ export function PrintLabelModal({
   // Switch installed printer device
   const handleDeviceChange = (deviceId: string) => {
     setSelectedPrinterId(deviceId);
-    const dev = INSTALLED_PRINTER_DEVICES.find((d) => d.id === deviceId);
+    const dev = availablePrinters.find((d) => d.id === deviceId);
     if (dev) {
       setSelectedBrand(dev.brand);
       if (dev.location) setLocation(dev.location);
@@ -327,26 +370,23 @@ export function PrintLabelModal({
                 <div className="flex items-center justify-between px-3.5 py-2.5 rounded-xl bg-[#dcfce7] text-[#15803d] border border-[#86efac] text-xs font-bold shadow-sm">
                   <div className="flex items-center gap-2">
                     <CheckCircle2 size={16} className="text-[#16a34a]" />
-                    <span>Printer connected</span>
+                    <span>
+                      {detectedPrinter ||
+                        (selectedBrand === "DYMO"
+                          ? "DYMO LabelWriter 450 Turbo"
+                          : `${selectedBrand} printer`)}{" "}
+                      connected
+                    </span>
                   </div>
-                  <span className="text-[11px] font-semibold opacity-80">
-                    Verified
-                  </span>
-                </div>
-              )}
-
-              {connectionStatus === "unverified" && (
-                <div className="flex items-center justify-between px-3.5 py-2.5 rounded-xl bg-[#fef3c7] text-[#92400e] border border-[#fde68a] text-xs font-bold shadow-sm">
                   <div className="flex items-center gap-2">
-                    <AlertTriangle size={16} className="text-[#d97706]" />
-                    <span>Connection unverified</span>
-                  </div>
-                  <div className="flex items-center gap-1.5">
+                    <span className="text-[11px] font-semibold opacity-80">
+                      Verified
+                    </span>
                     <button
                       type="button"
-                      onClick={() => recheckConnection()}
+                      onClick={handleRecheck}
                       disabled={isRechecking}
-                      className="px-2 py-1 rounded-lg bg-white/70 hover:bg-white text-[#92400e] text-[11px] font-bold transition flex items-center gap-1 shadow-xs"
+                      className="px-2 py-1 rounded-lg bg-white/70 hover:bg-white text-[#15803d] text-[11px] font-bold transition flex items-center gap-1 shadow-xs"
                       title="Re-check printer connection"
                     >
                       <RotateCcw
@@ -355,13 +395,65 @@ export function PrintLabelModal({
                       />
                       <span>Recheck</span>
                     </button>
-                    <button
-                      type="button"
-                      onClick={() => setIsSetupGuideOpen(true)}
-                      className="px-2 py-1 rounded-lg bg-white/70 hover:bg-white text-[#92400e] text-[11px] font-bold transition shadow-xs"
-                    >
-                      Printer setup
-                    </button>
+                  </div>
+                </div>
+              )}
+
+              {connectionStatus === "unverified" && (
+                <div className="rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 p-3 space-y-2 text-xs shadow-sm">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2 text-amber-800 dark:text-amber-300 font-bold">
+                      <AlertTriangle
+                        size={16}
+                        className="text-amber-600 shrink-0"
+                      />
+                      <span>
+                        {selectedBrand === "DYMO"
+                          ? "DYMO 450 Turbo Ready (Windows Driver)"
+                          : "Connection unverified (OS driver ready)"}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <button
+                        type="button"
+                        onClick={handleRecheck}
+                        disabled={isRechecking}
+                        className="px-2 py-1 rounded-lg bg-white dark:bg-zinc-800 hover:bg-amber-100 text-amber-900 dark:text-amber-200 text-[11px] font-bold transition flex items-center gap-1 shadow-xs border border-amber-300 dark:border-amber-700"
+                        title="Re-check printer connection"
+                      >
+                        <RotateCcw
+                          size={12}
+                          className={isRechecking ? "animate-spin" : ""}
+                        />
+                        <span>Recheck</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setIsSetupGuideOpen(true)}
+                        className="px-2 py-1 rounded-lg bg-white dark:bg-zinc-800 hover:bg-amber-100 text-amber-900 dark:text-amber-200 text-[11px] font-bold transition shadow-xs border border-amber-300 dark:border-amber-700"
+                      >
+                        Printer setup
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-[11px] text-amber-800/90 dark:text-amber-300/90 font-medium pt-1 border-t border-amber-200/60 dark:border-amber-800/60">
+                    <span className="flex-1">
+                      USB connected in DYMO Connect. Click{" "}
+                      <strong>&quot;Print label&quot;</strong> anytime to print
+                      directly using your Windows driver.
+                    </span>
+                    {selectedBrand === "DYMO" && (
+                      <button
+                        type="button"
+                        onClick={handleAuthorizeDymoService}
+                        className="shrink-0 px-2.5 py-1 rounded-lg bg-amber-600 hover:bg-amber-700 text-white font-bold text-[11px] transition shadow-xs flex items-center gap-1 self-start sm:self-auto cursor-pointer"
+                        title="Open local DYMO web service in a new tab to authorize certificate"
+                      >
+                        <ExternalLink size={12} />
+                        <span>Authorize DYMO</span>
+                      </button>
+                    )}
                   </div>
                 </div>
               )}
@@ -375,7 +467,7 @@ export function PrintLabelModal({
                   <div className="flex items-center gap-1.5">
                     <button
                       type="button"
-                      onClick={() => recheckConnection()}
+                      onClick={handleRecheck}
                       disabled={isRechecking}
                       className="px-2 py-1 rounded-lg bg-white/70 hover:bg-white text-[#991b1b] text-[11px] font-bold transition flex items-center gap-1"
                     >
@@ -422,7 +514,7 @@ export function PrintLabelModal({
                   </div>
                 </SelectTrigger>
                 <SelectContent>
-                  {INSTALLED_PRINTER_DEVICES.map((device) => (
+                  {availablePrinters.map((device) => (
                     <SelectItem key={device.id} value={device.id}>
                       <span className="font-semibold text-xs">
                         {device.name}

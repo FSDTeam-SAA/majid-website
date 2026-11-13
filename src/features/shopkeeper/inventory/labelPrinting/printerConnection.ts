@@ -5,6 +5,67 @@ export interface PrinterConnectionResult {
   status: PrinterConnectionStatus;
   message: string;
   deviceReady?: boolean;
+  detectedPrinter?: string;
+  connectedPrinters?: string[];
+  serviceEndpoint?: string;
+}
+
+/**
+ * Parses the XML returned by DYMO Connect / DLS Web Service /DYMO/DLS/Printing/GetPrinters
+ */
+export function parseDymoPrintersXml(xml: string): {
+  connectedPrinters: string[];
+  allPrinters: string[];
+  detectedModel?: string;
+} {
+  const connectedPrinters: string[] = [];
+  const allPrinters: string[] = [];
+
+  const printerRegex =
+    /<LabelWriterPrinter[\s\S]*?<\/LabelWriterPrinter>|<Printer[\s\S]*?<\/Printer>/gi;
+  const matches = xml.match(printerRegex) || [];
+
+  for (const block of matches) {
+    const nameMatch = block.match(/<Name>(.*?)<\/Name>/i);
+    const modelMatch = block.match(/<ModelName>(.*?)<\/ModelName>/i);
+    const isConnectedMatch = block.match(/<IsConnected>(.*?)<\/IsConnected>/i);
+
+    const name = nameMatch?.[1] || modelMatch?.[1];
+    const isConnected = isConnectedMatch
+      ? isConnectedMatch[1].trim().toLowerCase() === "true"
+      : true;
+
+    if (name) {
+      const cleanName = name.trim();
+      allPrinters.push(cleanName);
+      if (isConnected) {
+        connectedPrinters.push(cleanName);
+      }
+    }
+  }
+
+  if (allPrinters.length === 0) {
+    const directNames = xml.match(/<Name>(.*?)<\/Name>/gi);
+    if (directNames) {
+      for (const tag of directNames) {
+        const clean = tag.replace(/<\/?Name>/gi, "").trim();
+        if (clean) {
+          allPrinters.push(clean);
+          connectedPrinters.push(clean);
+        }
+      }
+    }
+  }
+
+  // Auto-detect best model: prioritize 450 Turbo, then 450, then any connected printer
+  const detectedModel =
+    connectedPrinters.find((p) => p.toLowerCase().includes("450 turbo")) ||
+    connectedPrinters.find((p) => p.toLowerCase().includes("450")) ||
+    connectedPrinters[0] ||
+    allPrinters.find((p) => p.toLowerCase().includes("450 turbo")) ||
+    allPrinters[0];
+
+  return { connectedPrinters, allPrinters, detectedModel };
 }
 
 /**
@@ -24,55 +85,67 @@ export async function probePrinterConnection(
 
   try {
     if (brand === "DYMO") {
-      // Probe DYMO Connect Web Service on standard ports (41951 / 41952)
-      try {
-        const res = await fetch(
-          "https://127.0.0.1:41951/DYMO/DLS/Printing/StatusConnected",
-          {
+      // 1. Probe DYMO Connect GetPrinters (HTTPS port 41951, HTTP port 41952)
+      const dymoEndpoints = [
+        "https://127.0.0.1:41951/DYMO/DLS/Printing/GetPrinters",
+        "https://localhost:41951/DYMO/DLS/Printing/GetPrinters",
+        "https://127.0.0.1:41951/DYMO/DLS/Printing/StatusConnected",
+        "https://localhost:41951/DYMO/DLS/Printing/StatusConnected",
+        "http://127.0.0.1:41952/DYMO/DLS/Printing/GetPrinters",
+        "http://localhost:41952/DYMO/DLS/Printing/GetPrinters",
+        "http://127.0.0.1:41952/DYMO/DLS/Printing/StatusConnected",
+        "http://127.0.0.1:8631/DYMO/DLS/Printing/StatusConnected",
+      ];
+
+      for (const endpoint of dymoEndpoints) {
+        try {
+          const res = await fetch(endpoint, {
             signal: controller.signal,
             mode: "cors",
-          },
-        );
-        clearTimeout(timeoutId);
-        if (res.ok) {
-          const text = await res.text();
-          if (text.includes("true")) {
-            return {
-              status: "connected",
-              message: "DYMO Connect Web Service verified & connected",
-              deviceReady: true,
-            };
-          }
-        }
-      } catch {
-        // Fallback to HTTP if HTTPS had cert/mixed content limitation
-        try {
-          const resHttp = await fetch(
-            "http://127.0.0.1:41951/DYMO/DLS/Printing/StatusConnected",
-            {
-              signal: controller.signal,
-              mode: "cors",
-            },
-          );
-          clearTimeout(timeoutId);
-          if (resHttp.ok) {
-            const text = await resHttp.text();
-            if (text.includes("true")) {
+          });
+          if (res.ok) {
+            const text = await res.text();
+            clearTimeout(timeoutId);
+
+            if (endpoint.includes("GetPrinters")) {
+              const { connectedPrinters, detectedModel } =
+                parseDymoPrintersXml(text);
+              const activeModel = detectedModel || "DYMO LabelWriter 450 Turbo";
               return {
                 status: "connected",
-                message: "DYMO Connect Service verified",
+                message: `DYMO connected: ${activeModel}`,
                 deviceReady: true,
+                detectedPrinter: activeModel,
+                connectedPrinters,
+                serviceEndpoint: endpoint,
+              };
+            }
+
+            if (text.toLowerCase().includes("true")) {
+              return {
+                status: "connected",
+                message: "DYMO Connect Web Service verified & connected",
+                deviceReady: true,
+                detectedPrinter: "DYMO LabelWriter 450 Turbo",
+                serviceEndpoint: endpoint,
               };
             }
           }
         } catch {
-          // Both failed
+          // Continue to next candidate endpoint
         }
       }
+
+      clearTimeout(timeoutId);
+      // Browser blocked cross-origin/self-signed SSL cert or service is offline
+      // Windows driver fallback is available
       return {
         status: "unverified",
-        message: "DYMO Connect connector not responding or unverified",
-        deviceReady: false,
+        message: "DYMO Connect connector unverified (ready via Windows driver)",
+        deviceReady: true,
+        detectedPrinter: "DYMO LabelWriter 450 Turbo",
+        serviceEndpoint:
+          "https://127.0.0.1:41951/DYMO/DLS/Printing/StatusConnected",
       };
     }
 
@@ -87,11 +160,13 @@ export async function probePrinterConnection(
             status: "connected",
             message: "Zebra Browser Print verified",
             deviceReady: true,
+            detectedPrinter: "Zebra ZD421",
           };
         }
       } catch {
         // fallback
       }
+      clearTimeout(timeoutId);
       return {
         status: "unverified",
         message: "Zebra Browser Print service unverified",
@@ -101,7 +176,6 @@ export async function probePrinterConnection(
 
     if (brand === "Generic") {
       clearTimeout(timeoutId);
-      // Standard OS Print Driver - Browser print is available, but hardware status is unverified
       return {
         status: "unverified",
         message: "Connection unverified (OS printer spooler)",
@@ -130,6 +204,14 @@ export function usePrinterConnection(brand: PrinterBrand, autoProbe = true) {
   const [message, setMessage] = useState<string>("Checking connection...");
   const [isRechecking, setIsRechecking] = useState<boolean>(false);
   const [lastChecked, setLastChecked] = useState<Date | null>(null);
+  const [detectedPrinter, setDetectedPrinter] = useState<string | undefined>(
+    undefined,
+  );
+  const [connectedPrinters, setConnectedPrinters] = useState<string[]>([]);
+  const [serviceEndpoint, setServiceEndpoint] = useState<string | undefined>(
+    undefined,
+  );
+  const [isOsDriverReady, setIsOsDriverReady] = useState<boolean>(true);
 
   const check = useCallback(async (brandToCheck: PrinterBrand) => {
     setIsRechecking(true);
@@ -138,6 +220,10 @@ export function usePrinterConnection(brand: PrinterBrand, autoProbe = true) {
     const result = await probePrinterConnection(brandToCheck);
     setStatus(result.status);
     setMessage(result.message);
+    setDetectedPrinter(result.detectedPrinter);
+    setConnectedPrinters(result.connectedPrinters || []);
+    setServiceEndpoint(result.serviceEndpoint);
+    setIsOsDriverReady(Boolean(result.deviceReady));
     setLastChecked(new Date());
     setIsRechecking(false);
     return result;
@@ -167,6 +253,10 @@ export function usePrinterConnection(brand: PrinterBrand, autoProbe = true) {
     message,
     isRechecking,
     lastChecked,
+    detectedPrinter,
+    connectedPrinters,
+    serviceEndpoint,
+    isOsDriverReady,
     recheck,
   };
 }

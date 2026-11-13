@@ -11,8 +11,8 @@ describe("Currency utilities", () => {
     it("normalizes currency codes properly", () => {
       expect(normalizeCurrencyCode("usd")).toBe("USD");
       expect(normalizeCurrencyCode(" gbp ")).toBe("GBP");
-      expect(normalizeCurrencyCode("")).toBe("USD");
-      expect(normalizeCurrencyCode(null)).toBe("USD");
+      expect(normalizeCurrencyCode("")).toBe("GBP");
+      expect(normalizeCurrencyCode(null)).toBe("GBP");
     });
   });
 
