@@ -368,9 +368,9 @@ export function PrintLabelModal({
   return (
     <>
       <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-        <DialogContent className="max-w-lg bg-card text-foreground rounded-2xl p-0 shadow-2xl font-poppins max-h-[94vh] flex flex-col overflow-hidden">
+        <DialogContent className="max-w-lg bg-card text-foreground rounded-2xl p-0 shadow-2xl font-poppins max-h-[88vh] flex flex-col overflow-hidden">
           {/* Header */}
-          <DialogHeader className="p-5 pb-3 border-b border-border flex flex-row items-center justify-between shrink-0">
+          <DialogHeader className="p-4 sm:p-5 pb-3 border-b border-border flex flex-row items-center justify-between shrink-0">
             <div className="flex items-center gap-2">
               <DialogTitle className="text-xl font-bold tracking-tight">
                 Print label
@@ -382,7 +382,7 @@ export function PrintLabelModal({
           </DialogHeader>
 
           {/* Body */}
-          <div className="flex-1 overflow-y-auto custom-scrollbar p-6 space-y-4">
+          <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar p-4 sm:p-5 space-y-3.5">
             {/* 1. PRINTER CONNECTION STATUS BANNER (Developer Note 4) */}
             <div className="space-y-1.5">
               {connectionStatus === "connected" && (
@@ -675,7 +675,7 @@ export function PrintLabelModal({
           </div>
 
           {/* Fixed Footer: Quantity & Print Action (Always visible on any screen!) */}
-          <div className="p-4 bg-muted/20 border-t border-border flex flex-col gap-2.5 shrink-0">
+          <div className="p-3.5 sm:p-4 bg-card border-t border-border shadow-lg flex flex-col gap-2 shrink-0 z-10">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2.5">
                 <span className="text-xs font-bold text-foreground">
