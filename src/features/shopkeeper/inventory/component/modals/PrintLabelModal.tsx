@@ -273,6 +273,10 @@ export function PrintLabelModal({
         margin: 0;
       }
       @media print {
+        *, *:before, *:after {
+          -webkit-print-color-adjust: exact !important;
+          print-color-adjust: exact !important;
+        }
         html, body {
           width: ${pageSize.width};
           height: ${pageSize.height};
@@ -282,6 +286,16 @@ export function PrintLabelModal({
         }
       }
     `,
+    onAfterPrint: () => {
+      setIsPrinting(false);
+      onClose();
+    },
+    onPrintError: (_location, err) => {
+      setIsPrinting(false);
+      const msg =
+        err instanceof Error ? err.message : "Failed to open print preview";
+      toast.error(msg);
+    },
   });
 
   if (!item) return null;
@@ -318,30 +332,35 @@ export function PrintLabelModal({
   const handlePrint = async () => {
     setIsPrinting(true);
     try {
-      // 1. Refresh connection probe before printing as instructed in Note 4
-      await recheckConnection();
+      // 1. If verified DYMO Connect Web Service is active, print directly with zero dialog
+      if (connectionStatus === "connected" && serviceEndpoint) {
+        const result = await adapter.print(commonLabelData, {
+          contentRef: printRef,
+          copies: quantity,
+          serviceEndpoint,
+        });
 
-      // 2. Dispatch print job
-      const result = await adapter.print(commonLabelData, {
-        contentRef: printRef,
-        copies: quantity,
-        triggerBrowserPrint: () => handleReactToPrint(),
-      });
-
-      if (result.success) {
-        toast.success(
-          result.message ||
-            `Sent ${quantity} label${quantity > 1 ? "s" : ""} to ${selectedBrand} printer`,
-        );
-        onClose();
-      } else {
-        toast.error(result.message || "Failed to print label");
+        if (result.success) {
+          toast.success(
+            result.message ||
+              `Sent ${quantity} label${quantity > 1 ? "s" : ""} to ${selectedBrand} printer`,
+          );
+          setIsPrinting(false);
+          onClose();
+          return;
+        }
       }
+
+      // 2. Windows Driver print engine: triggers immediately with zero delay
+      handleReactToPrint();
+      toast.info(
+        "Opening print preview. Select 'DYMO LabelWriter 450 Turbo' in the destination list.",
+        { duration: 5000 },
+      );
     } catch (err: unknown) {
       const errorMessage =
         err instanceof Error ? err.message : "An error occurred while printing";
       toast.error(errorMessage);
-    } finally {
       setIsPrinting(false);
     }
   };
@@ -400,17 +419,17 @@ export function PrintLabelModal({
               )}
 
               {connectionStatus === "unverified" && (
-                <div className="rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 p-3 space-y-2 text-xs shadow-sm">
+                <div className="rounded-xl bg-emerald-50/70 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 p-3 space-y-2 text-xs shadow-xs">
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2 text-amber-800 dark:text-amber-300 font-bold">
-                      <AlertTriangle
+                    <div className="flex items-center gap-2 text-emerald-800 dark:text-emerald-300 font-bold">
+                      <CheckCircle2
                         size={16}
-                        className="text-amber-600 shrink-0"
+                        className="text-emerald-600 dark:text-emerald-400 shrink-0"
                       />
                       <span>
                         {selectedBrand === "DYMO"
                           ? "DYMO 450 Turbo Ready (Windows Driver)"
-                          : "Connection unverified (OS driver ready)"}
+                          : "Ready to print (Windows Driver)"}
                       </span>
                     </div>
                     <div className="flex items-center gap-1.5 shrink-0">
@@ -418,7 +437,7 @@ export function PrintLabelModal({
                         type="button"
                         onClick={handleRecheck}
                         disabled={isRechecking}
-                        className="px-2 py-1 rounded-lg bg-white dark:bg-zinc-800 hover:bg-amber-100 text-amber-900 dark:text-amber-200 text-[11px] font-bold transition flex items-center gap-1 shadow-xs border border-amber-300 dark:border-amber-700"
+                        className="px-2 py-1 rounded-lg bg-white dark:bg-zinc-800 hover:bg-emerald-100/60 text-emerald-900 dark:text-emerald-200 text-[11px] font-bold transition flex items-center gap-1 shadow-xs border border-emerald-300 dark:border-emerald-700 cursor-pointer"
                         title="Re-check printer connection"
                       >
                         <RotateCcw
@@ -430,28 +449,27 @@ export function PrintLabelModal({
                       <button
                         type="button"
                         onClick={() => setIsSetupGuideOpen(true)}
-                        className="px-2 py-1 rounded-lg bg-white dark:bg-zinc-800 hover:bg-amber-100 text-amber-900 dark:text-amber-200 text-[11px] font-bold transition shadow-xs border border-amber-300 dark:border-amber-700"
+                        className="px-2 py-1 rounded-lg bg-white dark:bg-zinc-800 hover:bg-emerald-100/60 text-emerald-900 dark:text-emerald-200 text-[11px] font-bold transition shadow-xs border border-emerald-300 dark:border-emerald-700 cursor-pointer"
                       >
                         Printer setup
                       </button>
                     </div>
                   </div>
 
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-[11px] text-amber-800/90 dark:text-amber-300/90 font-medium pt-1 border-t border-amber-200/60 dark:border-amber-800/60">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-[11px] text-emerald-800/90 dark:text-emerald-300/90 font-medium pt-1 border-t border-emerald-200/60 dark:border-emerald-800/60">
                     <span className="flex-1">
-                      USB connected in DYMO Connect. Click{" "}
-                      <strong>&quot;Print label&quot;</strong> anytime to print
-                      directly using your Windows driver.
+                      Click <strong>&quot;Print label&quot;</strong> below to
+                      print directly using your Windows driver.
                     </span>
                     {selectedBrand === "DYMO" && (
                       <button
                         type="button"
                         onClick={handleAuthorizeDymoService}
-                        className="shrink-0 px-2.5 py-1 rounded-lg bg-amber-600 hover:bg-amber-700 text-white font-bold text-[11px] transition shadow-xs flex items-center gap-1 self-start sm:self-auto cursor-pointer"
-                        title="Open local DYMO web service in a new tab to authorize certificate"
+                        className="shrink-0 px-2 py-0.5 rounded-md bg-emerald-600/15 hover:bg-emerald-600/25 text-emerald-800 dark:text-emerald-300 font-semibold text-[10px] transition flex items-center gap-1 self-start sm:self-auto cursor-pointer border border-emerald-300/50"
+                        title="Authorize DYMO Web Service for 1-click silent background printing"
                       >
-                        <ExternalLink size={12} />
-                        <span>Authorize DYMO</span>
+                        <ExternalLink size={11} />
+                        <span>Enable 1-Click Silent Print</span>
                       </button>
                     )}
                   </div>
@@ -633,82 +651,8 @@ export function PrintLabelModal({
               </div>
             </div>
 
-            {/* 7. QUANTITY STEPPER & CHANGE SETTINGS */}
-            <div className="flex items-center justify-between pt-1">
-              <div className="flex items-center gap-3">
-                <span className="text-xs font-bold text-foreground">
-                  Quantity
-                </span>
-                <div className="flex items-center border border-border rounded-xl bg-background shadow-xs overflow-hidden">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const next = Math.max(1, quantity - 1);
-                      setQuantity(next);
-                      savePreferences({ quantity: next });
-                    }}
-                    className="p-2 hover:bg-muted text-muted-foreground hover:text-foreground transition"
-                    title="Decrease quantity"
-                  >
-                    <Minus size={14} />
-                  </button>
-                  <span className="w-8 text-center text-xs font-bold">
-                    {quantity}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const next = quantity + 1;
-                      setQuantity(next);
-                      savePreferences({ quantity: next });
-                    }}
-                    className="p-2 hover:bg-muted text-muted-foreground hover:text-foreground transition"
-                    title="Increase quantity"
-                  >
-                    <Plus size={14} />
-                  </button>
-                </div>
-              </div>
-
-              <button
-                type="button"
-                onClick={() => setIsChooseSizeOpen(true)}
-                className="flex items-center gap-1.5 text-xs font-bold text-[#65a30d] hover:text-[#52840a] transition-colors"
-              >
-                <Settings size={14} />
-                <span>Change settings</span>
-              </button>
-            </div>
-
-            {/* 8. PRIMARY PRINT ACTION BUTTON */}
-            <div className="pt-2">
-              <button
-                type="button"
-                onClick={handlePrint}
-                disabled={isPrinting}
-                className="w-full py-3.5 px-6 bg-[#84CC16] hover:bg-[#76b813] text-white font-bold text-sm rounded-xl transition shadow-md active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none flex items-center justify-center gap-2.5"
-              >
-                {isPrinting ? (
-                  <>
-                    <Loader2 size={18} className="animate-spin" />
-                    <span>
-                      Printing {quantity} label{quantity > 1 ? "s" : ""}...
-                    </span>
-                  </>
-                ) : (
-                  <>
-                    <Printer size={18} strokeWidth={2.5} />
-                    <span>Print label</span>
-                  </>
-                )}
-              </button>
-              <p className="text-[11px] text-center text-muted-foreground mt-1.5 font-medium">
-                One click sends to the saved printer
-              </p>
-            </div>
-
-            {/* 9. PROCESS STEPS BANNER (Image 1 Bottom) */}
-            <div className="pt-3 border-t border-border">
+            {/* 7. PROCESS STEPS BANNER (Image 1 Bottom) */}
+            <div className="pt-2 border-t border-border">
               <div className="grid grid-cols-3 gap-2 text-center text-[10px] text-muted-foreground font-semibold">
                 <div className="p-2 rounded-lg bg-muted/40 flex flex-col items-center gap-1">
                   <Download size={14} className="text-[#65a30d]" />
@@ -723,16 +667,101 @@ export function PrintLabelModal({
                   <span>3. Print directly</span>
                 </div>
               </div>
-              <p className="text-[10px] text-center text-muted-foreground mt-2 italic">
+              <p className="text-[10px] text-center text-muted-foreground mt-1.5 italic">
                 Concept: verify printer, media and connection before enabling
                 Print.
               </p>
             </div>
           </div>
+
+          {/* Fixed Footer: Quantity & Print Action (Always visible on any screen!) */}
+          <div className="p-4 bg-muted/20 border-t border-border flex flex-col gap-2.5 shrink-0">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <span className="text-xs font-bold text-foreground">
+                  Quantity
+                </span>
+                <div className="flex items-center border border-border rounded-xl bg-background shadow-xs overflow-hidden">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const next = Math.max(1, quantity - 1);
+                      setQuantity(next);
+                      savePreferences({ quantity: next });
+                    }}
+                    className="p-1.5 px-2 hover:bg-muted text-muted-foreground hover:text-foreground transition cursor-pointer"
+                    title="Decrease quantity"
+                  >
+                    <Minus size={13} />
+                  </button>
+                  <span className="w-8 text-center text-xs font-bold">
+                    {quantity}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const next = quantity + 1;
+                      setQuantity(next);
+                      savePreferences({ quantity: next });
+                    }}
+                    className="p-1.5 px-2 hover:bg-muted text-muted-foreground hover:text-foreground transition cursor-pointer"
+                    title="Increase quantity"
+                  >
+                    <Plus size={13} />
+                  </button>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setIsChooseSizeOpen(true)}
+                className="flex items-center gap-1.5 text-xs font-bold text-[#65a30d] hover:text-[#52840a] transition-colors cursor-pointer"
+              >
+                <Settings size={13} />
+                <span>Change settings</span>
+              </button>
+            </div>
+
+            <button
+              type="button"
+              onClick={handlePrint}
+              disabled={isPrinting}
+              className="w-full py-3 px-6 bg-[#84CC16] hover:bg-[#76b813] text-white font-bold text-sm rounded-xl transition shadow-md active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none flex items-center justify-center gap-2 cursor-pointer"
+            >
+              {isPrinting ? (
+                <>
+                  <Loader2 size={16} className="animate-spin" />
+                  <span>
+                    Printing {quantity} label{quantity > 1 ? "s" : ""}...
+                  </span>
+                </>
+              ) : (
+                <>
+                  <Printer size={16} strokeWidth={2.5} />
+                  <span>Print label</span>
+                </>
+              )}
+            </button>
+            <p className="text-[10px] text-center text-muted-foreground font-medium">
+              One click sends to the saved printer
+            </p>
+          </div>
         </DialogContent>
 
-        {/* Hidden Print Target used by react-to-print */}
-        <div className="hidden">
+        {/* Hidden Print Target used by react-to-print (rendered off-screen, NOT display:none) */}
+        <div
+          style={{
+            position: "fixed",
+            left: "-9999px",
+            top: "-9999px",
+            width: "auto",
+            height: "auto",
+            opacity: 0,
+            pointerEvents: "none",
+            zIndex: -999,
+          }}
+          aria-hidden="true"
+        >
           <div ref={printRef}>
             {Array.from({ length: quantity }).map((_, idx) => (
               <div

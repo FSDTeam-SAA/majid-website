@@ -68,6 +68,28 @@ export function parseDymoPrintersXml(xml: string): {
   return { connectedPrinters, allPrinters, detectedModel };
 }
 
+async function probeEndpointText(
+  url: string,
+  timeoutMs = 350,
+): Promise<string | null> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch(url, {
+      signal: controller.signal,
+      mode: "cors",
+    });
+    clearTimeout(timer);
+    if (res.ok) {
+      return await res.text();
+    }
+    return null;
+  } catch {
+    clearTimeout(timer);
+    return null;
+  }
+}
+
 /**
  * Actively probes the local print connector / daemon.
  * DEVELOPER NOTE 4:
@@ -80,9 +102,6 @@ export async function probePrinterConnection(
   brand: PrinterBrand,
   timeoutMs = 1500,
 ): Promise<PrinterConnectionResult> {
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
-
   try {
     if (brand === "DYMO") {
       // 1. Probe DYMO Connect GetPrinters (HTTPS port 41951, HTTP port 41952)
@@ -98,45 +117,34 @@ export async function probePrinterConnection(
       ];
 
       for (const endpoint of dymoEndpoints) {
-        try {
-          const res = await fetch(endpoint, {
-            signal: controller.signal,
-            mode: "cors",
-          });
-          if (res.ok) {
-            const text = await res.text();
-            clearTimeout(timeoutId);
-
-            if (endpoint.includes("GetPrinters")) {
-              const { connectedPrinters, detectedModel } =
-                parseDymoPrintersXml(text);
-              const activeModel = detectedModel || "DYMO LabelWriter 450 Turbo";
-              return {
-                status: "connected",
-                message: `DYMO connected: ${activeModel}`,
-                deviceReady: true,
-                detectedPrinter: activeModel,
-                connectedPrinters,
-                serviceEndpoint: endpoint,
-              };
-            }
-
-            if (text.toLowerCase().includes("true")) {
-              return {
-                status: "connected",
-                message: "DYMO Connect Web Service verified & connected",
-                deviceReady: true,
-                detectedPrinter: "DYMO LabelWriter 450 Turbo",
-                serviceEndpoint: endpoint,
-              };
-            }
+        const text = await probeEndpointText(endpoint, 300);
+        if (text) {
+          if (endpoint.includes("GetPrinters")) {
+            const { connectedPrinters, detectedModel } =
+              parseDymoPrintersXml(text);
+            const activeModel = detectedModel || "DYMO LabelWriter 450 Turbo";
+            return {
+              status: "connected",
+              message: `DYMO connected: ${activeModel}`,
+              deviceReady: true,
+              detectedPrinter: activeModel,
+              connectedPrinters,
+              serviceEndpoint: endpoint,
+            };
           }
-        } catch {
-          // Continue to next candidate endpoint
+
+          if (text.toLowerCase().includes("true")) {
+            return {
+              status: "connected",
+              message: "DYMO Connect Web Service verified & connected",
+              deviceReady: true,
+              detectedPrinter: "DYMO LabelWriter 450 Turbo",
+              serviceEndpoint: endpoint,
+            };
+          }
         }
       }
 
-      clearTimeout(timeoutId);
       // Browser blocked cross-origin/self-signed SSL cert or service is offline
       // Windows driver fallback is available
       return {
@@ -150,23 +158,18 @@ export async function probePrinterConnection(
     }
 
     if (brand === "Zebra") {
-      try {
-        const res = await fetch("http://localhost:9100/default", {
-          signal: controller.signal,
-        });
-        clearTimeout(timeoutId);
-        if (res.ok) {
-          return {
-            status: "connected",
-            message: "Zebra Browser Print verified",
-            deviceReady: true,
-            detectedPrinter: "Zebra ZD421",
-          };
-        }
-      } catch {
-        // fallback
+      const text = await probeEndpointText(
+        "http://localhost:9100/default",
+        timeoutMs,
+      );
+      if (text !== null) {
+        return {
+          status: "connected",
+          message: "Zebra Browser Print verified",
+          deviceReady: true,
+          detectedPrinter: "Zebra ZD421",
+        };
       }
-      clearTimeout(timeoutId);
       return {
         status: "unverified",
         message: "Zebra Browser Print service unverified",
@@ -175,7 +178,6 @@ export async function probePrinterConnection(
     }
 
     if (brand === "Generic") {
-      clearTimeout(timeoutId);
       return {
         status: "unverified",
         message: "Connection unverified (OS printer spooler)",
@@ -183,14 +185,12 @@ export async function probePrinterConnection(
       };
     }
 
-    clearTimeout(timeoutId);
     return {
       status: "unverified",
       message: `${brand} hardware connector unverified`,
       deviceReady: false,
     };
   } catch {
-    clearTimeout(timeoutId);
     return {
       status: "unverified",
       message: "Connection unverified",

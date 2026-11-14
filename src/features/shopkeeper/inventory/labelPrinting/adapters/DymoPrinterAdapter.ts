@@ -20,11 +20,13 @@ export class DymoPrinterAdapter extends PrinterAdapter {
     try {
       const printerName = "DYMO LabelWriter 450 Turbo";
 
-      // 1. If triggerBrowserPrint is explicitly provided (default flow from PrintLabelModal),
-      // we invoke browser print to ensure instant compatibility with user's installed Windows driver.
-      if (options?.triggerBrowserPrint) {
-        // Also attempt background direct print to DYMO service in parallel or fallback
+      // 1. If verified serviceEndpoint is available, attempt direct print to DYMO service
+      if (options?.serviceEndpoint) {
         try {
+          const endpoint = options.serviceEndpoint.replace(
+            /(GetPrinters|StatusConnected)/i,
+            "PrintLabel",
+          );
           const params = new URLSearchParams();
           params.append("printerName", printerName);
           params.append(
@@ -35,18 +37,15 @@ export class DymoPrinterAdapter extends PrinterAdapter {
           params.append("labelSetXml", "");
 
           const controller = new AbortController();
-          const timeout = setTimeout(() => controller.abort(), 800);
-          const res = await fetch(
-            "https://127.0.0.1:41951/DYMO/DLS/Printing/PrintLabel",
-            {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/x-www-form-urlencoded",
-              },
-              body: params.toString(),
-              signal: controller.signal,
+          const timeout = setTimeout(() => controller.abort(), 1200);
+          const res = await fetch(endpoint, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/x-www-form-urlencoded",
             },
-          );
+            body: params.toString(),
+            signal: controller.signal,
+          });
           clearTimeout(timeout);
           if (res.ok) {
             return {
@@ -58,7 +57,10 @@ export class DymoPrinterAdapter extends PrinterAdapter {
         } catch {
           // Fall through to browser print engine
         }
+      }
 
+      // 2. Trigger browser print engine via Windows driver
+      if (options?.triggerBrowserPrint) {
         options.triggerBrowserPrint();
         return {
           success: true,
@@ -100,6 +102,12 @@ export class DymoPrinterAdapter extends PrinterAdapter {
         1440,
     );
 
+    const priceText =
+      data.fields.price && data.price !== undefined
+        ? `${data.currencySymbol || "£"}${data.price.toFixed(2)}`
+        : "";
+    const titleText = data.fields.itemName ? data.itemName : "";
+
     return `<?xml version="1.0" encoding="utf-8"?>
 <DieCutLabel Version="8.0" Units="twips">
   <PaperOrientation>Landscape</PaperOrientation>
@@ -120,17 +128,61 @@ export class DymoPrinterAdapter extends PrinterAdapter {
       <HorizontalAlignment>Left</HorizontalAlignment>
       <VerticalAlignment>Top</VerticalAlignment>
       <TextFitMode>ShrinkToFit</TextFitMode>
-      <Text>${data.fields.itemName ? data.itemName : ""}</Text>
+      <UseFullFontHeight>True</UseFullFontHeight>
+      <Verticalized>False</Verticalized>
+      <StyledText>
+        <Element>
+          <String>${titleText}</String>
+          <Attributes>
+            <Font Family="Arial" Size="10" Bold="True" Italic="False" Underline="False" Strikeout="False" />
+            <ForeColor Alpha="255" Red="0" Green="0" Blue="0" />
+          </Attributes>
+        </Element>
+      </StyledText>
     </TextObject>
+    <Bounds X="150" Y="120" Width="${Math.max(100, widthInTwips - 300)}" Height="450" />
+  </ObjectInfo>
+  <ObjectInfo>
     <TextObject>
       <Name>PRICE</Name>
-      <Text>${data.fields.price && data.price !== undefined ? `${data.currencySymbol || "£"}${data.price.toFixed(2)}` : ""}</Text>
+      <ForeColor Alpha="255" Red="0" Green="0" Blue="0" />
+      <BackColor Alpha="0" Red="255" Green="255" Blue="255" />
+      <LinkedObjectName></LinkedObjectName>
+      <Rotation>Rotation0</Rotation>
+      <IsMirrored>False</IsMirrored>
+      <IsVariable>False</IsVariable>
+      <HorizontalAlignment>Left</HorizontalAlignment>
+      <VerticalAlignment>Middle</VerticalAlignment>
+      <TextFitMode>ShrinkToFit</TextFitMode>
+      <UseFullFontHeight>True</UseFullFontHeight>
+      <Verticalized>False</Verticalized>
+      <StyledText>
+        <Element>
+          <String>${priceText}</String>
+          <Attributes>
+            <Font Family="Arial" Size="14" Bold="True" Italic="False" Underline="False" Strikeout="False" />
+            <ForeColor Alpha="255" Red="0" Green="0" Blue="0" />
+          </Attributes>
+        </Element>
+      </StyledText>
     </TextObject>
+    <Bounds X="150" Y="580" Width="${Math.max(100, widthInTwips - 300)}" Height="350" />
+  </ObjectInfo>
+  <ObjectInfo>
     <${isBarcodeQR ? "QRCodeObject" : "BarcodeObject"}>
       <Name>BARCODE</Name>
-      <BarcodeType>${isBarcodeQR ? "QRCode" : "Code128"}</BarcodeType>
+      <ForeColor Alpha="255" Red="0" Green="0" Blue="0" />
+      <BackColor Alpha="0" Red="255" Green="255" Blue="255" />
+      <LinkedObjectName></LinkedObjectName>
+      <Rotation>Rotation0</Rotation>
+      <IsMirrored>False</IsMirrored>
+      <IsVariable>False</IsVariable>
       <Text>${data.barcode}</Text>
+      <Type>${isBarcodeQR ? "QRCode" : "Code128"}</Type>
+      <Size>Medium</Size>
+      <TextPosition>${isBarcodeQR ? "None" : "Bottom"}</TextPosition>
     </${isBarcodeQR ? "QRCodeObject" : "BarcodeObject"}>
+    <Bounds X="150" Y="950" Width="${Math.max(100, widthInTwips - 300)}" Height="${Math.max(200, heightInTwips - 1050)}" />
   </ObjectInfo>
 </DieCutLabel>`;
   }

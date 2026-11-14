@@ -102,4 +102,5 @@ export interface PrintOptions {
   onBeforePrint?: () => Promise<void> | void;
   onAfterPrint?: () => void;
   triggerBrowserPrint?: () => void;
+  serviceEndpoint?: string;
 }
