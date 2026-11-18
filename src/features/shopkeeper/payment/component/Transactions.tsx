@@ -118,12 +118,24 @@ export default function Transactions() {
     try {
       const mappedCart =
         transaction.lineItems?.map((item: any) => ({
-          id: item.itemId?._id,
-          name: item.itemId?.itemName,
-          price: Number(item.itemId?.expectedPrice || 0),
+          id: item.itemId?._id || item._id,
+          name: item.name || item.itemId?.itemName,
+          price: Number(item.itemId?.expectedPrice || item.price || 0),
           qty: item.quantity || 1,
+          quantity: item.quantity || 1,
           image: item.itemId?.image?.url,
-          imeiNumber: item.itemId?.imeiNumber,
+          imeiNumber: item.imeiNumber || item.itemId?.imeiNumber,
+          serialNumber: item.serialNumber || item.itemId?.serialNumber,
+          upcEan: item.upcEan || item.itemId?.sku,
+          units: item.units || item.itemId?.units,
+          isDevice: Boolean(
+            item.imeiNumber ||
+              item.serialNumber ||
+              item.upcEan ||
+              item.itemId?.imeiNumber ||
+              item.itemId?.serialNumber ||
+              item.itemId?.units?.length,
+          ),
           type: "product",
         })) || [];
 
@@ -134,8 +146,18 @@ export default function Transactions() {
             name: item.itemName,
             price: Number(item.expectedPrice || 0),
             qty: 1,
+            quantity: 1,
             image: item.image?.url,
             imeiNumber: item.imeiNumber,
+            serialNumber: item.serialNumber,
+            upcEan: item.sku,
+            units: item.units,
+            isDevice: Boolean(
+              item.imeiNumber ||
+                item.serialNumber ||
+                item.sku ||
+                item.units?.length,
+            ),
             type: "product",
           });
         });

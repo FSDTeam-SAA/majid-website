@@ -936,12 +936,73 @@ export default function Checkout() {
             ? parsedManual
             : originalPrice;
 
+        const item = cartItem.itemId;
+        const variant =
+          cartItem.variantId && item?.variants
+            ? item.variants.find(
+                (v: any) => String(v._id) === String(cartItem.variantId),
+              )
+            : undefined;
+
+        const imei =
+          cartItem.imei ||
+          cartItem.imeiNumber ||
+          variant?.imeiNumber ||
+          item?.imeiNumber ||
+          (item?.units && item.units[0]?.imeiNumber);
+
+        const serial =
+          cartItem.serial ||
+          cartItem.serialNumber ||
+          item?.serialNumber ||
+          (item?.units && item.units[0]?.serialNumber);
+
+        const upcEan =
+          cartItem.upcEan ||
+          variant?.sku ||
+          variant?.barcode ||
+          variant?.upc ||
+          variant?.ean ||
+          item?.sku ||
+          item?.barcode ||
+          item?.categoryAttributes?.upc ||
+          item?.categoryAttributes?.ean;
+
+        const units: any[] =
+          cartItem.units &&
+          Array.isArray(cartItem.units) &&
+          cartItem.units.length > 0
+            ? cartItem.units
+            : item?.units &&
+                Array.isArray(item.units) &&
+                item.units.length > 0
+              ? item.units.slice(0, cartItem.quantity).map((u: any) => ({
+                  imei: u.imeiNumber || u.imei,
+                  serial: u.serialNumber || u.serial,
+                }))
+              : [];
+
+        const isDevice = Boolean(
+          cartItem.isDevice ||
+            imei ||
+            serial ||
+            upcEan ||
+            units.length > 0 ||
+            item?.imeiNumber ||
+            item?.serialNumber,
+        );
+
         return {
           ...cartItem,
           sellingPrice,
           originalPrice,
           lineTotal: sellingPrice * cartItem.quantity,
           lineOriginalTotal: originalPrice * cartItem.quantity,
+          imei,
+          serial,
+          upcEan,
+          units,
+          isDevice,
         };
       });
       const invoiceNumber = `INV-${transactionDate
@@ -1028,7 +1089,7 @@ export default function Checkout() {
         invoice: invoiceFile,
         customerInfo: selectedCustomer?._id,
         itemsIds,
-        lineItems: orderCartItems
+        lineItems: pricedOrderCartItems
           .filter(
             (cartItem: any) =>
               cartItem.itemId?._id &&
@@ -1038,6 +1099,11 @@ export default function Checkout() {
             itemId: cartItem.itemId._id,
             quantity: Number(cartItem.quantity),
             variantId: cartItem.variantId,
+            name: cartItem.itemId?.itemName || cartItem.name,
+            imeiNumber: cartItem.imei,
+            serialNumber: cartItem.serial,
+            upcEan: cartItem.upcEan,
+            units: cartItem.units,
           })),
         totalAmount: totalPayment,
         amountPaid: payment.amountPaid,
@@ -1083,6 +1149,11 @@ export default function Checkout() {
             quantity: Number(cartItem.quantity || 0),
             originalPrice: Number(cartItem.originalPrice || 0),
             sellingPrice: Number(cartItem.sellingPrice || 0),
+            imei: cartItem.imei,
+            serial: cartItem.serial,
+            upcEan: cartItem.upcEan,
+            units: cartItem.units,
+            isDevice: cartItem.isDevice,
           })),
           subtotalBeforeDiscount,
           discount: totalDiscount,

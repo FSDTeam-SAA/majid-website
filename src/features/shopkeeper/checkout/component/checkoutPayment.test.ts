@@ -99,4 +99,44 @@ describe("thermal receipt", () => {
     expect(html).toContain("Served by:");
     expect(html).not.toContain("Cashier:");
   });
+
+  it("renders device identifiers (IMEI, Serial, UPC/EAN) directly beneath item name", () => {
+    const html = buildThermalReceiptHtml({
+      invoiceNumber: "INV-20261116-140706",
+      createdAt: new Date("2026-11-16T18:02:00Z"),
+      shopName: "Mobile Kit Distribution",
+      cashierName: "Muhammad MAJID",
+      customerName: "Mobilise",
+      items: [
+        {
+          name: "Bell Apple iPhone 17 Pro Max",
+          quantity: 1,
+          originalPrice: 799,
+          sellingPrice: 620,
+          imei: "357035755150302",
+          serial: "F2LZX12345",
+          upcEan: "195949012345",
+        },
+      ],
+      subtotalBeforeDiscount: 799,
+      discount: 179,
+      total: 620,
+      currency: "GBP",
+      payment: {
+        method: "cash",
+        status: "paid",
+        amountPaid: 620,
+        dueAmount: 0,
+        details: {
+          amountReceived: 620,
+          changeGiven: 0,
+        },
+      },
+    });
+
+    expect(html).toContain("Bell Apple iPhone 17 Pro Max");
+    expect(html).toContain("IMEI: <b>357035755150302</b>");
+    expect(html).toContain("Serial: <b>F2LZX12345</b>");
+    expect(html).toContain("UPC/EAN: <b>195949012345</b>");
+  });
 });

@@ -303,11 +303,73 @@ export const TransactionDetailsSheet: React.FC<
                     >
                       <div>
                         <p className="font-bold text-foreground">
-                          {item.itemId?.itemName || "Item"}
+                          {(item as any).name || item.itemId?.itemName || "Item"}
                         </p>
                         <p className="text-[11px] text-muted-foreground">
                           Qty: {item.quantity || 1}
                         </p>
+                        {(() => {
+                          const anyItem = item as any;
+                          const imei =
+                            anyItem.imeiNumber ||
+                            item.itemId?.imeiNumber ||
+                            (item.itemId?.units && item.itemId.units[0]?.imeiNumber);
+                          const serial =
+                            anyItem.serialNumber ||
+                            item.itemId?.serialNumber ||
+                            (item.itemId?.units && item.itemId.units[0]?.serialNumber);
+                          const upc =
+                            anyItem.upcEan ||
+                            item.itemId?.sku ||
+                            item.itemId?.categoryAttributes?.upc ||
+                            item.itemId?.categoryAttributes?.ean;
+                          const units = anyItem.units || item.itemId?.units;
+                          const isDev = Boolean(
+                            imei || serial || upc || (units && units.length > 0),
+                          );
+                          if (!isDev) return null;
+                          return (
+                            <div className="mt-1 text-[10px] text-muted-foreground space-y-0.5">
+                              {units && units.length > 1 ? (
+                                units
+                                  .slice(0, item.quantity || 1)
+                                  .map((u: any, uIdx: number) => (
+                                    <p key={uIdx}>
+                                      Unit {uIdx + 1}: IMEI:{" "}
+                                      <span className="font-medium text-foreground">
+                                        {u.imeiNumber || u.imei || "Not recorded"}
+                                      </span>{" "}
+                                      | Serial:{" "}
+                                      <span className="font-medium text-foreground">
+                                        {u.serialNumber || u.serial || "Not recorded"}
+                                      </span>
+                                    </p>
+                                  ))
+                              ) : (
+                                <>
+                                  <p>
+                                    IMEI:{" "}
+                                    <span className="font-medium text-foreground">
+                                      {imei || "Not recorded"}
+                                    </span>
+                                  </p>
+                                  <p>
+                                    Serial:{" "}
+                                    <span className="font-medium text-foreground">
+                                      {serial || "Not recorded"}
+                                    </span>
+                                  </p>
+                                </>
+                              )}
+                              <p>
+                                UPC/EAN:{" "}
+                                <span className="font-medium text-foreground">
+                                  {upc || "Not recorded"}
+                                </span>
+                              </p>
+                            </div>
+                          );
+                        })()}
                       </div>
                       <span className="font-bold text-foreground">
                         {formatCurrency(

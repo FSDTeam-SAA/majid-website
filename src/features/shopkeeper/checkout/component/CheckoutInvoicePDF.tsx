@@ -188,6 +188,16 @@ const styles = StyleSheet.create({
     width: "45%",
     paddingRight: 6,
   },
+  deviceDetailsContainer: {
+    marginTop: 2,
+    marginLeft: 3,
+    marginBottom: 2,
+  },
+  deviceIdentifierRow: {
+    fontSize: 7.5,
+    color: colors.slate500,
+    lineHeight: 1.3,
+  },
   colCondition: {
     width: "20%",
   },
@@ -480,6 +490,63 @@ export default function CheckoutInvoicePDF({
               0;
             const lineTotal = cartItem.lineTotal ?? price * cartItem.quantity;
 
+            const variant =
+              cartItem.variantId && item?.variants
+                ? item.variants.find(
+                    (v: any) => String(v._id) === String(cartItem.variantId),
+                  )
+                : undefined;
+
+            const imei =
+              cartItem.imei ||
+              cartItem.imeiNumber ||
+              variant?.imeiNumber ||
+              item?.imeiNumber ||
+              (item?.units && item.units[0]?.imeiNumber);
+
+            const serial =
+              cartItem.serial ||
+              cartItem.serialNumber ||
+              item?.serialNumber ||
+              (item?.units && item.units[0]?.serialNumber);
+
+            const upcEan =
+              cartItem.upcEan ||
+              variant?.sku ||
+              variant?.barcode ||
+              variant?.upc ||
+              variant?.ean ||
+              item?.sku ||
+              item?.barcode ||
+              item?.categoryAttributes?.upc ||
+              item?.categoryAttributes?.ean;
+
+            const units: any[] =
+              cartItem.units &&
+              Array.isArray(cartItem.units) &&
+              cartItem.units.length > 0
+                ? cartItem.units
+                : item?.units &&
+                    Array.isArray(item.units) &&
+                    item.units.length > 0
+                  ? item.units
+                      .slice(0, cartItem.quantity)
+                      .map((u: any) => ({
+                        imei: u.imeiNumber || u.imei,
+                        serial: u.serialNumber || u.serial,
+                      }))
+                  : [];
+
+            const isDevice = Boolean(
+              cartItem.isDevice ||
+                imei ||
+                serial ||
+                upcEan ||
+                units.length > 0 ||
+                item?.imeiNumber ||
+                item?.serialNumber,
+            );
+
             return (
               <View
                 key={cartItem._id || index}
@@ -491,9 +558,29 @@ export default function CheckoutInvoicePDF({
                   <Text style={styles.productName}>
                     {item?.itemName || cartItem.name || "Unknown Item"}
                   </Text>
-                  <Text style={styles.muted}>
-                    IMEI: {item?.imeiNumber || item?.sku || "N/A"}
-                  </Text>
+                  {isDevice && (
+                    <View style={styles.deviceDetailsContainer}>
+                      {units.length > 1 ? (
+                        units.map((u: any, uIdx: number) => (
+                          <Text key={uIdx} style={styles.deviceIdentifierRow}>
+                            Unit {uIdx + 1}: IMEI: {u.imei || "Not recorded"} | Serial: {u.serial || "Not recorded"}
+                          </Text>
+                        ))
+                      ) : (
+                        <>
+                          <Text style={styles.deviceIdentifierRow}>
+                            IMEI: {imei || "Not recorded"}
+                          </Text>
+                          <Text style={styles.deviceIdentifierRow}>
+                            Serial: {serial || "Not recorded"}
+                          </Text>
+                        </>
+                      )}
+                      <Text style={styles.deviceIdentifierRow}>
+                        UPC/EAN: {upcEan || "Not recorded"}
+                      </Text>
+                    </View>
+                  )}
                 </View>
                 <View style={styles.colCondition}>
                   <Text>{item?.currentState || "Service"}</Text>

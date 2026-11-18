@@ -3,11 +3,21 @@ import {
   getPaymentMethodLabel,
 } from "./checkoutPayment";
 
+export interface ThermalReceiptUnit {
+  imei?: string;
+  serial?: string;
+}
+
 export interface ThermalReceiptItem {
   name: string;
   quantity: number;
   originalPrice: number;
   sellingPrice: number;
+  imei?: string;
+  serial?: string;
+  upcEan?: string;
+  units?: ThermalReceiptUnit[];
+  isDevice?: boolean;
 }
 
 export interface ThermalReceiptAllocation {
@@ -149,8 +159,49 @@ export const buildThermalReceiptHtml = (payload: ThermalReceiptPayload) => {
             )
           : 0;
 
+      const isDevice = Boolean(
+        item.isDevice ||
+          item.imei ||
+          item.serial ||
+          item.upcEan ||
+          (item.units && item.units.length > 0),
+      );
+
+      let identifiersHtml = "";
+      if (isDevice) {
+        if (item.units && item.units.length > 1) {
+          const unitRows = item.units
+            .slice(0, item.quantity)
+            .map(
+              (u, idx) => `
+              <div class="item-identifier-row">
+                Unit ${idx + 1}: IMEI: ${u.imei ? `<b>${escapeHtml(u.imei)}</b>` : "Not recorded"} | Serial: ${u.serial ? `<b>${escapeHtml(u.serial)}</b>` : "Not recorded"}
+              </div>
+            `,
+            )
+            .join("");
+          identifiersHtml = `
+            <div class="item-identifiers">
+              ${unitRows}
+              <div class="item-identifier-row">UPC/EAN: ${item.upcEan ? `<b>${escapeHtml(item.upcEan)}</b>` : "Not recorded"}</div>
+            </div>
+          `;
+        } else {
+          const imeiVal = item.imei || item.units?.[0]?.imei;
+          const serialVal = item.serial || item.units?.[0]?.serial;
+          identifiersHtml = `
+            <div class="item-identifiers">
+              <div class="item-identifier-row">IMEI: ${imeiVal ? `<b>${escapeHtml(imeiVal)}</b>` : "Not recorded"}</div>
+              <div class="item-identifier-row">Serial: ${serialVal ? `<b>${escapeHtml(serialVal)}</b>` : "Not recorded"}</div>
+              <div class="item-identifier-row">UPC/EAN: ${item.upcEan ? `<b>${escapeHtml(item.upcEan)}</b>` : "Not recorded"}</div>
+            </div>
+          `;
+        }
+      }
+
       return `
         <div class="item-name">${escapeHtml(item.name)}</div>
+        ${identifiersHtml}
         <div class="item-row">
           <span>${escapeHtml(item.quantity)}</span>
           <span>${escapeHtml(formatMoney(item.sellingPrice, payload.currency))}</span>
@@ -218,6 +269,19 @@ export const buildThermalReceiptHtml = (payload: ThermalReceiptPayload) => {
       .table-head span:not(:first-child), .item-row span:not(:first-child),
       .item-row b { text-align: right; }
       .item-name { margin-top: 6px; font-weight: 900; overflow-wrap: anywhere; }
+      .item-identifiers {
+        margin: 2px 0 3px 6px;
+        font-size: 8.5px;
+        line-height: 1.35;
+        color: #111;
+        overflow-wrap: anywhere;
+      }
+      .item-identifier-row {
+        margin: 1px 0;
+      }
+      .item-identifier-row b {
+        font-weight: 700;
+      }
       .totals { font-size: 9.5px; }
       .totals .grand { margin-top: 4px; font-size: 12px; font-weight: 900; }
       .totals .grand b { color: #5d950b; }
