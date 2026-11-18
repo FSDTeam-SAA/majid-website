@@ -27,9 +27,19 @@ import { useCurrency } from "@/hooks/useCurrency";
 
 export interface SheetInvoiceItem {
   _id?: string;
+  name?: string;
+  imeiNumber?: string;
+  serialNumber?: string;
+  upcEan?: string;
+  units?: any[];
   itemId?: {
     itemName?: string;
     expectedPrice?: number;
+    imeiNumber?: string;
+    serialNumber?: string;
+    sku?: string;
+    units?: any[];
+    categoryAttributes?: Record<string, any>;
   };
   quantity?: number;
 }
@@ -310,20 +320,21 @@ export const TransactionDetailsSheet: React.FC<
                         </p>
                         {(() => {
                           const anyItem = item as any;
+                          const anyItemId = (item.itemId || {}) as any;
                           const imei =
                             anyItem.imeiNumber ||
-                            item.itemId?.imeiNumber ||
-                            (item.itemId?.units && item.itemId.units[0]?.imeiNumber);
+                            anyItemId.imeiNumber ||
+                            (anyItemId.units && anyItemId.units[0]?.imeiNumber);
                           const serial =
                             anyItem.serialNumber ||
-                            item.itemId?.serialNumber ||
-                            (item.itemId?.units && item.itemId.units[0]?.serialNumber);
+                            anyItemId.serialNumber ||
+                            (anyItemId.units && anyItemId.units[0]?.serialNumber);
                           const upc =
                             anyItem.upcEan ||
-                            item.itemId?.sku ||
-                            item.itemId?.categoryAttributes?.upc ||
-                            item.itemId?.categoryAttributes?.ean;
-                          const units = anyItem.units || item.itemId?.units;
+                            anyItemId.sku ||
+                            anyItemId.categoryAttributes?.upc ||
+                            anyItemId.categoryAttributes?.ean;
+                          const units = anyItem.units || anyItemId.units;
                           const isDev = Boolean(
                             imei || serial || upc || (units && units.length > 0),
                           );
