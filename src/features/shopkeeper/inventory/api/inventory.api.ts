@@ -358,6 +358,7 @@ export const createInvoice = async (input: {
   lineItems?: Array<{ itemId: string; quantity: number; variantId?: string }>;
   invoiceTemplate?: string;
   tradeInConsentId?: string;
+  tradeInDetails?: string;
   nid_front?: File | Blob | null;
   nid_back?: File | Blob | null;
 }) => {
@@ -376,6 +377,10 @@ export const createInvoice = async (input: {
 
   if (input.tradeInConsentId) {
     formData.append("tradeInConsentId", input.tradeInConsentId);
+  }
+
+  if (input.tradeInDetails) {
+    formData.append("tradeInDetails", input.tradeInDetails);
   }
 
   if (input.invoiceTemplate) {

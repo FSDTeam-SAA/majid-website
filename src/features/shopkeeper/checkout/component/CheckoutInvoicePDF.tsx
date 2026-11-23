@@ -294,6 +294,12 @@ export interface CheckoutInvoicePDFProps {
   taxIncludedInPrice?: boolean;
   total: number;
   currency?: string;
+  tradeInItem?: {
+    deviceName: string;
+    condition?: string;
+    imei?: string;
+    buyingPrice: number;
+  } | null;
 }
 
 const formatCurrency = (value: number, currencyCode: string = "GBP") => {
@@ -320,6 +326,7 @@ export default function CheckoutInvoicePDF({
   taxIncludedInPrice,
   total,
   currency = "USD",
+  tradeInItem,
 }: CheckoutInvoicePDFProps) {
   const invoiceDate = new Date();
 
@@ -631,6 +638,12 @@ export default function CheckoutInvoicePDF({
                   {taxName || "Tax"} {taxIncludedInPrice ? "(Included)" : ""}
                 </Text>
                 <Text>{formatCurrency(tax, currency)}</Text>
+              </View>
+            )}
+            {tradeInItem && tradeInItem.buyingPrice > 0 && (
+              <View style={styles.totalLine}>
+                <Text>Trade-in Credit ({tradeInItem.deviceName})</Text>
+                <Text>-{formatCurrency(tradeInItem.buyingPrice, currency)}</Text>
               </View>
             )}
             <View style={styles.amountDue}>

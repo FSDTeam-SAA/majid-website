@@ -31,6 +31,8 @@ import {
   Clock3,
   CreditCard,
   Printer,
+  Smartphone,
+  RefreshCw,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
@@ -59,6 +61,8 @@ import { generateGoogleReviewQrCodeDataUrl } from "@/features/shopkeeper/setting
 // PDF Document
 import CheckoutInvoicePDF from "./CheckoutInvoicePDF";
 import ReturnInvoiceModal from "./ReturnInvoiceModal";
+import { TradeInSearchSection, TradeInDevice } from "./TradeInSearchSection";
+import { ReviewTradeInModal, AssessedTradeIn } from "./ReviewTradeInModal";
 import {
   CheckoutPaymentResult,
   createCheckoutPaymentForm,
@@ -177,6 +181,12 @@ export default function Checkout() {
   >({});
   const [customAmountReceived, setCustomAmountReceived] = useState("");
   const [isDueInvoicesModalOpen, setIsDueInvoicesModalOpen] = useState(false);
+
+  // Trade-in States
+  const [activeTradeIn, setActiveTradeIn] = useState<AssessedTradeIn | null>(null);
+  const [isReviewTradeInOpen, setIsReviewTradeInOpen] = useState(false);
+  const [selectedTradeInDevice, setSelectedTradeInDevice] = useState<TradeInDevice | null>(null);
+  const [initialTradeInGradeKey, setInitialTradeInGradeKey] = useState<"A" | "B" | "C">("B");
 
   // Local item quantities & selected variant (for Browse Inventory cards)
   const [localQuantities, setLocalQuantities] = useState<
@@ -419,7 +429,10 @@ export default function Checkout() {
     );
   }, [dueInvoices]);
 
-  const todayPurchase = totalPayment;
+  const tradeInCredit = activeTradeIn ? activeTradeIn.buyingPrice : 0;
+  const todaySale = totalPayment;
+  const netTodayPurchase = Math.max(0, todaySale - tradeInCredit);
+  const todayPurchase = netTodayPurchase;
   const payAllTotal = previousOutstanding + todayPurchase;
 
   const effectiveAmountReceived = useMemo(() => {
@@ -742,10 +755,55 @@ export default function Checkout() {
       setSelectedCustomer(null);
       setManualPrices({});
       setPulledRepairItem(null);
+      setActiveTradeIn(null);
       toast.success("Order details cleared");
     } catch {
       toast.error("Failed to clear order");
     }
+  };
+
+  // ─── Trade-in Handlers ─────────────────────────────────────────────────────
+  const handleSelectTradeInDevice = (
+    device: TradeInDevice,
+    gradeKey: "A" | "B" | "C" = "B",
+  ) => {
+    setSelectedTradeInDevice(device);
+    setInitialTradeInGradeKey(gradeKey);
+    setIsReviewTradeInOpen(true);
+  };
+
+  const handleCreateCustomTradeInDevice = () => {
+    const customName =
+      (typeof window !== "undefined"
+        ? window.prompt("Enter custom trade-in device name:")
+        : "") || "Custom Device";
+    const customDevice: TradeInDevice = {
+      id: `custom_${Date.now()}`,
+      brand: "Generic",
+      category: "Smartphones",
+      deviceName: customName,
+      modelNumber: "Custom",
+      storage: "N/A",
+      color: "N/A",
+      grades: {
+        A: { name: "A • Excellent", price: 100, weeklyChange: 0, trend: "none" },
+        B: { name: "B • Good", price: 80, weeklyChange: 0, trend: "none" },
+        C: { name: "C • Fair", price: 60, weeklyChange: 0, trend: "none" },
+      },
+      lastUpdated: "today",
+      source: "custom",
+    };
+    setSelectedTradeInDevice(customDevice);
+    setInitialTradeInGradeKey("B");
+    setIsReviewTradeInOpen(true);
+  };
+
+  const handleConfirmTradeIn = (assessment: AssessedTradeIn) => {
+    setActiveTradeIn(assessment);
+    setIsReviewTradeInOpen(false);
+    toast.success(
+      `Trade-in applied: ${assessment.device.deviceName} (+${currencySymbol}${assessment.buyingPrice.toFixed(2)})`,
+    );
   };
 
   // ─── Customer Helpers ──────────────────────────────────────────────────────
@@ -878,7 +936,7 @@ export default function Checkout() {
       }
     }
 
-    setPaymentForm(createCheckoutPaymentForm(totalPayment));
+    setPaymentForm(createCheckoutPaymentForm(todayPurchase));
     setIsPaymentModalOpen(true);
   };
 
@@ -894,7 +952,7 @@ export default function Checkout() {
 
     const { error, payment } = validateCheckoutPayment(
       paymentForm,
-      totalPayment,
+      todayPurchase,
     );
 
     if (error || !payment) {
@@ -1066,8 +1124,18 @@ export default function Checkout() {
           tax={tax}
           taxName={activeShop?.taxName}
           taxIncludedInPrice={activeShop?.taxIncludedInPrice}
-          total={totalPayment}
+          total={todayPurchase}
           currency={currency}
+          tradeInItem={
+            activeTradeIn
+              ? {
+                  deviceName: activeTradeIn.device.deviceName,
+                  condition: activeTradeIn.condition,
+                  imei: activeTradeIn.imei,
+                  buyingPrice: activeTradeIn.buyingPrice,
+                }
+              : undefined
+          }
         />
       );
 
@@ -1105,7 +1173,24 @@ export default function Checkout() {
             upcEan: cartItem.upcEan,
             units: cartItem.units,
           })),
-        totalAmount: totalPayment,
+        totalAmount: todayPurchase,
+        tradeInDetails: activeTradeIn
+          ? JSON.stringify({
+              deviceName: activeTradeIn.device.deviceName,
+              modelNumber: activeTradeIn.device.modelNumber,
+              storage: activeTradeIn.device.storage,
+              color: activeTradeIn.device.color,
+              grade: activeTradeIn.condition,
+              condition: activeTradeIn.condition,
+              buyingPrice: activeTradeIn.buyingPrice,
+              tradeInCredit: activeTradeIn.buyingPrice,
+              batteryHealth: activeTradeIn.batteryHealth,
+              blacklistStatus: activeTradeIn.blacklistStatus,
+              networkLock: activeTradeIn.networkLock,
+              imei: activeTradeIn.imei,
+              serialNumber: activeTradeIn.imei,
+            })
+          : undefined,
         amountPaid: payment.amountPaid,
         dueAmount: payment.dueAmount,
         tax,
@@ -1157,7 +1242,7 @@ export default function Checkout() {
           })),
           subtotalBeforeDiscount,
           discount: totalDiscount,
-          total: totalPayment,
+          total: todayPurchase,
           currency,
           payment,
           allocations: allocationsReceipt,
@@ -1223,6 +1308,7 @@ export default function Checkout() {
       });
       setManualPrices({});
       setPulledRepairItem(null);
+      setActiveTradeIn(null);
       setDeliveryDetails((prev) => ({
         ...prev,
         from: "",
@@ -1315,10 +1401,10 @@ export default function Checkout() {
     const todayRow = allocationPreview.find((r) => r.isToday);
     const todayApplied = todayRow
       ? todayRow.applied
-      : Math.min(totalPayment, numericReceived);
+      : Math.min(todayPurchase, numericReceived);
     const todayRemaining = todayRow
       ? todayRow.remaining
-      : Math.max(0, totalPayment - todayApplied);
+      : Math.max(0, todayPurchase - todayApplied);
 
     const paymentResult: CheckoutPaymentResult = {
       method: paymentForm.method || "cash",
@@ -1330,7 +1416,7 @@ export default function Checkout() {
         amountReceived: numericReceived,
         changeGiven: Math.max(
           0,
-          numericReceived - (previousOutstanding + totalPayment),
+          numericReceived - (previousOutstanding + todayPurchase),
         ),
         cardholderName: paymentForm.cardholderName.trim() || undefined,
         cardLastFour: paymentForm.cardLastFour.trim() || undefined,
@@ -1474,6 +1560,13 @@ export default function Checkout() {
             </div>
           </div>
         )}
+
+        {/* Trade-in Search Section */}
+        <TradeInSearchSection
+          currencySymbol={currencySymbol}
+          onSelectDevice={handleSelectTradeInDevice}
+          onCreateCustomDevice={handleCreateCustomTradeInDevice}
+        />
 
         {/* Callout 4: Guidance Banner */}
         <div className="flex items-center gap-3 px-5 py-3.5 bg-[#84CC16]/10 border border-[#84CC16]/20 rounded-2xl text-xs font-bold text-[#3f6212] shadow-sm">
@@ -2084,14 +2177,90 @@ export default function Checkout() {
                 </p>
               </div>
             )}
+
+            {/* Active Trade-In Card */}
+            {activeTradeIn && (
+              <div className="rounded-xl border border-[#84CC16]/40 bg-lime-50/70 p-3 space-y-1.5 mt-2">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-[#84CC16] text-white shrink-0">
+                      <Smartphone size={16} />
+                    </div>
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-[9px] font-black uppercase tracking-wider text-[#4d7c0f] bg-lime-100 px-1 py-0.5 rounded">
+                          Trade-in
+                        </span>
+                        <span className="text-[10px] font-bold text-slate-600 truncate">
+                          {activeTradeIn.condition}
+                        </span>
+                      </div>
+                      <p className="text-xs font-black text-slate-900 truncate">
+                        {activeTradeIn.device.deviceName}
+                      </p>
+                      <p className="text-[10px] font-bold text-slate-400">
+                        {activeTradeIn.device.modelNumber} • {activeTradeIn.device.storage} • {activeTradeIn.device.color}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex flex-col items-end shrink-0">
+                    <span className="text-xs font-black text-[#4d7c0f]">
+                      -{currencySymbol}
+                      {activeTradeIn.buyingPrice.toFixed(2)}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setActiveTradeIn(null)}
+                      className="text-[10px] font-bold text-rose-500 hover:text-rose-600 hover:underline mt-1"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                </div>
+                {activeTradeIn.imei && (
+                  <div className="text-[9px] font-mono text-slate-500 bg-white/80 px-2 py-0.5 rounded border border-lime-100 truncate">
+                    IMEI/SN: {activeTradeIn.imei}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
-          <div className="flex items-center justify-between pt-2 border-t border-slate-100 text-xs font-bold text-slate-700">
-            <span>Today&apos;s purchase</span>
-            <span className="text-sm font-black text-slate-950">
-              {currencySymbol}
-              {todayPurchase.toFixed(2)}
-            </span>
+          <div className="pt-2 border-t border-slate-100 space-y-1.5 text-xs">
+            <div className="flex items-center justify-between text-slate-600 font-bold">
+              <span>Today&apos;s sale</span>
+              <span className="text-slate-900 font-black">
+                {currencySymbol}
+                {todaySale.toFixed(2)}
+              </span>
+            </div>
+            <div className="flex items-center justify-between text-slate-600 font-bold">
+              <span>Trade-in credit</span>
+              <span
+                className={
+                  tradeInCredit > 0
+                    ? "text-[#4d7c0f] font-black"
+                    : "text-slate-400 font-bold"
+                }
+              >
+                {tradeInCredit > 0
+                  ? `-${currencySymbol}${tradeInCredit.toFixed(2)}`
+                  : `${currencySymbol}0.00`}
+              </span>
+            </div>
+            <div className="flex items-center justify-between pt-1 border-t border-slate-100 text-xs font-bold text-slate-900">
+              <span className="font-black">Customer pays</span>
+              <span className="text-sm font-black text-[#84CC16]">
+                {currencySymbol}
+                {todayPurchase.toFixed(2)}
+              </span>
+            </div>
+            {!activeTradeIn && (
+              <p className="text-[10px] font-bold text-slate-400 pt-1 flex items-center gap-1">
+                <Info size={11} className="shrink-0" />
+                Choose a device to assess it and agree a buying price.
+              </p>
+            )}
           </div>
         </div>
 
@@ -2620,7 +2789,7 @@ export default function Checkout() {
             <DialogDescription className="text-xs font-semibold text-slate-500">
               Select how the customer is paying{" "}
               <span className="font-black text-slate-900">
-                {formatCurrency(totalPayment, currency)}
+                {formatCurrency(todayPurchase, currency)}
               </span>
               . The payment record will be saved with the customer invoice.
             </DialogDescription>
@@ -2720,7 +2889,7 @@ export default function Checkout() {
                       </span>
                       <Input
                         type="number"
-                        min={totalPayment}
+                        min={todayPurchase}
                         step="0.01"
                         value={paymentForm.amountReceived}
                         onChange={(event) =>
@@ -2741,7 +2910,7 @@ export default function Checkout() {
                           Math.max(
                             0,
                             Number(paymentForm.amountReceived || 0) -
-                              totalPayment,
+                              todayPurchase,
                           ),
                           currency,
                         )}
@@ -2877,7 +3046,7 @@ export default function Checkout() {
                       <Input
                         type="number"
                         min="0"
-                        max={Math.max(0, totalPayment - 0.01)}
+                        max={Math.max(0, todayPurchase - 0.01)}
                         step="0.01"
                         value={paymentForm.amountPaid}
                         onChange={(event) =>
@@ -2913,7 +3082,7 @@ export default function Checkout() {
                         {formatCurrency(
                           Math.max(
                             0,
-                            totalPayment - Number(paymentForm.amountPaid || 0),
+                            todayPurchase - Number(paymentForm.amountPaid || 0),
                           ),
                           currency,
                         )}
@@ -3206,6 +3375,23 @@ export default function Checkout() {
           </form>
         </DialogContent>
       </Dialog>
+
+      <ReviewTradeInModal
+        open={isReviewTradeInOpen}
+        onOpenChange={setIsReviewTradeInOpen}
+        device={selectedTradeInDevice}
+        initialGradeKey={initialTradeInGradeKey}
+        customerName={
+          selectedCustomer
+            ? [selectedCustomer.firstName, selectedCustomer.lastName]
+                .filter(Boolean)
+                .join(" ")
+            : "Walk-in Customer"
+        }
+        todaySaleTotal={todaySale}
+        currencySymbol={currencySymbol}
+        onConfirmTradeIn={handleConfirmTradeIn}
+      />
 
       <style jsx global>{`
         .scrollbar-none::-webkit-scrollbar {
