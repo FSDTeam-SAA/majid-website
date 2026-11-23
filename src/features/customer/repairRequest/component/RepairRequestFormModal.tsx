@@ -339,12 +339,18 @@ export function RepairRequestFormModal({
 
     if (deviceSearch.trim()) {
       const q = deviceSearch.trim().toLowerCase();
-      list = list.filter(
-        (d) =>
-          d.modelName.toLowerCase().includes(q) ||
-          d.modelCode.toLowerCase().includes(q) ||
-          d.releaseYear.includes(q),
-      );
+      const cleanQ = q.replace(/^sm-/, "");
+      list = list.filter((d) => {
+        const name = d.modelName.toLowerCase();
+        const code = d.modelCode.toLowerCase();
+        const year = String(d.releaseYear).toLowerCase();
+        return (
+          name.includes(q) ||
+          code.includes(q) ||
+          (cleanQ ? code.replace(/^sm-/, "").includes(cleanQ) : false) ||
+          year.includes(q)
+        );
+      });
     }
 
     return list.slice(0, 30);
@@ -627,15 +633,15 @@ export function RepairRequestFormModal({
                           releaseYear: item.releaseYear,
                         })
                       }
-                      className={`p-3.5 rounded-xl border cursor-pointer transition-all flex items-center justify-between ${
+                      className={`p-3.5 rounded-xl border cursor-pointer transition-all flex items-center justify-between gap-3 ${
                         isSel
                           ? "border-[#10B981] bg-[#10B981]/5"
                           : "border-border bg-surface hover:border-[#10B981]/40"
                       }`}
                     >
-                      <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-3 min-w-0 flex-1">
                         <div
-                          className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
+                          className={`w-5 h-5 shrink-0 rounded-full border-2 flex items-center justify-center ${
                             isSel
                               ? "border-[#10B981] bg-[#10B981]"
                               : "border-muted-foreground"
@@ -643,18 +649,22 @@ export function RepairRequestFormModal({
                         >
                           {isSel && <Check size={12} className="text-white" />}
                         </div>
-                        <div>
-                          <p className="text-sm font-bold text-foreground">
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-bold text-foreground truncate">
                             {item.modelName}
                           </p>
-                          <p className="text-xs text-muted-foreground">
-                            {item.modelCode}
-                          </p>
+                          {item.modelCode && (
+                            <p className="text-xs text-muted-foreground font-mono truncate">
+                              {item.modelCode}
+                            </p>
+                          )}
                         </div>
                       </div>
-                      <span className="px-2.5 py-1 rounded-md text-[11px] font-bold bg-card border border-border text-muted-foreground">
-                        {item.releaseYear}
-                      </span>
+                      {item.releaseYear && (
+                        <span className="shrink-0 px-2.5 py-1 rounded-md text-[11px] font-bold bg-card border border-border text-muted-foreground max-w-[110px] truncate">
+                          {item.releaseYear}
+                        </span>
+                      )}
                     </div>
                   );
                 })}
