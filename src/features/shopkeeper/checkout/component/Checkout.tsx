@@ -63,6 +63,7 @@ import CheckoutInvoicePDF from "./CheckoutInvoicePDF";
 import ReturnInvoiceModal from "./ReturnInvoiceModal";
 import { TradeInSearchSection, TradeInDevice } from "./TradeInSearchSection";
 import { ReviewTradeInModal, AssessedTradeIn } from "./ReviewTradeInModal";
+import { CreateCustomTradeInModal } from "./CreateCustomTradeInModal";
 import {
   CheckoutPaymentResult,
   createCheckoutPaymentForm,
@@ -185,6 +186,7 @@ export default function Checkout() {
   // Trade-in States
   const [activeTradeIn, setActiveTradeIn] = useState<AssessedTradeIn | null>(null);
   const [isReviewTradeInOpen, setIsReviewTradeInOpen] = useState(false);
+  const [isCreateCustomModalOpen, setIsCreateCustomModalOpen] = useState(false);
   const [selectedTradeInDevice, setSelectedTradeInDevice] = useState<TradeInDevice | null>(null);
   const [initialTradeInGradeKey, setInitialTradeInGradeKey] = useState<"A" | "B" | "C">("B");
 
@@ -773,29 +775,14 @@ export default function Checkout() {
   };
 
   const handleCreateCustomTradeInDevice = () => {
-    const customName =
-      (typeof window !== "undefined"
-        ? window.prompt("Enter custom trade-in device name:")
-        : "") || "Custom Device";
-    const customDevice: TradeInDevice = {
-      id: `custom_${Date.now()}`,
-      brand: "Generic",
-      category: "Smartphones",
-      deviceName: customName,
-      modelNumber: "Custom",
-      storage: "N/A",
-      color: "N/A",
-      grades: {
-        A: { name: "A • Excellent", price: 100, weeklyChange: 0, trend: "none" },
-        B: { name: "B • Good", price: 80, weeklyChange: 0, trend: "none" },
-        C: { name: "C • Fair", price: 60, weeklyChange: 0, trend: "none" },
-      },
-      lastUpdated: "today",
-      source: "custom",
-    };
-    setSelectedTradeInDevice(customDevice);
-    setInitialTradeInGradeKey("B");
-    setIsReviewTradeInOpen(true);
+    setIsCreateCustomModalOpen(true);
+  };
+
+  const handleConfirmCustomTradeIn = (assessment: AssessedTradeIn) => {
+    setActiveTradeIn(assessment);
+    toast.success(
+      `Trade-in applied: ${assessment.device.deviceName} (+${currencySymbol}${assessment.buyingPrice.toFixed(2)})`,
+    );
   };
 
   const handleConfirmTradeIn = (assessment: AssessedTradeIn) => {
@@ -1578,7 +1565,10 @@ export default function Checkout() {
         </div>
 
         {/* Browse Inventory */}
-        <div className="bg-white border border-slate-100 rounded-[28px] p-6 shadow-sm space-y-6">
+        <div
+          id="browse-inventory-section"
+          className="bg-white border border-slate-100 rounded-[28px] p-6 shadow-sm space-y-6"
+        >
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <h2 className="text-xl font-black text-slate-900 tracking-tight">
               Browse Inventory
@@ -1915,10 +1905,20 @@ export default function Checkout() {
             <button
               type="button"
               onClick={() => {
-                document
-                  .getElementById("browse-inventory-section")
-                  ?.scrollIntoView({ behavior: "smooth" });
+                const section = document.getElementById(
+                  "browse-inventory-section",
+                );
+                if (section) {
+                  section.scrollIntoView({
+                    behavior: "smooth",
+                    block: "start",
+                  });
+                  setTimeout(() => {
+                    searchInputRef.current?.focus();
+                  }, 300);
+                }
               }}
+              title="Jump to Browse Inventory to add products"
               className="px-2.5 py-1 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-[10px] font-black uppercase text-slate-600 tracking-wider transition-colors"
             >
               RETURN TO BROWSE
@@ -3391,6 +3391,13 @@ export default function Checkout() {
         todaySaleTotal={todaySale}
         currencySymbol={currencySymbol}
         onConfirmTradeIn={handleConfirmTradeIn}
+      />
+
+      <CreateCustomTradeInModal
+        open={isCreateCustomModalOpen}
+        onOpenChange={setIsCreateCustomModalOpen}
+        currencySymbol={currencySymbol}
+        onConfirm={handleConfirmCustomTradeIn}
       />
 
       <style jsx global>{`
