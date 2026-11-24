@@ -4,9 +4,9 @@
   "private": true,
   "packageManager": "npm@11.8.2",
   "scripts": {
-    "dev": "node init && next dev --webpack",
-    "build": "node init && CI=true next build --webpack",
-    "start": "node init && next start",
+    "dev": "next dev --webpack",
+    "build": "CI=true next build --webpack",
+    "start": "next start",
     "lint": "eslint",
     "test": "jest",
     "test:watch": "jest --watch",
