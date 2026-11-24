@@ -85,6 +85,7 @@ export interface CashDrawerMetricsResponse {
   cashScore: number;
   aiInsight: string;
   availableCashToday: number;
+  cashInDrawer?: number;
   previousSalesTotal: number;
   todayMetrics: PeriodCashMetrics;
   yesterdayMetrics: PeriodCashMetrics;

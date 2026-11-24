@@ -361,6 +361,8 @@ export const createInvoice = async (input: {
   tradeInDetails?: string;
   nid_front?: File | Blob | null;
   nid_back?: File | Blob | null;
+  createdAt?: string;
+  invoiceDate?: string;
 }) => {
   const formData = new FormData();
 
@@ -373,6 +375,13 @@ export const createInvoice = async (input: {
   }
   if (input.nid_back) {
     formData.append("nid_back", input.nid_back);
+  }
+
+  if (input.createdAt) {
+    formData.append("createdAt", input.createdAt);
+  }
+  if (input.invoiceDate) {
+    formData.append("invoiceDate", input.invoiceDate);
   }
 
   if (input.tradeInConsentId) {
