@@ -66,17 +66,29 @@ export function useCashDrawerMetrics(
     drawerData?.previousSalesTotal ?? round2(allTimeMetrics.cashSales),
   );
 
+  const unbankedTotal = Math.max(
+    0,
+    round2(allTimeMetrics.cashSales - allTimeMetrics.cashExpenses - banked),
+  );
+  const liveTodayDrawer = round2(
+    startingDayCash +
+      todayMetrics.cashSales -
+      todayMetrics.cashExpenses -
+      banked,
+  );
+  const fallbackAvailable = Math.max(
+    0,
+    startingDayCash > 0
+      ? liveTodayDrawer
+      : (liveTodayDrawer > 0 ? liveTodayDrawer : unbankedTotal),
+  );
+
   const availableCashToday = Number(
     drawerData?.availableCashToday ??
-      Math.max(
-        0,
-        round2(
-          startingDayCash +
-            todayMetrics.cashSales -
-            todayMetrics.cashExpenses -
-            banked,
-        ),
-      ),
+      drawerData?.cashInDrawer ??
+      (cashManagement as any)?.availableCashToday ??
+      (cashManagement as any)?.cashInDrawer ??
+      fallbackAvailable,
   );
 
   // Invalidate queries after mutation

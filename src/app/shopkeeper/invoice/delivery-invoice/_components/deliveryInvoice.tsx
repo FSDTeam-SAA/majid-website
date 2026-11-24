@@ -505,6 +505,8 @@ export default function DeliveryInvoice() {
           taxIncludedInPrice: activeShop?.taxIncludedInPrice,
           paymentMethod: finalPaymentType || "cash",
           currency: currency || "BDT",
+          createdAt: invoiceDate.toISOString(),
+          invoiceDate: invoiceDate.toISOString(),
         },
         {
           onSuccess: () => {

@@ -989,6 +989,8 @@ export default function CreateInvoice() {
           invoiceNumber: generatedInvoiceNumber,
           invoiceTemplate: profileData?.data?.invoiceTemplate || "default",
           tradeInConsentId: tradeInConsent?.consentId || tradeInConsent?.id,
+          createdAt: invDate.toISOString(),
+          invoiceDate: invDate.toISOString(),
         },
         {
           onSuccess: () => {

@@ -1692,6 +1692,8 @@ export default function CreatePurchaseReceipt() {
         tradeInConsentId: tradeInConsent?.consentId || tradeInConsent?.id,
         nid_front: nidFrontFile || undefined,
         nid_back: nidBackFile || undefined,
+        createdAt: invoiceDate.toISOString(),
+        invoiceDate: invoiceDate.toISOString(),
       });
 
       const invoiceData = (invoiceRes as any)?.data || invoiceRes;
