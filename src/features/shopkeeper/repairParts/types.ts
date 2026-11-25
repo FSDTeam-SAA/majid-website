@@ -12,7 +12,15 @@ export type RepairPartCategory =
   | "Buttons"
   | "Other parts";
 
-export type DeviceType = "Phone" | "Tablet" | "Laptop" | "Other";
+export type DeviceType =
+  | "Phone"
+  | "Tablet"
+  | "Laptop"
+  | "Desktop"
+  | "Watch"
+  | "Console"
+  | "Audio"
+  | "Other";
 export type PartQuality = "TFT" | "OLED" | "Compatible" | "Original";
 export type MovementType =
   | "delivery"

@@ -49,6 +49,7 @@ import {
 } from "../hooks/useRepairParts";
 import { useShop } from "../../shop/store/shop.store";
 import deviceCatalogFallback from "../data/deviceCatalog.json";
+import { formatDeviceCatalogTitle } from "@/features/customer/repairRequest/utils/repairConstants";
 
 interface AddRepairPartModalProps {
   isOpen: boolean;
@@ -76,7 +77,16 @@ const CATEGORIES: Array<{
   { id: "Other parts", name: "Other parts", icon: Cpu, description: "Antennas, trays & brackets" },
 ];
 
-const DEVICE_TYPES: DeviceType[] = ["Phone", "Tablet", "Laptop", "Other"];
+const DEVICE_TYPES: DeviceType[] = [
+  "Phone",
+  "Tablet",
+  "Laptop",
+  "Desktop",
+  "Watch",
+  "Console",
+  "Audio",
+  "Other",
+];
 
 const DEFAULT_BRANDS = [
   "Apple",
@@ -299,7 +309,7 @@ export function AddRepairPartModal({
   const activeModelTitle = isManualModel
     ? `${manualModelName} (${manualYear || "N/A"}) — ${manualModelCode}`
     : selectedModel
-    ? `${selectedModel.brand} ${selectedModel.modelName} (${selectedModel.releaseYear}) — ${selectedModel.modelCode}`
+    ? `${formatDeviceCatalogTitle(selectedModel.brand, selectedModel.modelName)}${selectedModel.releaseYear ? ` (${selectedModel.releaseYear})` : ""}${selectedModel.modelCode ? ` — ${selectedModel.modelCode}` : ""}`
     : "No model selected";
 
   const handleConfirmAddStock = async () => {
@@ -645,13 +655,16 @@ export function AddRepairPartModal({
                                   : "bg-slate-900 border-slate-800/80 text-slate-200 hover:border-slate-700 hover:bg-slate-850"
                               }`}
                             >
-                              <div>
-                                <span className="font-semibold text-xs">
-                                  {m.brand} {m.modelName} ({m.releaseYear})
+                              <div className="min-w-0 flex-1 pr-2">
+                                <span className="font-semibold text-xs wrap-break-word block">
+                                  {formatDeviceCatalogTitle(m.brand, m.modelName)}{" "}
+                                  {m.releaseYear ? `(${m.releaseYear})` : ""}
                                 </span>
-                                <span className="ml-2 font-mono text-[11px] text-slate-400">
-                                  — {m.modelCode}
-                                </span>
+                                {m.modelCode && (
+                                  <span className="font-mono text-[11px] text-slate-400 break-all block">
+                                    {m.modelCode}
+                                  </span>
+                                )}
                               </div>
                               {isSel && <Check className="w-4 h-4 text-lime-400 shrink-0" />}
                             </button>

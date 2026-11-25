@@ -21,14 +21,36 @@ import {
   Calendar,
   Shield,
   Trash2,
+  Eye,
+  EyeOff,
+  Lock,
+  Tag,
+  Wrench,
 } from "lucide-react";
 import { useState } from "react";
+import { toast } from "sonner";
 import {
   useAddRepairRequestNote,
   useRepairRequestDetails,
   useUpdateRepairRequestStatusByShopkeeper,
   useUpdateResentRepairQuoteStatus,
+  useUpdateRepairRequestDetails,
+  useUploadRepairRequestPhotos,
 } from "@/features/customer/repairRequest/hooks/useRepairRequest";
+import { revealRepairDevicePasscode } from "@/features/customer/repairRequest/api/repair-request.api";
+import {
+  colourHexFor,
+  issueCategoryFromRaw,
+  issuePriceFromRaw,
+  issueProblemsFromRaw,
+  resolveCanonicalBarcode,
+} from "@/features/customer/repairRequest/utils/repairConstants";
+import {
+  PatternGrid,
+  parsePatternNodes,
+} from "@/features/customer/repairRequest/component/RepairPasscodeField";
+import { RepairIssueEditorModal } from "./RepairIssueEditorModal";
+import { RepairJobLabelModal } from "./RepairJobLabelModal";
 import { Button } from "@/components/ui/button";
 import { useCurrency } from "@/hooks/useCurrency";
 import RepairOfferModal from "@/features/customer/repairHistory/component/RepairOfferModal";
@@ -113,11 +135,24 @@ export default function RepairRequestDetails({ id }: { id: string }) {
   const [showUnableToRepairModal, setShowUnableToRepairModal] = useState(false);
   const updateResentQuote = useUpdateResentRepairQuoteStatus();
   const addRepairNote = useAddRepairRequestNote();
+  const updateRepairDetails = useUpdateRepairRequestDetails();
+  const uploadRepairPhotos = useUploadRepairRequestPhotos();
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
   const [isGeneratingFeedback, setIsGeneratingFeedback] = useState(false);
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [uploadNote, setUploadNote] = useState("");
+  const [photoStage, setPhotoStage] = useState<"booking" | "completion">("completion");
+  const [showIssueEditorModal, setShowIssueEditorModal] = useState(false);
+  const [showLabelModal, setShowLabelModal] = useState(false);
+  const [passcodeVisible, setPasscodeVisible] = useState(false);
+  const [revealingPasscode, setRevealingPasscode] = useState(false);
+  const [revealedPasscode, setRevealedPasscode] = useState<{
+    type: string;
+    value: string;
+  } | null>(null);
+  const [showPinDialog, setShowPinDialog] = useState(false);
+  const [staffPinInput, setStaffPinInput] = useState("");
   const [detailsTab, setDetailsTab] = useState<
     "overview" | "issues" | "parts" | "photos" | "history"
   >("overview");
@@ -161,7 +196,7 @@ export default function RepairRequestDetails({ id }: { id: string }) {
       .filter(Boolean)
       .join(" ");
     const receiptDate = new Date();
-    const orderId = request._id.toUpperCase();
+    const orderId = resolveCanonicalBarcode(request as unknown as Record<string, any>);
     const price = Number(request.price || 0);
     const qrLink = `${window.location.origin}/my-invoice/${request._id}`;
     const qrDataUrl = await QRCode.toDataURL(qrLink, {
@@ -193,30 +228,49 @@ export default function RepairRequestDetails({ id }: { id: string }) {
     doc.setLineDashPattern([1.2, 1.2], 0);
     doc.line(10, 35, 90, 35);
 
+    const issuesText = issues
+      .map((iss: any) => {
+        const c = issueCategoryFromRaw(iss);
+        const probs = issueProblemsFromRaw(iss).join(", ");
+        return probs ? `${c} (${probs})` : c;
+      })
+      .join("; ");
+    const bookingCnt = evidencePhotos.filter(
+      (p: any) => p?.photoType !== "completion" && !String(p?.usedFor || "").toLowerCase().includes("completion"),
+    ).length;
+    const completionCnt = evidencePhotos.length - bookingCnt;
+
     const rows: Array<[string, string]> = [
-      ["Order ID", orderId],
+      ["Order ID", `#${orderId}`],
       ["Date", format(receiptDate, "MMM dd, yyyy")],
       ["Time", format(receiptDate, "hh:mm a")],
       ["Shop Name", shopName],
+      ["Device", request.modelName || request.deviceModel || "Repair Device"],
+      ["Condition", request.condition || "Not specified"],
+      ["Colour", request.colour || "Not specified"],
+      ...(request.IMEINumber ? [["IMEI", request.IMEINumber] as [string, string]] : []),
+      ...(request.serialNumber ? [["Serial", request.serialNumber] as [string, string]] : []),
+      ["Issues", issuesText || request.description || "N/A"],
+      ["Photos", `Booking (${bookingCnt}) / Completion (${completionCnt})`],
       ["Shop Owner", shopOwner || "N/A"],
       ["Address", shopkeeper?.shopAddress || "N/A"],
       ["Email", shopkeeper?.email || "N/A"],
       ["Phone", shopkeeper?.phone || shopkeeper?.whatsappNumber || "N/A"],
-      ["Price", formatCurrency(price)],
+      ["Price", price > 0 ? formatCurrency(price) : "Price TBC"],
     ];
 
     let rowY = 44;
     rows.forEach(([label, value]) => {
       doc.setFont("helvetica", "normal");
-      doc.setFontSize(9);
+      doc.setFontSize(8.5);
       doc.setTextColor(148, 163, 184);
       doc.text(label, 10, rowY);
 
-      doc.setFontSize(8);
+      doc.setFontSize(7.5);
       doc.setTextColor(241, 245, 249);
       const valueLines = doc.splitTextToSize(value, 55);
       doc.text(valueLines, 90, rowY, { align: "right" });
-      rowY += Math.max(9, valueLines.length * 4 + 4);
+      rowY += Math.max(7.5, valueLines.length * 3.5 + 3);
     });
 
     doc.setLineDashPattern([1.2, 1.2], 0);
@@ -249,13 +303,14 @@ export default function RepairRequestDetails({ id }: { id: string }) {
     if (!selectedImage) return;
 
     try {
-      await addRepairNote.mutateAsync({
+      await uploadRepairPhotos.mutateAsync({
         id,
-        payload: {
-          message:
-            uploadNote.trim() || "Photo uploaded for this repair request",
-          images: [selectedImage],
-        },
+        photoType: photoStage,
+        usedFor:
+          photoStage === "completion"
+            ? uploadNote.trim() || "Repair completion & invoice proof"
+            : uploadNote.trim() || "Device intake & booking condition",
+        images: [selectedImage],
       });
 
       setSelectedImage(null);
@@ -264,6 +319,67 @@ export default function RepairRequestDetails({ id }: { id: string }) {
       await refetch();
     } catch (error) {
       console.error("Error uploading image:", error);
+    }
+  };
+
+  const handleTogglePasscodeReveal = async (pinOverride?: string) => {
+    if (revealingPasscode) return;
+    if (passcodeVisible && revealedPasscode && !pinOverride) {
+      setPasscodeVisible(false);
+      return;
+    }
+    if (revealedPasscode && !pinOverride) {
+      setPasscodeVisible(true);
+      return;
+    }
+    setRevealingPasscode(true);
+    try {
+      const res = await revealRepairDevicePasscode({
+        id,
+        staffPin: pinOverride,
+      });
+      if (res?.data) {
+        setRevealedPasscode({
+          type: res.data.type || "pin",
+          value: res.data.value || "",
+        });
+        setPasscodeVisible(true);
+        setShowPinDialog(false);
+        setStaffPinInput("");
+        await refetch();
+      }
+    } catch (error: any) {
+      if (error?.response?.status === 403 && !pinOverride) {
+        setShowPinDialog(true);
+      } else {
+        toast.error(
+          error?.response?.data?.message ||
+            "Authorised technician verification required to reveal passcode",
+        );
+      }
+    } finally {
+      setRevealingPasscode(false);
+    }
+  };
+
+  const handleSaveDiagnosisIssues = async (
+    updatedIssues: Array<Record<string, any>>,
+    totalPrice: number,
+    summaryDescription: string,
+  ) => {
+    try {
+      await updateRepairDetails.mutateAsync({
+        id,
+        payload: {
+          issues: updatedIssues,
+          price: totalPrice,
+          ...(summaryDescription ? { description: summaryDescription } : {}),
+        },
+      });
+      setShowIssueEditorModal(false);
+      await refetch();
+    } catch {
+      // handled by mutation
     }
   };
 
@@ -302,12 +418,10 @@ export default function RepairRequestDetails({ id }: { id: string }) {
       ? request.issues
       : [
           {
-            issueCategory: request.category || "Screen / Display",
-            commonProblems: [
-              request.description || "General diagnostic required",
-            ],
+            category: request.category || "Screen / Display",
+            problems: [request.description || "General diagnostic required"],
             estimatedTime: "1–2 Hours",
-            estimatedPrice: request.price || 40.0,
+            estimatedPrice: Number(request.price ?? 0),
           },
         ];
 
@@ -316,6 +430,8 @@ export default function RepairRequestDetails({ id }: { id: string }) {
       ? request.evidencePhotos
       : (request.images || []).map((img: any) => ({
           url: typeof img === "string" ? img : img.url,
+          photoType: "booking",
+          usedFor: "Booking intake photo",
           uploadedAt: request.createdAt,
           autoDeleteAt: new Date(
             new Date(request.createdAt).getTime() + 30 * 24 * 60 * 60 * 1000,
@@ -344,7 +460,7 @@ export default function RepairRequestDetails({ id }: { id: string }) {
           },
           {
             event: "Issue Added",
-            description: `${issues[0]?.issueCategory || "Issue"} - Diagnosed`,
+            description: `${issueCategoryFromRaw(issues[0] || {})} - Diagnosed`,
             createdAt: format(
               new Date(request.createdAt),
               "dd MMM yyyy, hh:mm a",
@@ -372,14 +488,23 @@ export default function RepairRequestDetails({ id }: { id: string }) {
                   </span>
                 </div>
                 <p className="text-xs text-muted-foreground mt-0.5">
-                  {request.modelCode || "A3106"} •{" "}
-                  {request.releaseYear || "2023"}
+                  {[request.modelCode, request.releaseYear]
+                    .filter(Boolean)
+                    .join(" • ") || "Model details pending"}
                 </p>
                 <div className="flex items-center gap-2 mt-1">
-                  <span className="w-2.5 h-2.5 rounded-full bg-[#475569]" />
+                  <span
+                    className="w-2.5 h-2.5 rounded-full border border-black/20"
+                    style={{ backgroundColor: colourHexFor(request.colour) }}
+                  />
                   <span className="text-xs text-muted-foreground font-medium">
-                    {request.colour || "Natural Titanium"}
+                    {request.colour || "Colour not specified"}
                   </span>
+                  {request.condition && (
+                    <span className="text-xs text-muted-foreground">
+                      • Condition: {request.condition}
+                    </span>
+                  )}
                 </div>
               </div>
             </div>
@@ -387,8 +512,7 @@ export default function RepairRequestDetails({ id }: { id: string }) {
             <div className="flex flex-col md:items-end justify-between gap-2">
               <div className="text-left md:text-right">
                 <span className="text-sm font-black text-muted-foreground">
-                  {request.orderNumber ||
-                    `#R-${request._id.slice(-5).toUpperCase()}`}
+                  #{resolveCanonicalBarcode(request as unknown as Record<string, any>)}
                 </span>
                 <p className="text-xs text-muted-foreground">
                   {format(
@@ -397,12 +521,22 @@ export default function RepairRequestDetails({ id }: { id: string }) {
                   )}
                 </p>
               </div>
-              <Button
-                onClick={generateInvoicePDF}
-                className="bg-[#10B981] hover:bg-[#10B981]/90 text-white rounded-full text-xs font-bold h-9 px-5 shadow-sm"
-              >
-                Invoice PDF
-              </Button>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setShowLabelModal(true)}
+                  className="rounded-full text-xs font-bold h-9 px-4"
+                >
+                  <Tag size={14} className="mr-1.5" /> Label (58×35 mm)
+                </Button>
+                <Button
+                  onClick={generateInvoicePDF}
+                  className="bg-[#10B981] hover:bg-[#10B981]/90 text-white rounded-full text-xs font-bold h-9 px-5 shadow-sm"
+                >
+                  Invoice PDF
+                </Button>
+              </div>
             </div>
           </div>
 
@@ -542,20 +676,20 @@ export default function RepairRequestDetails({ id }: { id: string }) {
                     <h3 className="text-base font-black text-foreground">
                       Device Information
                     </h3>
-                    <div className="grid grid-cols-2 gap-4 text-xs">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
                       <div className="p-3 rounded-xl bg-surface border border-border">
                         <span className="text-muted-foreground font-semibold">
                           Brand
                         </span>
                         <p className="text-foreground font-bold mt-0.5">
-                          {request.brand || "Apple"}
+                          {request.brand || "Unknown"}
                         </p>
                       </div>
                       <div className="p-3 rounded-xl bg-surface border border-border">
                         <span className="text-muted-foreground font-semibold">
                           Model
                         </span>
-                        <p className="text-foreground font-bold mt-0.5">
+                        <p className="text-foreground font-bold mt-0.5 wrap-break-word">
                           {request.modelName || request.deviceModel}
                         </p>
                       </div>
@@ -564,7 +698,7 @@ export default function RepairRequestDetails({ id }: { id: string }) {
                           Model Code
                         </span>
                         <p className="text-foreground font-bold mt-0.5">
-                          {request.modelCode || "A3106"}
+                          {request.modelCode || "—"}
                         </p>
                       </div>
                       <div className="p-3 rounded-xl bg-surface border border-border">
@@ -572,7 +706,15 @@ export default function RepairRequestDetails({ id }: { id: string }) {
                           Year
                         </span>
                         <p className="text-foreground font-bold mt-0.5">
-                          {request.releaseYear || "2023"}
+                          {request.releaseYear || "—"}
+                        </p>
+                      </div>
+                      <div className="p-3 rounded-xl bg-surface border border-border">
+                        <span className="text-muted-foreground font-semibold">
+                          Intake Condition
+                        </span>
+                        <p className="text-foreground font-bold mt-0.5">
+                          {request.condition || "Not specified"}
                         </p>
                       </div>
                       <div className="p-3 rounded-xl bg-surface border border-border">
@@ -580,57 +722,134 @@ export default function RepairRequestDetails({ id }: { id: string }) {
                           Colour
                         </span>
                         <p className="text-foreground font-bold mt-0.5 flex items-center gap-1.5">
-                          <span className="w-2.5 h-2.5 rounded-full bg-[#475569]" />
-                          {request.colour || "Natural Titanium"}
+                          <span
+                            className="w-2.5 h-2.5 rounded-full border border-black/20"
+                            style={{ backgroundColor: colourHexFor(request.colour) }}
+                          />
+                          {request.colour || "Not specified"}
                         </p>
                       </div>
                       <div className="p-3 rounded-xl bg-surface border border-border">
                         <span className="text-muted-foreground font-semibold">
-                          IMEI / Serial
+                          IMEI Number
                         </span>
-                        <p className="text-foreground font-bold mt-0.5">
-                          {request.serialNumber ||
-                            request.IMEINumber ||
-                            "352932123456789"}
+                        <p className="text-foreground font-bold mt-0.5 font-mono">
+                          {request.IMEINumber || "Not provided"}
                         </p>
+                      </div>
+                      <div className="p-3 rounded-xl bg-surface border border-border">
+                        <span className="text-muted-foreground font-semibold">
+                          Serial Number
+                        </span>
+                        <p className="text-foreground font-bold mt-0.5 font-mono">
+                          {request.serialNumber || "Not provided"}
+                        </p>
+                      </div>
+                      <div className="p-3 rounded-xl bg-surface border border-border sm:col-span-2">
+                        <div className="flex items-center justify-between gap-3">
+                          <div>
+                            <span className="text-muted-foreground font-semibold flex items-center gap-1.5">
+                              <Lock size={12} /> Device Passcode
+                            </span>
+                            <p className="text-foreground font-bold mt-0.5">
+                              {!request.devicePasscode?.hasPasscode
+                                ? "None"
+                                : passcodeVisible && revealedPasscode
+                                  ? revealedPasscode.type === "pattern"
+                                    ? `Pattern (${revealedPasscode.value})`
+                                    : revealedPasscode.value
+                                  : request.devicePasscode?.maskedValue || "••••"}
+                            </p>
+                          </div>
+                          {request.devicePasscode?.hasPasscode && (
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              disabled={revealingPasscode}
+                              onClick={() => handleTogglePasscodeReveal()}
+                              className="rounded-full h-8 text-xs font-bold"
+                            >
+                              {revealingPasscode ? (
+                                <Loader2 size={13} className="animate-spin" />
+                              ) : passcodeVisible ? (
+                                <>
+                                  <EyeOff size={13} className="mr-1" /> Hide
+                                </>
+                              ) : (
+                                <>
+                                  <Eye size={13} className="mr-1" /> Reveal
+                                </>
+                              )}
+                            </Button>
+                          )}
+                        </div>
+                        {passcodeVisible &&
+                          revealedPasscode?.type === "pattern" &&
+                          parsePatternNodes(revealedPasscode.value).length > 0 && (
+                            <div className="mt-3">
+                              <PatternGrid
+                                nodes={parsePatternNodes(revealedPasscode.value)}
+                                size={108}
+                              />
+                            </div>
+                          )}
                       </div>
                     </div>
                   </div>
 
                   {/* Repair Issues Card */}
                   <div className="bg-card border border-border rounded-[28px] p-6 shadow-sm space-y-4">
-                    <h3 className="text-base font-black text-foreground">
-                      Repair Issues
-                    </h3>
+                    <div className="flex items-center justify-between gap-2">
+                      <h3 className="text-base font-black text-foreground">
+                        Repair Issues
+                      </h3>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setShowIssueEditorModal(true)}
+                        className="rounded-full text-xs font-bold"
+                      >
+                        <Wrench size={13} className="mr-1" /> Edit Faults / Prices
+                      </Button>
+                    </div>
                     <div className="space-y-3">
-                      {issues.map((iss: any, idx: number) => (
-                        <div
-                          key={idx}
-                          className="p-4 rounded-xl bg-surface border border-border flex items-start justify-between"
-                        >
-                          <div>
-                            <h4 className="text-sm font-bold text-foreground">
-                              {iss.issueCategory}
-                            </h4>
-                            <div className="flex flex-wrap gap-1 mt-1">
-                              {(iss.commonProblems || []).map((p: string) => (
-                                <span
-                                  key={p}
-                                  className="px-2 py-0.5 rounded text-[10px] font-bold bg-[#10B981]/15 text-[#10B981]"
-                                >
-                                  {p}
-                                </span>
-                              ))}
+                      {issues.map((iss: any, idx: number) => {
+                        const cat = issueCategoryFromRaw(iss);
+                        const probs = issueProblemsFromRaw(iss);
+                        const estPrice = issuePriceFromRaw(iss);
+                        return (
+                          <div
+                            key={idx}
+                            className="p-4 rounded-xl bg-surface border border-border flex items-start justify-between"
+                          >
+                            <div>
+                              <h4 className="text-sm font-bold text-foreground">
+                                {cat}
+                              </h4>
+                              <div className="flex flex-wrap gap-1 mt-1">
+                                {probs.map((p: string) => (
+                                  <span
+                                    key={p}
+                                    className="px-2 py-0.5 rounded text-[10px] font-bold bg-[#10B981]/15 text-[#10B981]"
+                                  >
+                                    {p}
+                                  </span>
+                                ))}
+                              </div>
+                              <p className="text-xs text-muted-foreground mt-1">
+                                Est. {iss.estimatedTime || "1–2 Hours"}
+                              </p>
                             </div>
-                            <p className="text-xs text-muted-foreground mt-1">
-                              Est. {iss.estimatedTime || "1–2 Hours"}
-                            </p>
+                            <span className="text-sm font-black text-foreground">
+                              {estPrice > 0
+                                ? `£${estPrice.toFixed(2)}`
+                                : "Price TBC"}
+                            </span>
                           </div>
-                          <span className="text-sm font-black text-foreground">
-                            £{(iss.estimatedPrice || 0).toFixed(2)}
-                          </span>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   </div>
                 </>
@@ -639,33 +858,50 @@ export default function RepairRequestDetails({ id }: { id: string }) {
               {/* TAB 2: ISSUES */}
               {detailsTab === "issues" && (
                 <div className="bg-card border border-border rounded-[28px] p-6 shadow-sm space-y-4">
-                  <h3 className="text-base font-black text-foreground">
-                    Selected Issues Breakdown
-                  </h3>
+                  <div className="flex items-center justify-between gap-2">
+                    <h3 className="text-base font-black text-foreground">
+                      Selected Issues Breakdown
+                    </h3>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setShowIssueEditorModal(true)}
+                      className="rounded-full text-xs font-bold"
+                    >
+                      <Wrench size={13} className="mr-1" /> Diagnose / Edit Faults
+                    </Button>
+                  </div>
                   <div className="space-y-3">
-                    {issues.map((iss: any, idx: number) => (
-                      <div
-                        key={idx}
-                        className="p-5 rounded-2xl bg-surface border border-border space-y-2"
-                      >
-                        <div className="flex justify-between items-center">
-                          <h4 className="text-sm font-black text-foreground">
-                            {iss.issueCategory}
-                          </h4>
-                          <span className="text-sm font-black text-[#10B981]">
-                            £{(iss.estimatedPrice || 0).toFixed(2)}
-                          </span>
-                        </div>
-                        <div className="flex flex-wrap gap-1">
-                          {(iss.commonProblems || []).map((p: string) => (
-                            <span
-                              key={p}
-                              className="px-2.5 py-1 rounded-md text-xs font-bold bg-blue-500/15 text-blue-700 dark:text-blue-300"
-                            >
-                              {p}
+                    {issues.map((iss: any, idx: number) => {
+                      const cat = issueCategoryFromRaw(iss);
+                      const probs = issueProblemsFromRaw(iss);
+                      const estPrice = issuePriceFromRaw(iss);
+                      return (
+                        <div
+                          key={idx}
+                          className="p-5 rounded-2xl bg-surface border border-border space-y-2"
+                        >
+                          <div className="flex justify-between items-center">
+                            <h4 className="text-sm font-black text-foreground">
+                              {cat}
+                            </h4>
+                            <span className="text-sm font-black text-[#10B981]">
+                              {estPrice > 0
+                                ? `£${estPrice.toFixed(2)}`
+                                : "Price TBC"}
                             </span>
-                          ))}
-                        </div>
+                          </div>
+                          <div className="flex flex-wrap gap-1">
+                            {probs.map((p: string) => (
+                              <span
+                                key={p}
+                                className="px-2.5 py-1 rounded-md text-xs font-bold bg-blue-500/15 text-blue-700 dark:text-blue-300"
+                              >
+                                {p}
+                              </span>
+                            ))}
+                          </div>
                         {iss.additionalDetails && (
                           <p className="text-xs text-muted-foreground pt-1">
                             {iss.additionalDetails}
@@ -686,7 +922,8 @@ export default function RepairRequestDetails({ id }: { id: string }) {
                           Estimated duration: {iss.estimatedTime || "1–2 Hours"}
                         </p>
                       </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
               )}
@@ -767,18 +1004,32 @@ export default function RepairRequestDetails({ id }: { id: string }) {
                       </p>
                     ) : (
                       <div className="grid grid-cols-3 gap-3">
-                        {evidencePhotos.map((photo: any, idx: number) => (
-                          <div
-                            key={idx}
-                            className="aspect-square rounded-2xl overflow-hidden border border-border relative group"
-                          >
-                            <img
-                              src={photo.url}
-                              alt="Evidence"
-                              className="w-full h-full object-cover"
-                            />
-                          </div>
-                        ))}
+                        {evidencePhotos.map((photo: any, idx: number) => {
+                          const isComp =
+                            photo?.photoType === "completion" ||
+                            String(photo?.usedFor || "")
+                              .toLowerCase()
+                              .includes("completion");
+                          return (
+                            <div
+                              key={idx}
+                              className="aspect-square rounded-2xl overflow-hidden border border-border relative group"
+                            >
+                              <img
+                                src={photo.url}
+                                alt={isComp ? "Completion" : "Booking Intake"}
+                                className="w-full h-full object-cover"
+                              />
+                              <span
+                                className={`absolute bottom-2 left-2 px-2 py-0.5 rounded text-[10px] font-bold text-white ${
+                                  isComp ? "bg-emerald-700/90" : "bg-slate-800/85"
+                                }`}
+                              >
+                                {isComp ? "Completion" : "Booking"}
+                              </span>
+                            </div>
+                          );
+                        })}
                       </div>
                     )}
 
@@ -1205,6 +1456,31 @@ export default function RepairRequestDetails({ id }: { id: string }) {
                   </div>
                 )}
 
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setPhotoStage("booking")}
+                    className={`py-2 px-3 rounded-xl text-xs font-bold border ${
+                      photoStage === "booking"
+                        ? "border-[#10B981] bg-[#10B981]/10 text-[#10B981]"
+                        : "border-border bg-surface text-muted-foreground"
+                    }`}
+                  >
+                    Booking Intake Photo
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPhotoStage("completion")}
+                    className={`py-2 px-3 rounded-xl text-xs font-bold border ${
+                      photoStage === "completion"
+                        ? "border-[#10B981] bg-[#10B981]/10 text-[#10B981]"
+                        : "border-border bg-surface text-muted-foreground"
+                    }`}
+                  >
+                    Completion Proof Photo
+                  </button>
+                </div>
+
                 <textarea
                   value={uploadNote}
                   onChange={(e) => setUploadNote(e.target.value)}
@@ -1214,13 +1490,13 @@ export default function RepairRequestDetails({ id }: { id: string }) {
 
                 <Button
                   onClick={handleImageUpload}
-                  disabled={!selectedImage || addRepairNote.isPending}
+                  disabled={!selectedImage || uploadRepairPhotos.isPending}
                   className="w-full rounded-full bg-primary text-primary-foreground font-black"
                 >
-                  {addRepairNote.isPending ? (
+                  {uploadRepairPhotos.isPending ? (
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   ) : null}
-                  Upload Photo
+                  Upload {photoStage === "completion" ? "Completion" : "Booking"} Photo
                 </Button>
               </div>
 
@@ -1248,11 +1524,12 @@ export default function RepairRequestDetails({ id }: { id: string }) {
                   </Button>
 
                   <Button
-                    onClick={() => {
-                      updateResentQuote.mutate({
+                    onClick={async () => {
+                      await updateResentQuote.mutateAsync({
                         id: id!,
                         status: "diagnosing",
                       });
+                      setShowIssueEditorModal(true);
                     }}
                     variant="outline"
                     className="flex-1 cursor-pointer rounded-full !bg-[#84CC16] hover:text-white font-bold h-11"
@@ -1288,6 +1565,21 @@ export default function RepairRequestDetails({ id }: { id: string }) {
                     onClose={() => setShowOfferModal(false)}
                     id={id}
                   />
+
+                  <Button
+                    type="button"
+                    onClick={async () => {
+                      await updateResentQuote.mutateAsync({
+                        id: id!,
+                        status: "ready-for-collection",
+                      });
+                      setShowLabelModal(true);
+                    }}
+                    variant="outline"
+                    className="flex-1 cursor-pointer rounded-full !bg-teal-600 text-white hover:text-white font-bold h-11"
+                  >
+                    Ready to Collect
+                  </Button>
 
                   <Button
                     className="flex-1 rounded-full font-bold h-11 cursor-pointer !bg-[#84CC16] text-primary-foreground shadow-lg shadow-primary/20"
@@ -1451,6 +1743,69 @@ export default function RepairRequestDetails({ id }: { id: string }) {
             >
               <X size={16} />
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Diagnostic Confirmed Faults / Prices / Parts Modal */}
+      <RepairIssueEditorModal
+        isOpen={showIssueEditorModal}
+        onClose={() => setShowIssueEditorModal(false)}
+        deviceModelName={request.modelName || request.deviceModel}
+        deviceModelCode={request.modelCode}
+        shopId={(request as any).shopId}
+        initialIssues={issues}
+        isSaving={updateRepairDetails.isPending}
+        onSave={handleSaveDiagnosisIssues}
+      />
+
+      {/* 58 x 35 mm Job Label Modal */}
+      <RepairJobLabelModal
+        key={`${request._id}-${request.status}`}
+        isOpen={showLabelModal}
+        onClose={() => setShowLabelModal(false)}
+        request={request}
+      />
+
+      {/* Authorised Technician PIN Verification for Passcode Reveal */}
+      {showPinDialog && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs">
+          <div className="bg-card border border-border rounded-3xl w-full max-w-sm p-6 shadow-2xl space-y-4">
+            <h3 className="text-base font-black text-foreground flex items-center gap-2">
+              <Lock size={16} className="text-[#10B981]" /> Technician Verification Required
+            </h3>
+            <p className="text-xs text-muted-foreground">
+              Only authorised technicians can reveal a customer device passcode. Enter a technician PIN to unlock:
+            </p>
+            <input
+              type="password"
+              inputMode="numeric"
+              value={staffPinInput}
+              onChange={(e) => setStaffPinInput(e.target.value)}
+              placeholder="Technician PIN"
+              className="w-full px-3.5 py-2.5 rounded-xl bg-surface border border-border text-sm text-foreground focus:outline-none focus:border-[#10B981]"
+            />
+            <div className="flex gap-2 pt-1">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setShowPinDialog(false);
+                  setStaffPinInput("");
+                }}
+                className="flex-1 rounded-full font-bold"
+              >
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                disabled={!staffPinInput.trim() || revealingPasscode}
+                onClick={() => handleTogglePasscodeReveal(staffPinInput.trim())}
+                className="flex-1 rounded-full bg-[#10B981] hover:bg-[#059669] text-white font-bold"
+              >
+                {revealingPasscode ? "Verifying..." : "Reveal"}
+              </Button>
+            </div>
           </div>
         </div>
       )}

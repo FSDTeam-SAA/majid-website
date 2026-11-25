@@ -40,6 +40,13 @@ export interface RepairRequestPayload {
   condition?: string;
   serialType?: string;
   serialNumber?: string;
+  customerId?: string;
+  devicePasscode?: {
+    type: "none" | "pin" | "password" | "pattern";
+    value: string;
+    clear?: boolean;
+  };
+  photoType?: "booking" | "completion" | "note";
   issues?: any[];
   evidencePhotos?: any[];
   images?: File[];
@@ -49,13 +56,22 @@ export type RepairRequestStatus =
   | "submitted"
   | "request_submitted"
   | "in_review"
+  | "inReview"
+  | "inProgress"
+  | "order-assigned"
+  | "diagnosing"
+  | "waiting-for-parts"
   | "quote_sent"
+  | "quote-sent"
   | "quote_accepted"
   | "quote_rejected"
   | "approved"
   | "rejected"
   | "repair_in_progress"
+  | "start-work"
+  | "ready-for-collection"
   | "completed"
+  | "collected"
   | "reassigned"
   | "quote-resent"
   | "unable-to-repair";
@@ -140,6 +156,12 @@ export interface RepairRequest {
   condition?: string;
   serialType?: string;
   serialNumber?: string;
+  customerId?: string;
+  devicePasscode?: {
+    type?: "none" | "pin" | "password" | "pattern";
+    hasPasscode?: boolean;
+    maskedValue?: string;
+  };
   issues?: any[];
   evidencePhotos?: any[];
   history?: any[];

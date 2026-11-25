@@ -50,14 +50,21 @@ export const createRepairRequest = async (
   if (payload.condition) formData.append("condition", payload.condition);
   if (payload.serialType) formData.append("serialType", payload.serialType);
   if (payload.serialNumber) formData.append("serialNumber", payload.serialNumber);
+  if (payload.customerId) formData.append("customerId", payload.customerId);
+  if (payload.devicePasscode && payload.devicePasscode.type !== "none") {
+    formData.append("devicePasscode", JSON.stringify(payload.devicePasscode));
+  }
   if (payload.issues) formData.append("issues", JSON.stringify(payload.issues));
   if (payload.evidencePhotos) {
     formData.append("evidencePhotos", JSON.stringify(payload.evidencePhotos));
   }
 
-  payload.images?.forEach((file) => {
-    formData.append("images", file);
-  });
+  if (payload.images && payload.images.length > 0) {
+    formData.append("photoType", payload.photoType || "booking");
+    payload.images.forEach((file) => {
+      formData.append("images", file);
+    });
+  }
 
   const response = await api.post("/repair-requests/add", formData);
   return response.data;
@@ -191,6 +198,9 @@ export const updateRepairReSentQuoteStatus = async ({
     | "waiting-for-parts"
     | "order-assigned"
     | "diagnosing"
+    | "ready-for-collection"
+    | "reassigned"
+    | "quote-sent"
     | "unable-to-repair";
   waitingForPartsDays?: number;
   waitingForPartsDescription?: string;
@@ -206,6 +216,56 @@ export const updateRepairReSentQuoteStatus = async ({
     unableToRepairReason,
     unableToRepairNote,
     unableToRepairCustomerMessage,
+  });
+  return response.data;
+};
+
+export const updateRepairRequestDetails = async ({
+  id,
+  payload,
+}: {
+  id: string;
+  payload: Record<string, any>;
+}): Promise<ApiResponse<RepairRequest>> => {
+  const response = await api.put(`/repair-requests/${id}`, payload);
+  return response.data;
+};
+
+export const uploadRepairRequestPhotos = async ({
+  id,
+  photoType,
+  usedFor,
+  images,
+}: {
+  id: string;
+  photoType: "booking" | "completion" | "note";
+  usedFor?: string;
+  images: File[];
+}): Promise<ApiResponse<RepairRequest>> => {
+  const formData = new FormData();
+  formData.append("photoType", photoType);
+  if (usedFor) formData.append("usedFor", usedFor);
+  images.forEach((file) => formData.append("images", file));
+  const response = await api.post(`/repair-requests/photos/${id}`, formData);
+  return response.data;
+};
+
+export const revealRepairDevicePasscode = async ({
+  id,
+  staffPin,
+}: {
+  id: string;
+  staffPin?: string;
+}): Promise<
+  ApiResponse<{
+    hasPasscode: boolean;
+    type: string;
+    value: string;
+    revealedBy?: string;
+  }>
+> => {
+  const response = await api.post(`/repair-requests/reveal-passcode/${id}`, {
+    staffPin,
   });
   return response.data;
 };

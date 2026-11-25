@@ -22,6 +22,11 @@ import { Button } from "@/components/ui/button";
 import { RepairRequestFormModal } from "@/features/customer/repairRequest/component/RepairRequestFormModal";
 import { useGetMyRepairRequests } from "@/features/customer/repairRequest/hooks/useRepairRequest";
 import { RepairRequest } from "@/features/customer/repairRequest/types/repair-request.types";
+import {
+  issueCategoryFromRaw,
+  formatDeviceCatalogTitle,
+  resolveCanonicalBarcode,
+} from "@/features/customer/repairRequest/utils/repairConstants";
 
 const getStatusBadge = (status: string) => {
   const norm = (status || "").toLowerCase().replace(/_/g, "-");
@@ -125,19 +130,28 @@ export default function RepairRequestsTable() {
       // Search filter
       if (!searchQuery.trim()) return true;
       const q = searchQuery.toLowerCase();
+      const canonicalCode = resolveCanonicalBarcode(
+        req as unknown as Record<string, any>,
+      ).toLowerCase();
       const orderNum = (req.orderNumber || "").toLowerCase();
       const customer = (req.firstName || "").toLowerCase();
-      const phone = (req.phone || "").toLowerCase();
+      const phone = (req.phoneNumber || req.phone || "").toLowerCase();
       const model = (req.modelName || req.deviceModel || "").toLowerCase();
       const code = (req.modelCode || "").toLowerCase();
+      const imei = (req.IMEINumber || "").toLowerCase();
+      const serial = (req.serialNumber || "").toLowerCase();
       const statusText = (req.status || "").toLowerCase();
 
       return (
+        canonicalCode.includes(q) ||
+        `#${canonicalCode}`.includes(q) ||
         orderNum.includes(q) ||
         customer.includes(q) ||
         phone.includes(q) ||
         model.includes(q) ||
         code.includes(q) ||
+        imei.includes(q) ||
+        serial.includes(q) ||
         statusText.includes(q)
       );
     });
@@ -323,14 +337,29 @@ export default function RepairRequestsTable() {
               ) : (
                 filteredRequests.map((request: RepairRequest) => {
                   const customerName = request.firstName || "Unknown Customer";
-                  const orderNum = request.orderNumber || `#R-${request._id.slice(-5).toUpperCase()}`;
-                  const deviceTitle = request.modelName || request.deviceModel || "Mobile Phone";
+                  const orderNum = `#${resolveCanonicalBarcode(
+                    request as unknown as Record<string, any>,
+                  )}`;
+                  const rawDevice =
+                    request.modelName || request.deviceModel || "Repair Device";
+                  const deviceTitle = formatDeviceCatalogTitle(
+                    request.brand || "",
+                    rawDevice,
+                  );
                   const statusInfo = getStatusBadge(request.status);
-                  const price = request.totalEstimatedPrice || request.quotedPrice || (request as any).cost || 0;
-                  
+                  const price = Number(
+                    request.price ??
+                      request.totalEstimatedPrice ??
+                      request.quotedPrice ??
+                      (request as any).cost ??
+                      0,
+                  );
+
                   // Primary issue or summary
                   const primaryIssue = request.issues?.[0];
-                  const issueName = primaryIssue?.category || request.description || "General Repair";
+                  const issueName = primaryIssue
+                    ? issueCategoryFromRaw(primaryIssue)
+                    : request.category || request.description || "General Repair";
                   const estTime = primaryIssue?.estimatedTime || "1–2 Hours";
 
                   return (
@@ -371,9 +400,9 @@ export default function RepairRequestsTable() {
                               {deviceTitle}
                             </p>
                             <p className="text-[11px] text-muted-foreground">
-                              {request.brand ? `${request.brand} ` : ""}
-                              {request.modelCode ? `• ${request.modelCode}` : ""}
-                              {request.releaseYear ? ` • ${request.releaseYear}` : ""}
+                              {[request.modelCode, request.releaseYear]
+                                .filter(Boolean)
+                                .join(" • ")}
                             </p>
                           </div>
                         </div>
@@ -394,7 +423,7 @@ export default function RepairRequestsTable() {
 
                       {/* Price */}
                       <td className="px-6 py-5 font-black text-foreground text-sm tabular-nums">
-                        £{Number(price).toFixed(2)}
+                        {price > 0 ? `£${price.toFixed(2)}` : "Price TBC"}
                       </td>
 
                       {/* Status */}

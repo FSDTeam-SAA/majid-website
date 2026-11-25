@@ -12,6 +12,8 @@ import {
   addRepairRequestNote,
   updateRepairReSentQuoteStatus,
   getCustomerRepairHistory,
+  updateRepairRequestDetails,
+  uploadRepairRequestPhotos,
 } from "../api/repair-request.api";
 
 export function useShopkeeperRepairRequests(page = 1, limit = 10) {
@@ -179,5 +181,42 @@ export function useCustomerRepairHistory(
     queryFn: () => getCustomerRepairHistory(params),
     enabled:
       enabled && Boolean(params.phone || params.email || params.customerId),
+  });
+}
+
+export function useUpdateRepairRequestDetails() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: updateRepairRequestDetails,
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({
+        queryKey: ["repair-request", data.data._id],
+      });
+      queryClient.invalidateQueries({ queryKey: ["repair-requests"] });
+      toast.success("Repair details updated");
+    },
+    onError: (error: { response?: { data?: { message?: string } } }) => {
+      toast.error(
+        error.response?.data?.message || "Failed to update repair details",
+      );
+    },
+  });
+}
+
+export function useUploadRepairRequestPhotos() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: uploadRepairRequestPhotos,
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({
+        queryKey: ["repair-request", data.data._id],
+      });
+      toast.success("Photos uploaded successfully");
+    },
+    onError: (error: { response?: { data?: { message?: string } } }) => {
+      toast.error(error.response?.data?.message || "Failed to upload photos");
+    },
   });
 }

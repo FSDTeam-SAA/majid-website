@@ -119,23 +119,13 @@ const BRANDS = [
   "Samsung",
   "Google",
   "Xiaomi",
+  "Sony",
+  "Microsoft",
+  "Nintendo",
+  "OnePlus",
   "Oppo",
   "Vivo",
-  "OnePlus",
   "Other",
-];
-
-const COLOURS = [
-  { name: "Natural Titanium", hex: "#8A8782" },
-  { name: "Blue Titanium", hex: "#3A4454" },
-  { name: "White Titanium", hex: "#E8E7E3" },
-  { name: "Black Titanium", hex: "#2C2B29" },
-  { name: "Graphite", hex: "#4B4846" },
-  { name: "Silver", hex: "#E2E4E1" },
-  { name: "Gold", hex: "#F9E5C9" },
-  { name: "Midnight", hex: "#1A2332" },
-  { name: "Starlight", hex: "#F0EAD6" },
-  { name: "Deep Purple", hex: "#4E4154" },
 ];
 
 const CONDITIONS = [
@@ -146,66 +136,11 @@ const CONDITIONS = [
   { id: "Poor", label: "Poor", icon: AlertTriangle, color: "text-rose-500 bg-rose-500/10" },
 ];
 
-const ISSUE_CATEGORIES = [
-  { id: "Screen / Display", label: "Screen / Display", icon: Smartphone },
-  { id: "Battery", label: "Battery", icon: Wrench },
-  { id: "Charging Port", label: "Charging Port", icon: Wrench },
-  { id: "Back Cover / Housing", label: "Back Cover / Housing", icon: Smartphone },
-  { id: "Camera - Front / Rear", label: "Camera - Front / Rear", icon: Camera },
-  { id: "Speaker / Microphone", label: "Speaker / Microphone", icon: Wrench },
-  { id: "Buttons", label: "Buttons", icon: Wrench },
-  { id: "Water Damage", label: "Water Damage", icon: Wrench },
-  { id: "Software / Network", label: "Software / Network", icon: Wrench },
-  { id: "Other / Custom Issue", label: "Other / Custom Issue", icon: Wrench },
-];
+const ISSUE_CATEGORIES = REPAIR_ISSUE_CATEGORIES;
 
-const COMMON_PROBLEMS: Record<string, string[]> = {
-  "Screen / Display": [
-    "Cracked / Broken",
-    "Touch Not Responding",
-    "Lines on Screen",
-    "Flickering",
-    "No Display",
-    "Other",
-  ],
-  Battery: [
-    "Not Lasting",
-    "Draining Fast",
-    "Not Charging",
-    "Overheating",
-    "Restarting Randomly",
-    "Other",
-  ],
-  "Charging Port": [
-    "Loose Cable",
-    "Slow Charging",
-    "No Power",
-    "Damaged Pins",
-    "Debris in Port",
-  ],
-  "Back Cover / Housing": ["Cracked Glass", "Bent Frame", "Scratched", "Dented"],
-  "Camera - Front / Rear": [
-    "Blurry Images",
-    "Black Screen",
-    "Cracked Lens",
-    "Focus Issue",
-  ],
-  "Speaker / Microphone": [
-    "No Sound",
-    "Distorted Audio",
-    "Mic Not Working on Calls",
-    "Low Volume",
-  ],
-  Buttons: ["Power Button Stuck", "Volume Buttons Broken", "Mute Switch Faulty"],
-  "Water Damage": ["Liquid Spill", "Submerged in Water", "Corrosion Visible"],
-  "Software / Network": [
-    "Bootloop / Apple Logo",
-    "No Signal / SIM Failure",
-    "WiFi Issue",
-    "FRP / Google Lock",
-  ],
-  "Other / Custom Issue": ["General Diagnostics", "Multiple Issues", "Unspecified"],
-};
+const COMMON_PROBLEMS: Record<string, string[]> = Object.fromEntries(
+  REPAIR_ISSUE_CATEGORIES.map((c) => [c.id, c.problems]),
+);
 
 export function RepairRequestFormModal({
   isOpen,
@@ -241,26 +176,26 @@ export function RepairRequestFormModal({
   // Step 1: Category
   const [category, setCategory] = useState("Mobile Phone");
 
-  // Step 2: Device
+  // Step 2: Device (blank until selected — never invent placeholder device/A-code)
   const [selectedBrand, setSelectedBrand] = useState("Apple");
   const [deviceSearch, setDeviceSearch] = useState("");
   const [selectedDevice, setSelectedDevice] = useState<{
     brand: string;
+    deviceType?: string;
     modelName: string;
     modelCode: string;
     releaseYear: string;
-  }>({
-    brand: "Apple",
-    modelName: "iPhone 15 Pro Max",
-    modelCode: "A3106",
-    releaseYear: "2023",
-  });
+  } | null>(null);
 
-  // Step 3: Details
-  const [selectedColour, setSelectedColour] = useState("Natural Titanium");
+  // Step 3: Details (empty defaults until staff selects/enters them)
+  const [selectedColour, setSelectedColour] = useState("");
   const [selectedCondition, setSelectedCondition] = useState("Good");
-  const [serialType, setSerialType] = useState<"IMEI" | "Serial" | "Both">("IMEI");
+  const [imeiNumber, setImeiNumber] = useState("");
   const [serialNumber, setSerialNumber] = useState("");
+  const [devicePasscode, setDevicePasscode] = useState<DevicePasscodeInputValue>({
+    type: "none",
+    value: "",
+  });
   const [photos, setPhotos] = useState<File[]>([]);
   const [photoPreviews, setPhotoPreviews] = useState<string[]>([]);
 
@@ -270,11 +205,17 @@ export function RepairRequestFormModal({
   const [activeProblems, setActiveProblems] = useState<string[]>([]);
   const [activeDetails, setActiveDetails] = useState("");
   const [activeTime, setActiveTime] = useState("1–2 Hours");
-  const [activePrice, setActivePrice] = useState("120.00");
+  const [activePrice, setActivePrice] = useState("");
   const [activePartQuantity, setActivePartQuantity] = useState(1);
 
   // Step 5: Customer Details
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
+  const [customerSearch, setCustomerSearch] = useState("");
+  const [showNewCustomerForm, setShowNewCustomerForm] = useState(false);
+  const [newCustFirst, setNewCustFirst] = useState("");
+  const [newCustLast, setNewCustLast] = useState("");
+  const [newCustPhone, setNewCustPhone] = useState("");
+  const [newCustEmail, setNewCustEmail] = useState("");
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
@@ -293,19 +234,14 @@ export function RepairRequestFormModal({
     ? compatiblePartsData
     : [];
 
-  // Initialize with default issue if empty
-  useEffect(() => {
-    if (selectedIssues.length === 0) {
-      setSelectedIssues([
-        {
-          category: "Screen / Display",
-          problems: ["Cracked / Broken"],
-          estimatedTime: "1–2 Hours",
-          estimatedPrice: 120.0,
-        },
-      ]);
-    }
-  }, [selectedIssues.length]);
+  const filteredCustomers = useMemo(() => {
+    const q = customerSearch.trim().toLowerCase();
+    if (!q) return customers;
+    return customers.filter((c) => {
+      const hay = `${c.firstName} ${c.lastName || ""} ${c.phone || ""} ${c.email || ""}`.toLowerCase();
+      return hay.includes(q);
+    });
+  }, [customers, customerSearch]);
 
   // Handle Photo selection
   const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -331,6 +267,19 @@ export function RepairRequestFormModal({
       modelCode: string;
     }>;
 
+    const categoryDeviceMap: Record<string, string[]> = {
+      "Mobile Phone": ["phone"],
+      Tablet: ["tablet"],
+      Laptop: ["laptop", "desktop"],
+      "Games Console": ["console"],
+    };
+    const allowedTypes = categoryDeviceMap[category];
+    if (allowedTypes && !deviceSearch.trim()) {
+      list = list.filter((d) =>
+        allowedTypes.includes(String(d.deviceType || "").toLowerCase()),
+      );
+    }
+
     if (selectedBrand !== "All") {
       list = list.filter(
         (d) => d.brand.toLowerCase() === selectedBrand.toLowerCase(),
@@ -341,10 +290,12 @@ export function RepairRequestFormModal({
       const q = deviceSearch.trim().toLowerCase();
       const cleanQ = q.replace(/^sm-/, "");
       list = list.filter((d) => {
+        const displayTitle = formatDeviceCatalogTitle(d.brand, d.modelName).toLowerCase();
         const name = d.modelName.toLowerCase();
-        const code = d.modelCode.toLowerCase();
-        const year = String(d.releaseYear).toLowerCase();
+        const code = (d.modelCode || "").toLowerCase();
+        const year = String(d.releaseYear || "").toLowerCase();
         return (
+          displayTitle.includes(q) ||
           name.includes(q) ||
           code.includes(q) ||
           (cleanQ ? code.replace(/^sm-/, "").includes(cleanQ) : false) ||
@@ -353,13 +304,13 @@ export function RepairRequestFormModal({
       });
     }
 
-    return list.slice(0, 30);
-  }, [selectedBrand, deviceSearch]);
+    return list.slice(0, 60);
+  }, [selectedBrand, deviceSearch, category]);
 
   // Calculate total
   const totalAmount = useMemo(() => {
     return selectedIssues.reduce((sum, item) => {
-      let cost = item.estimatedPrice;
+      let cost = Number(item.estimatedPrice || 0);
       if (item.selectedPart) {
         cost += item.selectedPart.price * item.selectedPart.quantity;
       }
@@ -367,10 +318,60 @@ export function RepairRequestFormModal({
     }, 0);
   }, [selectedIssues]);
 
+  const handleSaveInlineCustomer = async () => {
+    if (!newCustFirst.trim()) {
+      toast.error("Please enter customer first name");
+      return;
+    }
+    if (!newCustPhone.trim()) {
+      toast.error("Please enter customer phone number");
+      return;
+    }
+    try {
+      const createdRes: any = await createCustomer.mutateAsync({
+        firstName: newCustFirst.trim(),
+        lastName: newCustLast.trim(),
+        email:
+          newCustEmail.trim() ||
+          `${newCustPhone.replace(/\D/g, "")}@customer.local`,
+        phone: newCustPhone.trim(),
+        address: "",
+        shopkeeperId,
+      });
+      const createdCust: Customer | undefined = createdRes?.data || createdRes;
+      if (createdCust && createdCust._id) {
+        setSelectedCustomer(createdCust);
+        setFullName(
+          `${createdCust.firstName} ${createdCust.lastName || ""}`.trim(),
+        );
+        setPhone(createdCust.phone || newCustPhone.trim());
+        setEmail(createdCust.email || newCustEmail.trim());
+      } else {
+        setFullName(`${newCustFirst.trim()} ${newCustLast.trim()}`.trim());
+        setPhone(newCustPhone.trim());
+        setEmail(newCustEmail.trim());
+      }
+      setShowNewCustomerForm(false);
+      toast.success("Customer saved and linked");
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || "Failed to save customer");
+    }
+  };
+
   // Submit Handler
   const handleSubmit = async () => {
+    if (!selectedDevice) {
+      toast.error("Please select a device model");
+      setCurrentStep(2);
+      return;
+    }
+    if (selectedIssues.length === 0) {
+      toast.error("Please select at least one issue or Dead Device / No Power");
+      setCurrentStep(4);
+      return;
+    }
     if (!fullName.trim() && !selectedCustomer) {
-      toast.error("Please provide a customer name");
+      toast.error("Please select an existing customer or enter customer name");
       return;
     }
     if (!phone.trim() && !selectedCustomer?.phone) {
@@ -378,11 +379,33 @@ export function RepairRequestFormModal({
       return;
     }
 
+    let resolvedCustomerId = selectedCustomer?._id;
     const primaryCustName = selectedCustomer
       ? `${selectedCustomer.firstName} ${selectedCustomer.lastName || ""}`.trim()
       : fullName.trim();
     const primaryPhone = selectedCustomer?.phone || phone.trim();
-    const primaryEmail = selectedCustomer?.email || email.trim() || `${primaryPhone.replace(/\D/g, "")}@customer.local`;
+    const primaryEmail =
+      selectedCustomer?.email ||
+      email.trim() ||
+      `${primaryPhone.replace(/\D/g, "")}@customer.local`;
+
+    if (!resolvedCustomerId && fullName.trim()) {
+      const [fName, ...lParts] = fullName.trim().split(/\s+/);
+      try {
+        const createdCustRes: any = await createCustomer.mutateAsync({
+          firstName: fName || fullName.trim(),
+          lastName: lParts.join(" "),
+          email: primaryEmail,
+          phone: primaryPhone,
+          address: "",
+          shopkeeperId,
+        });
+        resolvedCustomerId =
+          createdCustRes?.data?._id || createdCustRes?._id || undefined;
+      } catch {
+        // Non-blocking fallback if customer already exists
+      }
+    }
 
     const description = selectedIssues
       .map(
@@ -405,14 +428,31 @@ export function RepairRequestFormModal({
       selectedPart: iss.selectedPart,
     }));
 
+    const cleanImei = imeiNumber.trim();
+    const cleanSerial = serialNumber.trim();
+    const serialMode =
+      cleanImei && cleanSerial
+        ? "both"
+        : cleanSerial
+          ? "serial"
+          : cleanImei
+            ? "imei"
+            : undefined;
+
     try {
       await createRepairRequest.mutateAsync({
         firstName: primaryCustName,
         email: primaryEmail,
         phoneNumber: primaryPhone,
+        customerId: resolvedCustomerId,
         price: totalAmount,
-        deviceModel: `${selectedDevice.brand} ${selectedDevice.modelName}`,
-        IMEINumber: serialNumber || undefined,
+        deviceModel: formatDeviceCatalogTitle(
+          selectedDevice.brand,
+          selectedDevice.modelName,
+        ),
+        IMEINumber: cleanImei || undefined,
+        serialNumber: cleanSerial || undefined,
+        serialType: serialMode,
         description: description || "Repair diagnostic requested",
         technician: technician || undefined,
         category,
@@ -420,34 +460,25 @@ export function RepairRequestFormModal({
         modelName: selectedDevice.modelName,
         modelCode: selectedDevice.modelCode,
         releaseYear: selectedDevice.releaseYear,
-        colour: selectedColour,
+        colour: selectedColour || undefined,
         condition: selectedCondition,
-        serialType: serialType === "Both" ? "both" : serialType === "Serial" ? "serial" : "imei",
-        serialNumber: serialNumber || undefined,
+        devicePasscode:
+          devicePasscode.type !== "none" && devicePasscode.value.trim()
+            ? devicePasscode
+            : undefined,
         issues: issuesPayload,
+        photoType: "booking",
         images: photos,
       });
-
-      if (!selectedCustomer && (createCustomerOnSubmit || fullName)) {
-        const [fName, ...lParts] = fullName.trim().split(/\s+/);
-        try {
-          await createCustomer.mutateAsync({
-            firstName: fName || fullName,
-            lastName: lParts.join(" "),
-            email: primaryEmail,
-            phone: primaryPhone,
-            address: "",
-            shopkeeperId,
-          });
-        } catch {
-          // ignore customer creation duplicate error
-        }
-      }
 
       toast.success("Repair Request created successfully!");
       onClose();
     } catch (err: any) {
-      toast.error(err?.message || "Failed to create repair request");
+      toast.error(
+        err?.response?.data?.message ||
+          err?.message ||
+          "Failed to create repair request",
+      );
     }
   };
 
@@ -650,11 +681,11 @@ export function RepairRequestFormModal({
                           {isSel && <Check size={12} className="text-white" />}
                         </div>
                         <div className="min-w-0 flex-1">
-                          <p className="text-sm font-bold text-foreground truncate">
-                            {item.modelName}
+                          <p className="text-sm font-bold text-foreground wrap-break-word whitespace-normal leading-snug">
+                            {formatDeviceCatalogTitle(item.brand, item.modelName)}
                           </p>
                           {item.modelCode && (
-                            <p className="text-xs text-muted-foreground font-mono truncate">
+                            <p className="text-xs text-muted-foreground font-mono wrap-break-word whitespace-normal mt-0.5">
                               {item.modelCode}
                             </p>
                           )}
@@ -677,41 +708,61 @@ export function RepairRequestFormModal({
             <div className="space-y-6">
               {/* Selected Device Preview Card */}
               <div className="p-4 rounded-2xl bg-surface border border-border flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 rounded-xl bg-card border border-border flex items-center justify-center text-foreground">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="w-12 h-12 rounded-xl bg-card border border-border flex items-center justify-center text-foreground shrink-0">
                     <Smartphone size={22} />
                   </div>
-                  <div>
-                    <h4 className="text-sm font-black text-foreground">
-                      {selectedDevice.modelName}
+                  <div className="min-w-0">
+                    <h4 className="text-sm font-black text-foreground wrap-break-word">
+                      {selectedDevice
+                        ? formatDeviceCatalogTitle(
+                            selectedDevice.brand,
+                            selectedDevice.modelName,
+                          )
+                        : "No device selected"}
                     </h4>
-                    <p className="text-xs text-muted-foreground">
-                      {selectedDevice.modelCode} • {selectedDevice.releaseYear}
+                    <p className="text-xs text-muted-foreground wrap-break-word">
+                      {[selectedDevice?.modelCode, selectedDevice?.releaseYear]
+                        .filter(Boolean)
+                        .join(" • ") || "Select a model"}
                     </p>
                   </div>
                 </div>
                 <button
                   type="button"
                   onClick={() => setCurrentStep(2)}
-                  className="text-xs font-bold text-[#10B981] hover:underline"
+                  className="text-xs font-bold text-[#10B981] hover:underline shrink-0 ml-2"
                 >
                   Change
                 </button>
               </div>
 
-              {/* Colour Selection */}
+              {/* Colour Selection (Standardized 13 colours) */}
               <div>
-                <label className="text-xs font-black uppercase text-muted-foreground tracking-wider mb-2 block">
-                  Colour
-                </label>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="text-xs font-black uppercase text-muted-foreground tracking-wider">
+                    Colour {selectedColour ? `· ${selectedColour}` : "(Optional)"}
+                  </label>
+                  {selectedColour && (
+                    <button
+                      type="button"
+                      onClick={() => setSelectedColour("")}
+                      className="text-[11px] font-bold text-muted-foreground hover:text-foreground"
+                    >
+                      Clear
+                    </button>
+                  )}
+                </div>
                 <div className="flex flex-wrap gap-2">
-                  {COLOURS.map((c) => {
+                  {REPAIR_DEFAULT_COLOURS.map((c) => {
                     const isSel = selectedColour === c.name;
                     return (
                       <button
                         key={c.name}
                         type="button"
-                        onClick={() => setSelectedColour(c.name)}
+                        onClick={() =>
+                          setSelectedColour((prev) => (prev === c.name ? "" : c.name))
+                        }
                         className={`px-3 py-1.5 rounded-full text-xs font-bold border flex items-center gap-2 transition-all ${
                           isSel
                             ? "border-[#10B981] bg-[#10B981]/10 text-foreground"
@@ -719,7 +770,7 @@ export function RepairRequestFormModal({
                         }`}
                       >
                         <span
-                          className="w-3 h-3 rounded-full border border-black/10"
+                          className="w-3 h-3 rounded-full border border-black/20"
                           style={{ backgroundColor: c.hex }}
                         />
                         {c.name}
@@ -767,46 +818,48 @@ export function RepairRequestFormModal({
                 </div>
               </div>
 
-              {/* Serial / IMEI Mode */}
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <label className="text-xs font-black uppercase text-muted-foreground tracking-wider">
-                    Serial / IMEI
+              {/* Independent IMEI & Serial Number Fields (Blank until entered) */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="text-xs font-black uppercase text-muted-foreground tracking-wider mb-1.5 block">
+                    IMEI Number (Optional)
                   </label>
-                  <div className="flex bg-surface rounded-lg p-0.5 border border-border">
-                    {(["IMEI", "Serial", "Both"] as const).map((mode) => (
-                      <button
-                        key={mode}
-                        type="button"
-                        onClick={() => setSerialType(mode)}
-                        className={`px-2.5 py-1 text-[11px] font-bold rounded-md transition-all ${
-                          serialType === mode
-                            ? "bg-[#10B981] text-white"
-                            : "text-muted-foreground hover:text-foreground"
-                        }`}
-                      >
-                        {mode === "IMEI" ? "IMEI (Phone)" : mode}
-                      </button>
-                    ))}
-                  </div>
+                  <input
+                    type="text"
+                    placeholder="Blank unless scanned or entered"
+                    value={imeiNumber}
+                    onChange={(e) => setImeiNumber(e.target.value)}
+                    className="w-full px-4 py-2.5 rounded-xl bg-surface border border-border text-sm text-foreground focus:outline-none focus:border-[#10B981]"
+                  />
                 </div>
-                <input
-                  type="text"
-                  placeholder={`Scan or enter ${serialType.toLowerCase()} number`}
-                  value={serialNumber}
-                  onChange={(e) => setSerialNumber(e.target.value)}
-                  className="w-full px-4 py-2.5 rounded-xl bg-surface border border-border text-sm text-foreground focus:outline-none focus:border-[#10B981]"
-                />
+                <div>
+                  <label className="text-xs font-black uppercase text-muted-foreground tracking-wider mb-1.5 block">
+                    Serial Number (Optional)
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="Blank unless entered"
+                    value={serialNumber}
+                    onChange={(e) => setSerialNumber(e.target.value)}
+                    className="w-full px-4 py-2.5 rounded-xl bg-surface border border-border text-sm text-foreground focus:outline-none focus:border-[#10B981]"
+                  />
+                </div>
               </div>
 
-              {/* Evidence Photos (Optional) with 30-Day Auto Delete Notice */}
+              {/* Optional Masked Device Passcode */}
+              <RepairPasscodeField
+                value={devicePasscode}
+                onChange={setDevicePasscode}
+              />
+
+              {/* Booking Intake Photos (Optional) with 30-Day Auto Delete Notice */}
               <div className="space-y-3">
                 <div>
                   <label className="text-xs font-black uppercase text-muted-foreground tracking-wider block">
-                    Evidence Photos (Optional)
+                    Booking Intake Photos (Optional — Included on Invoice)
                   </label>
                   <p className="text-[11px] text-muted-foreground">
-                    Add photos to help with diagnosis (damaged screen, back cover, liquid damage, etc.)
+                    Add intake condition photos (damaged screen, back cover, liquid damage, etc.)
                   </p>
                 </div>
 
@@ -884,7 +937,7 @@ export function RepairRequestFormModal({
 
                   <div>
                     <label className="text-xs font-bold text-muted-foreground mb-2 block">
-                      Common problems for {selectedDevice.modelName}
+                      Common problems for {selectedDevice?.modelName || "this device"}
                     </label>
                     <div className="flex flex-wrap gap-2">
                       {(COMMON_PROBLEMS[activeIssueCategory] || ["General issue"]).map(
@@ -948,10 +1001,19 @@ export function RepairRequestFormModal({
                     </div>
                     <div>
                       <label className="text-xs font-bold text-muted-foreground mb-1 block">
-                        Estimated Price (£)
+                        {isIssuePriceOptional(activeIssueCategory)
+                          ? "Estimated Price (£) — Optional (0 for Price TBC)"
+                          : "Estimated Price (£)"}
                       </label>
                       <input
                         type="number"
+                        min="0"
+                        step="0.01"
+                        placeholder={
+                          isIssuePriceOptional(activeIssueCategory)
+                            ? "Optional (leave blank / 0 for TBC)"
+                            : "0.00"
+                        }
                         value={activePrice}
                         onChange={(e) => setActivePrice(e.target.value)}
                         className="w-full px-3 py-2 rounded-xl bg-card border border-border text-xs text-foreground focus:outline-none focus:border-[#10B981]"
@@ -1088,8 +1150,10 @@ export function RepairRequestFormModal({
                                 </p>
                               )}
                               <p className="text-xs text-muted-foreground">
-                                Est. {iss.estimatedTime} • £
-                                {iss.estimatedPrice.toFixed(2)}
+                                Est. {iss.estimatedTime} •{" "}
+                                {iss.estimatedPrice > 0
+                                  ? `£${iss.estimatedPrice.toFixed(2)}`
+                                  : "Price TBC"}
                               </p>
                             </div>
                             <button
@@ -1123,11 +1187,24 @@ export function RepairRequestFormModal({
                             setActiveIssueCategory(cat.id);
                             setActiveProblems([]);
                             setActiveDetails("");
+                            setActiveTime(cat.defaultTime);
+                            setActivePrice(
+                              cat.optionalPrice || cat.defaultPrice <= 0
+                                ? ""
+                                : cat.defaultPrice.toFixed(2),
+                            );
                           }}
                           className="p-3 rounded-xl border border-border bg-surface hover:border-[#10B981] flex items-center justify-between text-left text-xs font-bold text-foreground transition-all"
                         >
-                          <span>{cat.label}</span>
-                          <Plus size={14} className="text-muted-foreground" />
+                          <div className="min-w-0 pr-2">
+                            <span className="block">{cat.label}</span>
+                            {cat.optionalPrice && (
+                              <span className="text-[10px] font-normal text-muted-foreground">
+                                No price required at intake
+                              </span>
+                            )}
+                          </div>
+                          <Plus size={14} className="text-muted-foreground shrink-0" />
                         </button>
                       ))}
                     </div>
@@ -1142,7 +1219,7 @@ export function RepairRequestFormModal({
             <div className="space-y-6">
               <div>
                 <h3 className="text-lg font-black text-foreground">
-                  Review & book
+                  Review &amp; book
                 </h3>
                 <p className="text-xs text-muted-foreground">
                   Check all details before creating the repair request
@@ -1157,13 +1234,26 @@ export function RepairRequestFormModal({
                   </div>
                   <div>
                     <h4 className="text-sm font-black text-foreground">
-                      {selectedDevice.modelName}
+                      {selectedDevice
+                        ? formatDeviceCatalogTitle(
+                            selectedDevice.brand,
+                            selectedDevice.modelName,
+                          )
+                        : "Device not selected"}
                     </h4>
                     <p className="text-xs text-muted-foreground">
-                      {selectedDevice.modelCode} • {selectedDevice.releaseYear}
+                      {[selectedDevice?.modelCode, selectedDevice?.releaseYear]
+                        .filter(Boolean)
+                        .join(" • ")}
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      {selectedColour} • {selectedCondition}
+                      {[
+                        selectedColour || "Colour not specified",
+                        selectedCondition,
+                        devicePasscode.type !== "none" && devicePasscode.value
+                          ? `Passcode (${devicePasscode.type})`
+                          : "No passcode",
+                      ].join(" • ")}
                     </p>
                   </div>
                 </div>
@@ -1210,32 +1300,104 @@ export function RepairRequestFormModal({
                         )}
                       </div>
                       <p className="text-xs font-black text-foreground">
-                        £{iss.estimatedPrice.toFixed(2)}
+                        {iss.estimatedPrice > 0
+                          ? `£${iss.estimatedPrice.toFixed(2)}`
+                          : "Price TBC"}
                       </p>
                     </div>
                   ))}
                 </div>
               </div>
 
-              {/* Customer Details Form */}
+              {/* Customer Details Form: Search Existing + Create New Inline */}
               <div className="p-4 rounded-2xl bg-surface border border-border space-y-3">
-                <h4 className="text-xs font-black uppercase text-muted-foreground tracking-wider">
-                  Customer Details
-                </h4>
+                <div className="flex items-center justify-between">
+                  <h4 className="text-xs font-black uppercase text-muted-foreground tracking-wider">
+                    Customer Selection &amp; Details
+                  </h4>
+                  <button
+                    type="button"
+                    onClick={() => setShowNewCustomerForm((v) => !v)}
+                    className="text-xs font-bold text-[#10B981] hover:underline flex items-center gap-1"
+                  >
+                    <Plus size={13} />{" "}
+                    {showNewCustomerForm ? "Cancel New" : "New Customer"}
+                  </button>
+                </div>
 
-                {/* Search existing or type new */}
+                {showNewCustomerForm && (
+                  <div className="p-3.5 rounded-xl bg-card border border-[#10B981]/40 space-y-3">
+                    <p className="text-xs font-bold text-foreground">
+                      Create &amp; Link Customer Record
+                    </p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                      <input
+                        type="text"
+                        placeholder="First Name *"
+                        value={newCustFirst}
+                        onChange={(e) => setNewCustFirst(e.target.value)}
+                        className="px-3 py-2 rounded-lg bg-surface border border-border text-xs"
+                      />
+                      <input
+                        type="text"
+                        placeholder="Last Name"
+                        value={newCustLast}
+                        onChange={(e) => setNewCustLast(e.target.value)}
+                        className="px-3 py-2 rounded-lg bg-surface border border-border text-xs"
+                      />
+                      <input
+                        type="text"
+                        placeholder="Phone Number *"
+                        value={newCustPhone}
+                        onChange={(e) => setNewCustPhone(e.target.value)}
+                        className="px-3 py-2 rounded-lg bg-surface border border-border text-xs"
+                      />
+                      <input
+                        type="email"
+                        placeholder="Email Address"
+                        value={newCustEmail}
+                        onChange={(e) => setNewCustEmail(e.target.value)}
+                        className="px-3 py-2 rounded-lg bg-surface border border-border text-xs"
+                      />
+                    </div>
+                    <Button
+                      type="button"
+                      size="sm"
+                      disabled={createCustomer.isPending}
+                      onClick={handleSaveInlineCustomer}
+                      className="bg-[#10B981] hover:bg-[#059669] text-white text-xs font-bold rounded-full"
+                    >
+                      {createCustomer.isPending
+                        ? "Saving..."
+                        : "Save & Select Customer"}
+                    </Button>
+                  </div>
+                )}
+
                 {customers.length > 0 && (
-                  <div>
-                    <label className="text-[11px] font-bold text-muted-foreground mb-1 block">
-                      Select Existing Customer
-                    </label>
+                  <div className="space-y-2">
+                    <div className="relative">
+                      <Search
+                        size={14}
+                        className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
+                      />
+                      <input
+                        type="text"
+                        placeholder="Search existing customer by name, phone, email..."
+                        value={customerSearch}
+                        onChange={(e) => setCustomerSearch(e.target.value)}
+                        className="w-full pl-8 pr-3 py-2 rounded-xl bg-card border border-border text-xs text-foreground focus:outline-none focus:border-[#10B981]"
+                      />
+                    </div>
                     <select
                       value={selectedCustomer?._id || ""}
                       onChange={(e) => {
                         const found = customers.find((c) => c._id === e.target.value);
                         if (found) {
                           setSelectedCustomer(found);
-                          setFullName(`${found.firstName} ${found.lastName || ""}`.trim());
+                          setFullName(
+                            `${found.firstName} ${found.lastName || ""}`.trim(),
+                          );
                           setPhone(found.phone || "");
                           setEmail(found.email || "");
                         } else {
@@ -1244,10 +1406,12 @@ export function RepairRequestFormModal({
                       }}
                       className="w-full px-3 py-2 rounded-xl bg-card border border-border text-xs text-foreground focus:outline-none focus:border-[#10B981]"
                     >
-                      <option value="">-- Manual Entry / New Customer --</option>
-                      {customers.map((c) => (
+                      <option value="">
+                        -- Select Existing ({filteredCustomers.length}) or Manual Entry --
+                      </option>
+                      {filteredCustomers.map((c) => (
                         <option key={c._id} value={c._id}>
-                          {c.firstName} {c.lastName} ({c.phone})
+                          {c.firstName} {c.lastName} ({c.phone || c.email})
                         </option>
                       ))}
                     </select>
@@ -1302,7 +1466,9 @@ export function RepairRequestFormModal({
                     Estimated Total
                   </p>
                   <p className="text-2xl font-black text-foreground">
-                    £{totalAmount.toFixed(2)}
+                    {totalAmount > 0
+                      ? `£${totalAmount.toFixed(2)}`
+                      : "Price TBC"}
                   </p>
                 </div>
                 <div className="flex items-center gap-1.5 text-xs text-[#10B981] font-bold">
