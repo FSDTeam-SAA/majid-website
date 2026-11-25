@@ -41,6 +41,16 @@ import {
 } from "lucide-react";
 import { useCompatibleParts } from "@/features/shopkeeper/repairParts/hooks/useRepairParts";
 import deviceCatalogData from "@/features/shopkeeper/repairParts/data/deviceCatalog.json";
+import {
+  REPAIR_DEFAULT_COLOURS,
+  REPAIR_ISSUE_CATEGORIES,
+  formatDeviceCatalogTitle,
+  isIssuePriceOptional,
+} from "../utils/repairConstants";
+import {
+  DevicePasscodeInputValue,
+  RepairPasscodeField,
+} from "./RepairPasscodeField";
 import { useSession } from "next-auth/react";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
