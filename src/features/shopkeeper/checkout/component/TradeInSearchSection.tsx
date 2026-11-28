@@ -16,33 +16,13 @@ import {
   ChevronUp,
 } from "lucide-react";
 import tradeInCatalogRaw from "../../inventory/data/tradeInCatalog.json";
+import {
+  TradeInDevice,
+  TradeInGrade,
+  searchTradeInDevices,
+} from "./tradeInSearch";
 
-export interface TradeInGrade {
-  name: string;
-  price: number;
-  weeklyChange: number;
-  trend: "up" | "down" | "none";
-}
-
-export interface TradeInDevice {
-  id: string;
-  brand: string;
-  category: string;
-  deviceName: string;
-  modelNumber: string;
-  storage: string;
-  color: string;
-  imageUrl?: string;
-  upc?: string;
-  ean?: string;
-  grades: {
-    A: TradeInGrade;
-    B: TradeInGrade;
-    C: TradeInGrade;
-  };
-  lastUpdated: string;
-  source: string;
-}
+export type { TradeInDevice, TradeInGrade };
 
 interface TradeInSearchSectionProps {
   currencySymbol: string;
@@ -72,17 +52,7 @@ export const TradeInSearchSection: React.FC<TradeInSearchSectionProps> = ({
   }, []);
 
   const filteredDevices = useMemo(() => {
-    const q = searchQuery.trim().toLowerCase();
-    if (!q) {
-      return [];
-    }
-    const tokens = q.split(/\s+/).filter(Boolean);
-    return catalogItems
-      .filter((device) => {
-        const searchStr = `${device.deviceName} ${device.modelNumber} ${device.storage} ${device.color} ${device.upc || ""} ${device.ean || ""}`.toLowerCase();
-        return tokens.every((token) => searchStr.includes(token));
-      })
-      .slice(0, 5);
+    return searchTradeInDevices(catalogItems, searchQuery, 30);
   }, [catalogItems, searchQuery]);
 
   const cleanModelNumber = (modelNum: string) =>
@@ -114,7 +84,7 @@ export const TradeInSearchSection: React.FC<TradeInSearchSectionProps> = ({
                 Trade-in search • Prices and weekly trends
               </h2>
               <span className="text-[10px] font-black text-[#65A30D] bg-lime-50 border border-lime-200 px-2 py-0.5 rounded-full hidden sm:inline-flex">
-                2,600+ models
+                8,500+ models
               </span>
             </div>
             <p className="text-[11px] font-medium text-slate-400">
@@ -330,7 +300,7 @@ export const TradeInSearchSection: React.FC<TradeInSearchSectionProps> = ({
 
           {/* Footer Note */}
           <div className="flex items-center justify-between text-[10px] font-bold text-slate-400 px-1 pt-1">
-            <span>Source: demo price guide • Last updated: today</span>
+            <span>Source: CeX UK benchmark (95%) • Updated Nov 2026</span>
             <span className="px-1.5 py-0.5 rounded border border-red-200 text-red-500 bg-red-50/50 font-black">
               Compared with 7 days ago
             </span>

@@ -202,7 +202,7 @@ export const ReviewTradeInModal: React.FC<ReviewTradeInModalProps> = ({
               })}
             </div>
             <p className="text-[10px] text-center font-bold text-slate-500">
-              Compared with 7 days ago • demo data
+              Compared with 7 days ago • CeX UK benchmark (95%)
             </p>
           </div>
 
